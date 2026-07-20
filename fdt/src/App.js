@@ -1169,6 +1169,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const [photo, setPhoto] = useState(null);   // actual data URL — lives in IndexedDB
   const [photoLoading, setPhotoLoading] = useState(!!record?.photo);
   const [saved, setSaved] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const fileRef = useRef();
   const noteTimer = useRef();
 
@@ -1191,6 +1192,12 @@ function ItemDetail({ project, category, item, record, onSave }) {
     // photo field in record is a boolean flag only — actual data lives in IndexedDB
     const rec = { status, note, photo: photo ? true : null, updatedAt: new Date().toISOString(), ...overrides };
     if (!rec.status) return;
+    // If status is changing from a previously-saved status, archive the prior state first
+    if (record?.status && overrides.status && overrides.status !== record.status) {
+      rec.history = [...(record.history||[]), { status: record.status, note: record.note||"", updatedAt: record.updatedAt }];
+    } else if (record?.history) {
+      rec.history = record.history;
+    }
     onSave(rec);
     setSaved(true);
     setTimeout(() => setSaved(false), 1200);
@@ -1333,6 +1340,32 @@ function ItemDetail({ project, category, item, record, onSave }) {
         placeholder="Add a note..." rows={3}
         style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #E5E7EB", borderRadius: 10, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", resize: "none", outline: "none", boxSizing: "border-box" }}/>
       {!status && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#9CA3AF" }}>{isMRF ? "Upload a photo, then set status." : "Set a status above to save this item."}</p>}
+
+      {/* History — prior status changes, most recent first */}
+      {record?.history?.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <button onClick={() => setHistoryOpen(o => !o)}
+            style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              History ({record.history.length} prior {record.history.length === 1 ? "entry" : "entries"})
+            </span>
+            <span style={{ fontSize: 10, color: "#9CA3AF", transform: historyOpen ? "rotate(180deg)" : "none" }}>▾</span>
+          </button>
+          {historyOpen && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+              {[...record.history].reverse().map((h, i) => (
+                <div key={i} style={{ padding: "10px 12px", background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: h.note ? 6 : 0 }}>
+                    <StatusBadge status={h.status}/>
+                    <span style={{ fontSize: 11, color: "#9CA3AF" }}>{fmtDate(h.updatedAt)}</span>
+                  </div>
+                  {h.note && <p style={{ margin: 0, fontSize: 12, color: "#4B5563", lineHeight: 1.5 }}>{h.note}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
