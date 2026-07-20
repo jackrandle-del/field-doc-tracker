@@ -269,10 +269,8 @@ const CATEGORIES = [
 
 // ─── ENERGY STAR MFNC v1/1.1/1.2 Rev.03 — 107 items ────────────────────────
 const ENERGY_STAR_MFNC_V1_REV03 = [
-  { id: "es_1_5_2", pointNumber: "1.5.2", text: "Heated plenums: insulation at top meets Item 3.6 or exceeds mass floor R-value per 2009 IECC Table 502.2(1)", category: "High Performance Building Envelope", mandatory: true },
   { id: "es_1_5_3", pointNumber: "1.5.3", text: "Heated plenums: bottom has at least R-13 insulation", category: "High Performance Building Envelope", mandatory: true },
   { id: "es_1_6_1", pointNumber: "1.6.1", text: "Garages with space heating: walls insulated ≥ R-5ci (CZ 5-6), ≥ R-7.5ci (CZ 7), ≥ R-9.5ci (CZ 8)", category: "High Performance Building Envelope", mandatory: true },
-  { id: "es_1_6_2", pointNumber: "1.6.2", text: "Garages with space heating: ceiling insulation meets Item 3.6 or exceeds mass floor R-value per 2009 IECC", category: "High Performance Building Envelope", mandatory: true },
   { id: "es_1_3", pointNumber: "1.3", text: "All insulation achieves Grade I installation per ANSI/RESNET/ICC 301", category: "High Performance Building Envelope", mandatory: true },
   { id: "es_2_1", pointNumber: "2.1", text: "Air barrier fully aligned: dropped ceilings/soffits below unconditioned attics, chase/dead space, and all other ceilings", category: "High Performance Building Envelope", mandatory: true },
   { id: "es_2_2", pointNumber: "2.2", text: "Air barrier fully aligned: walls behind showers, tubs, staircases, and fireplaces", category: "High Performance Building Envelope", mandatory: true },
