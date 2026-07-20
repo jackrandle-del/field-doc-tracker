@@ -614,6 +614,31 @@ const MRF_ITEMS = [
     text: "Exterior fixtures at building perimeter. Record percentage of LED at all exterior locations." },
 ];
 
+// Repeatable structured entries for MRF envelope items — several assemblies can exist per item
+// (e.g. an Interior wall entry and an Exterior wall entry on the same "Wall Insulation" item).
+const MULTI_ENTRY_CONFIG = {
+  mrf_2_0: { label: "Wall assemblies", entryLabel: "wall assembly", repeatable: true, fields: [
+    { key: "wallType", type: "select", label: "Wall type", options: [["interior","Interior"],["exterior","Exterior"],["breezeway","Breezeway"]] },
+    { key: "grade", type: "select", label: "Grade", options: [["GI","GI"],["GII","GII"],["GIII","GIII"]] },
+    { key: "rValue", type: "text", label: "R-value" },
+  ]},
+  mrf_2_1: { label: "Ceiling assemblies", entryLabel: "ceiling assembly", fields: [
+    { key: "location", type: "select", label: "Location", options: [["unconditioned_vented_attic","Unconditioned Vented Attic"],["sealed_attic","Sealed Attic"],["vaulted_roof","Vaulted Roof (Exposed Exterior)"]] },
+    { key: "rValue", type: "text", label: "R-value" },
+  ]},
+  mrf_2_2: { label: "Foundation assemblies", entryLabel: "foundation assembly", fields: [
+    { key: "rValue", type: "text", label: "R-value" },
+    { key: "perimeterDepth", type: "text", label: "Perimeter insulation depth (ft)" },
+    { key: "underslabDepth", type: "text", label: "Underslab insulation depth (ft)" },
+  ]},
+  mrf_2_3: { label: "Rim & band entries", entryLabel: "entry", fields: [
+    { key: "rValue", type: "text", label: "R-value" },
+  ]},
+  mrf_2_4: { label: "Duct insulation entries", entryLabel: "entry", fields: [
+    { key: "rValue", type: "text", label: "R-value" },
+  ]},
+};
+
 const CHECKLIST_REGISTRY = {
   "energy_star_mfnc||1 / 1.1 / 1.2||Rev. 03": ENERGY_STAR_MFNC_V1_REV03,
   "energy_star_mfnc||1 / 1.1 / 1.2||Rev. 04": ENERGY_STAR_MFNC_V1_REV04,
@@ -1161,6 +1186,64 @@ function ChecklistView({ project, category, records, onSelectItem }) {
 }
 
 
+// Renders just the field inputs for one entry — shared by the repeatable list and single-entry views
+function EntryFieldInputs({ fields, entry, onFieldChange }) {
+  return fields.map(f => (
+    <div key={f.key}>
+      <label style={{ display: "block", marginBottom: 4, fontSize: 11, color: "#9CA3AF" }}>{f.label}</label>
+      {f.type === "select" ? (
+        <select value={entry[f.key]||""} onChange={e => onFieldChange(f.key, e.target.value)}
+          style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", background: "#FFF", boxSizing: "border-box" }}>
+          <option value="">Select...</option>
+          {f.options.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+        </select>
+      ) : (
+        <input type="text" value={entry[f.key]||""} onChange={e => onFieldChange(f.key, e.target.value)}
+          placeholder={f.label}
+          style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", boxSizing: "border-box" }}/>
+      )}
+    </div>
+  ));
+}
+
+// Repeatable structured entries (currently: wall assemblies only) — see MULTI_ENTRY_CONFIG
+function MultiEntryList({ config, entries, onAdd, onRemove, onFieldChange }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {config.label}
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {entries.map((entry, idx) => (
+          <div key={idx} style={{ position: "relative", padding: 14, border: "1.5px solid #E5E7EB", borderRadius: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+            <button onClick={() => onRemove(idx)} title={`Remove this ${config.entryLabel}`}
+              style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: "50%", background: "#F3F4F6", border: "none", color: "#6B7280", fontSize: 13, cursor: "pointer", lineHeight: "22px" }}>×</button>
+            <EntryFieldInputs fields={config.fields} entry={entry} onFieldChange={(key, val) => onFieldChange(idx, key, val)}/>
+          </div>
+        ))}
+      </div>
+      <button onClick={onAdd}
+        style={{ marginTop: 10, width: "100%", padding: "10px", border: "1.5px dashed #D1D5DB", borderRadius: 10, background: "#F9FAFB", color: "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+        + Add {config.entryLabel}
+      </button>
+    </div>
+  );
+}
+
+// Single fixed set of structured fields — no add/remove (ceiling, foundation, rim & band, duct insulation)
+function SingleEntryFields({ config, entry, onFieldChange }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {config.label}
+      </p>
+      <div style={{ padding: 14, border: "1.5px solid #E5E7EB", borderRadius: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+        <EntryFieldInputs fields={config.fields} entry={entry} onFieldChange={onFieldChange}/>
+      </div>
+    </div>
+  );
+}
+
 // ─── SCREEN: ITEM DETAIL ──────────────────────────────────────────────────────
 // Autosaves on status tap and on photo add/remove. Note saves on blur.
 function ItemDetail({ project, category, item, record, onSave }) {
@@ -1170,6 +1253,12 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const [photoLoading, setPhotoLoading] = useState(!!record?.photo);
   const [saved, setSaved] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const entryConfig = MULTI_ENTRY_CONFIG[item.id];
+  const [entries, setEntries] = useState(() => {
+    if (record?.entries?.length) return record.entries;
+    if (entryConfig && !entryConfig.repeatable) return [Object.fromEntries(entryConfig.fields.map(f => [f.key, ""]))];
+    return [];
+  });
   const fileRef = useRef();
   const noteTimer = useRef();
 
@@ -1190,10 +1279,12 @@ function ItemDetail({ project, category, item, record, onSave }) {
 
   const save = (overrides = {}) => {
     // photo field in record is a boolean flag only — actual data lives in IndexedDB
-    const rec = { status, note, photo: photo ? true : null, updatedAt: new Date().toISOString(), ...overrides };
+    const rec = { status, note, photo: photo ? true : null, entries, updatedAt: new Date().toISOString(), ...overrides };
     if (!rec.status) return;
-    // If status is changing from a previously-saved status, archive the prior state first
-    if (record?.status && overrides.status && overrides.status !== record.status) {
+    // If status or note is changing from what was previously saved, archive the prior state first
+    const statusChanged = record?.status && overrides.status && overrides.status !== record.status;
+    const noteChanged = record?.status && overrides.note !== undefined && overrides.note !== (record.note||"");
+    if (statusChanged || noteChanged) {
       rec.history = [...(record.history||[]), { status: record.status, note: record.note||"", updatedAt: record.updatedAt }];
     } else if (record?.history) {
       rec.history = record.history;
@@ -1207,6 +1298,25 @@ function ItemDetail({ project, category, item, record, onSave }) {
     if (photoRequired(val)) return;
     setStatus(val);
     save({ status: val });
+  };
+
+  const addEntry = () => {
+    const blank = Object.fromEntries(entryConfig.fields.map(f => [f.key, ""]));
+    const next = [...entries, blank];
+    setEntries(next);
+    save({ entries: next });
+  };
+
+  const removeEntry = (idx) => {
+    const next = entries.filter((_, i) => i !== idx);
+    setEntries(next);
+    save({ entries: next });
+  };
+
+  const updateEntry = (idx, key, val) => {
+    const next = entries.map((e, i) => i === idx ? { ...e, [key]: val } : e);
+    setEntries(next);
+    save({ entries: next });
   };
 
   const handlePhoto = e => {
@@ -1264,6 +1374,13 @@ function ItemDetail({ project, category, item, record, onSave }) {
             })}
         </div>
       </div>
+
+      {/* Structured entries (wall/ceiling/foundation assemblies, etc.) */}
+      {entryConfig && (entryConfig.repeatable ? (
+        <MultiEntryList config={entryConfig} entries={entries} onAdd={addEntry} onRemove={removeEntry} onFieldChange={updateEntry}/>
+      ) : (
+        <SingleEntryFields config={entryConfig} entry={entries[0]||{}} onFieldChange={(key, val) => updateEntry(0, key, val)}/>
+      ))}
 
       {/* Autosave indicator */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
