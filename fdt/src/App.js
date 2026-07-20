@@ -130,6 +130,50 @@ const getValidToken = async (auth, setAuth) => {
   clearAuth(); setAuth(null); return null;
 };
 
+// ── SHAREPOINT PHOTO UPLOAD (Microsoft Graph) ─────────────────────────────────
+// Resolves SP_SITE to a Graph site id once per session, then reuses it.
+let _cachedSiteId = null;
+const getSharePointSiteId = async (token) => {
+  if (_cachedSiteId) return _cachedSiteId;
+  const url = new URL(SP_SITE);
+  const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${url.hostname}:${url.pathname}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const json = await res.json();
+  if (!json.id) throw new Error(json.error?.message || "Could not resolve SharePoint site");
+  _cachedSiteId = json.id;
+  return _cachedSiteId;
+};
+
+const extFromDataUrl = (dataUrl) => {
+  const m = /^data:image\/(\w+)/.exec(dataUrl);
+  const type = (m?.[1] || "jpeg").toLowerCase();
+  return type === "jpeg" ? "jpg" : type;
+};
+
+// Strips characters SharePoint disallows in file/folder names
+const sanitizeSpName = (name) => name.replace(/[\\/:*?"<>|]/g, "-").trim();
+
+// SP_FOLDER is expressed relative to the "Shared Documents" library, which is the
+// default document library's drive root — so that prefix is dropped for Graph.
+const SP_FOLDER_PATH = SP_FOLDER.replace(/^Shared Documents\/?/, "");
+
+const uploadPhotoToSharePoint = async (token, fileName, dataUrl) => {
+  const siteId = await getSharePointSiteId(token);
+  const blob = await (await fetch(dataUrl)).blob();
+  const pathSegments = `${SP_FOLDER_PATH}/${fileName}`.split("/").map(encodeURIComponent).join("/");
+  const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${pathSegments}:/content`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": blob.type || "image/jpeg" },
+    body: blob,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Upload failed (${res.status})`);
+  }
+  return res.json();
+};
+
 const EARTHCRAFT_CERTIFIED_V7 = [
   // ── SITE PLANNING ──────────────────────────────────────────────────────────
     { id: "ec_sp2_7", pointNumber: "SP 2.7", tier: "ALL", text: "Outdoor community gathering space provided on site", category: "Site Planning" },
@@ -1043,16 +1087,67 @@ function SearchBar({ query, onChange, placeholder }) {
 }
 
 // ─── SCREEN: PROJECT DASHBOARD ────────────────────────────────────────────────
-function ProjectDashboard({ project, records, onSelectCategory, onSelectItem }) {
+function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, auth, setAuth, updateRecord }) {
   const pg = calcProjectProgress(project, records);
   const isMRF = (cat) => cat.id === "Minimum Rated Features";
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
+  const [syncState, setSyncState] = useState({ running: false, done: 0, total: 0, errors: [] });
 
   // All items across every category, tagged with their source category
   const allProjectItems = CATEGORIES.flatMap(cat =>
     getItemsForSelection(project.programs||[], cat.id).map(i => ({ ...i, _cat: cat.id }))
   );
+
+  // Every photo, across every item in the project, that has never been uploaded to SharePoint
+  const pendingPhotoJobs = () => {
+    const jobs = [];
+    for (const item of allProjectItems) {
+      const key = `${project.id}__${item._cat}__${item.id}`;
+      const rec = records[key];
+      const photosMeta = (rec?.photos || []).map(p => typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p);
+      for (const p of photosMeta) {
+        if (!p.syncedAt) jobs.push({ item, key, rec, photoId: p.id });
+      }
+    }
+    return jobs;
+  };
+  const pendingCount = pendingPhotoJobs().length;
+
+  const handleUploadToSharePoint = async () => {
+    if (!auth) { startLogin(); return; }
+    const token = await getValidToken(auth, setAuth);
+    if (!token) { setSyncState({ running: false, done: 0, total: 0, errors: ["Could not connect to SharePoint — please reconnect and try again."] }); return; }
+    const jobs = pendingPhotoJobs();
+    if (!jobs.length) return;
+    setSyncState({ running: true, done: 0, total: jobs.length, errors: [] });
+    const workingRecords = {}; // key -> latest record as we mutate it within this batch
+    let done = 0; const errors = [];
+    for (const job of jobs) {
+      const base = workingRecords[job.key] || job.rec;
+      try {
+        const dataUrl = await idbGetPhoto(`${job.key}__${job.photoId}`);
+        if (!dataUrl) throw new Error("Photo not found locally");
+        const nextNum = base.nextPhotoNum || 1;
+        const label = sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
+        const fileName = `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
+        await uploadPhotoToSharePoint(token, fileName, dataUrl);
+        const updatedPhotos = (base.photos||[]).map(p => {
+          const pid = typeof p === "string" ? p : p.id;
+          if (pid !== job.photoId) return typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p;
+          return { id: pid, syncedAt: new Date().toISOString(), spFileName: fileName };
+        });
+        const updatedRec = { ...base, photos: updatedPhotos, nextPhotoNum: nextNum + 1 };
+        workingRecords[job.key] = updatedRec;
+        updateRecord(project.id, job.item._cat, job.item.id, updatedRec);
+      } catch (e) {
+        errors.push(`${job.item.pointNumber || job.item.id}: ${e.message}`);
+      }
+      done++;
+      setSyncState({ running: true, done, total: jobs.length, errors });
+    }
+    setSyncState({ running: false, done, total: jobs.length, errors });
+  };
 
   const searchResults = q
     ? allProjectItems.filter(i =>
@@ -1118,6 +1213,29 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem }) 
             );
           })}
         </div>
+      </div>
+
+      {/* SharePoint photo sync */}
+      <div style={{ padding: "12px 20px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#374151" }}>☁ SharePoint photo sync</p>
+          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            📁 {SP_FOLDER}
+          </p>
+          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>
+            {syncState.running ? `Uploading ${syncState.done}/${syncState.total}…`
+              : !auth ? "Not connected"
+              : pendingCount === 0 ? "All photos synced"
+              : `${pendingCount} photo${pendingCount>1?"s":""} pending`}
+          </p>
+          {!syncState.running && syncState.errors.length>0 && (
+            <p style={{ margin: "2px 0 0", fontSize: 11, color: "#EF4444" }}>{syncState.errors.length} failed — tap to retry</p>
+          )}
+        </div>
+        <button onClick={handleUploadToSharePoint} disabled={syncState.running || (auth && pendingCount===0)}
+          style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: !auth ? "#0078D4" : (pendingCount===0 ? "#D1D5DB" : "#059669"), border: "none", borderRadius: 6, padding: "6px 14px", cursor: syncState.running ? "wait" : "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+          {!auth ? "Connect" : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
+        </button>
       </div>
 
       {/* Global search bar */}
@@ -1292,19 +1410,20 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const isMRF = category.id === "Minimum Rated Features";
   const photoRequired = (val) => isMRF && val !== "na" && photos.length === 0;
 
-  // Load photos from IndexedDB on mount
+  // Load photos from IndexedDB on mount. Entries may be plain id strings (pre-sync-tracking
+  // records) or {id, syncedAt, spFileName} objects — normalize either way.
   useEffect(() => {
-    const ids = record?.photos || [];
-    if (!ids.length) { setPhotosLoading(false); return; }
-    Promise.all(ids.map(id => idbGetPhoto(`${photoKey}__${id}`).then(dataUrl => ({ id, dataUrl }))))
+    const meta = (record?.photos || []).map(p => typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p);
+    if (!meta.length) { setPhotosLoading(false); return; }
+    Promise.all(meta.map(m => idbGetPhoto(`${photoKey}__${m.id}`).then(dataUrl => ({ ...m, dataUrl }))))
       .then(results => { setPhotos(results.filter(r => r.dataUrl)); setPhotosLoading(false); })
       .catch(() => setPhotosLoading(false));
   }, [photoKey]);
 
   const save = (overrides = {}) => {
-    // photos field in record is an array of IndexedDB slot ids — the actual data lives there
+    // photos field in record holds sync metadata only — the image data lives in IndexedDB
     const { archive, ...visibleOverrides } = overrides;
-    const rec = { status, note, photos: photos.map(p => p.id), entries, updatedAt: new Date().toISOString(), ...visibleOverrides };
+    const rec = { status, note, photos: photos.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt: syncedAt||null, spFileName: spFileName||null })), entries, updatedAt: new Date().toISOString(), ...visibleOverrides };
     // Notes/entries/photos may be documented before a status is picked (e.g. before a photo is
     // uploaded) — only skip saving if there's truly nothing to save yet.
     const hasEntryContent = rec.entries?.some(e => Object.values(e).some(v => v));
@@ -1355,9 +1474,10 @@ function ItemDetail({ project, category, item, record, onSave }) {
       const dataUrl = ev.target.result;
       const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
-      const next = [...photos, { id, dataUrl }];
+      const next = [...photos, { id, dataUrl, syncedAt: null, spFileName: null }];
       setPhotos(next);
-      save({ photos: next.map(p => p.id) });
+      // Explicit override — setPhotos hasn't landed yet when save() reads its `photos` closure
+      save({ photos: next.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt, spFileName })) });
     };
     reader.readAsDataURL(file);
   };
@@ -1366,7 +1486,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
     await idbDeletePhoto(`${photoKey}__${id}`);
     const next = photos.filter(p => p.id !== id);
     setPhotos(next);
-    save({ photos: next.map(p => p.id) });
+    save({ photos: next.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt, spFileName })) });
   };
 
   const handleNoteFocus = () => {
@@ -1456,6 +1576,10 @@ function ItemDetail({ project, category, item, record, onSave }) {
                 <img src={p.dataUrl} alt="" style={{ width: 84, height: 84, borderRadius: 10, display: "block", objectFit: "cover" }}/>
                 <button onClick={() => handleRemovePhoto(p.id)}
                   style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 13, cursor: "pointer" }}>×</button>
+                {p.syncedAt && (
+                  <span title={`Uploaded to SharePoint as ${p.spFileName}`}
+                    style={{ position: "absolute", bottom: 4, left: 4, fontSize: 11, background: "rgba(16,185,129,.9)", color: "#FFF", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>☁</span>
+                )}
               </div>
             ))}
             {photos.length < MAX_PHOTOS && (
@@ -1620,6 +1744,9 @@ export default function App() {
           records={data.records}
           onSelectCategory={cat=>{setActiveCategory(cat);setScreen("checklist");}}
           onSelectItem={item=>{setActiveItem(item);setScreen("item");}}
+          auth={auth}
+          setAuth={setAuth}
+          updateRecord={updateRecord}
         />
       )}
       {screen === "checklist" && activeProject && activeCategory && (
