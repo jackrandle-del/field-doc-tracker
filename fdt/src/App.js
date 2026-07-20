@@ -1219,7 +1219,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, au
       <div style={{ padding: "12px 20px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#374151" }}>☁ SharePoint photo sync</p>
-          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF", wordBreak: "break-word" }}>
             📁 {SP_FOLDER}
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>
@@ -1403,6 +1403,15 @@ function ItemDetail({ project, category, item, record, onSave }) {
   // used to log ONE history entry per edit session instead of one per autosave.
   const noteSnapshot = useRef({ note: record?.note||"", updatedAt: record?.updatedAt||null });
 
+  // Mirrors of the state above, always kept current. The debounced note autosave (below) can
+  // fire up to 800ms after it's scheduled — if a photo/entry/status changed in that window, a
+  // save() call still holding the OLD state closure would silently overwrite the newer data.
+  // Refs sidestep that: whichever save() closure runs, it reads the freshest values here.
+  const statusRef = useRef(status);
+  const noteRef = useRef(note);
+  const photosRef = useRef(photos);
+  const entriesRef = useRef(entries);
+
   // Derive stable key for IndexedDB lookup — each photo gets its own suffixed slot
   const photoKey = `${project.id}__${category.id}__${item.id}`;
   const MAX_PHOTOS = 5;
@@ -1421,9 +1430,17 @@ function ItemDetail({ project, category, item, record, onSave }) {
   }, [photoKey]);
 
   const save = (overrides = {}) => {
-    // photos field in record holds sync metadata only — the image data lives in IndexedDB
+    // photos field in record holds sync metadata only — the image data lives in IndexedDB.
+    // Base values come from the refs (always current), not the state closures (can be stale).
     const { archive, ...visibleOverrides } = overrides;
-    const rec = { status, note, photos: photos.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt: syncedAt||null, spFileName: spFileName||null })), entries, updatedAt: new Date().toISOString(), ...visibleOverrides };
+    const rec = {
+      status: statusRef.current,
+      note: noteRef.current,
+      photos: photosRef.current.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt: syncedAt||null, spFileName: spFileName||null })),
+      entries: entriesRef.current,
+      updatedAt: new Date().toISOString(),
+      ...visibleOverrides,
+    };
     // Notes/entries/photos may be documented before a status is picked (e.g. before a photo is
     // uploaded) — only skip saving if there's truly nothing to save yet.
     const hasEntryContent = rec.entries?.some(e => Object.values(e).some(v => v));
@@ -1441,6 +1458,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const handleStatus = (val) => {
     if (photoRequired(val)) return;
     setStatus(val);
+    statusRef.current = val;
     // A status change is a discrete, deliberate action — archive it every time, unlike note autosaves
     const archive = (record?.status && val !== record.status)
       ? { status: record.status, note: record.note||"", updatedAt: record.updatedAt }
@@ -1450,33 +1468,36 @@ function ItemDetail({ project, category, item, record, onSave }) {
 
   const addEntry = () => {
     const blank = Object.fromEntries(entryConfig.fields.map(f => [f.key, ""]));
-    const next = [...entries, blank];
+    const next = [...entriesRef.current, blank];
     setEntries(next);
+    entriesRef.current = next;
     save({ entries: next });
   };
 
   const removeEntry = (idx) => {
-    const next = entries.filter((_, i) => i !== idx);
+    const next = entriesRef.current.filter((_, i) => i !== idx);
     setEntries(next);
+    entriesRef.current = next;
     save({ entries: next });
   };
 
   const updateEntry = (idx, key, val) => {
-    const next = entries.map((e, i) => i === idx ? { ...e, [key]: val } : e);
+    const next = entriesRef.current.map((e, i) => i === idx ? { ...e, [key]: val } : e);
     setEntries(next);
+    entriesRef.current = next;
     save({ entries: next });
   };
 
   const handleAddPhoto = e => {
-    const file = e.target.files[0]; e.target.value = ""; if (!file || photos.length >= MAX_PHOTOS) return;
+    const file = e.target.files[0]; e.target.value = ""; if (!file || photosRef.current.length >= MAX_PHOTOS) return;
     const reader = new FileReader();
     reader.onload = async ev => {
       const dataUrl = ev.target.result;
       const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
-      const next = [...photos, { id, dataUrl, syncedAt: null, spFileName: null }];
+      const next = [...photosRef.current, { id, dataUrl, syncedAt: null, spFileName: null }];
       setPhotos(next);
-      // Explicit override — setPhotos hasn't landed yet when save() reads its `photos` closure
+      photosRef.current = next;
       save({ photos: next.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt, spFileName })) });
     };
     reader.readAsDataURL(file);
@@ -1484,8 +1505,9 @@ function ItemDetail({ project, category, item, record, onSave }) {
 
   const handleRemovePhoto = async (id) => {
     await idbDeletePhoto(`${photoKey}__${id}`);
-    const next = photos.filter(p => p.id !== id);
+    const next = photosRef.current.filter(p => p.id !== id);
     setPhotos(next);
+    photosRef.current = next;
     save({ photos: next.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt, spFileName })) });
   };
 
@@ -1496,6 +1518,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
 
   const handleNoteChange = (val) => {
     setNote(val);
+    noteRef.current = val;
     // Debounce note saves — only write after 800ms of no typing. Never archives history itself,
     // so pausing mid-sentence doesn't spam the log; only the final blur below does that.
     // Not gated on status — notes can be documented before a status/photo exists.
@@ -1506,7 +1529,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const handleNoteBlur = () => {
     clearTimeout(noteTimer.current);
     const changed = record?.status && note !== noteSnapshot.current.note;
-    const archive = changed ? { status, note: noteSnapshot.current.note, updatedAt: noteSnapshot.current.updatedAt || record?.updatedAt } : undefined;
+    const archive = changed ? { status: statusRef.current, note: noteSnapshot.current.note, updatedAt: noteSnapshot.current.updatedAt || record?.updatedAt } : undefined;
     save({ note, archive });
   };
 
