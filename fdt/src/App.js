@@ -637,6 +637,10 @@ const MULTI_ENTRY_CONFIG = {
   mrf_2_4: { label: "Duct insulation entries", entryLabel: "entry", fields: [
     { key: "rValue", type: "text", label: "R-value" },
   ]},
+  mrf_2_5: { label: "Window types", entryLabel: "window type", repeatable: true, fields: [
+    { key: "uValue", type: "decimal", label: "U-Value" },
+    { key: "shgc", type: "decimal", label: "SHGC" },
+  ]},
 };
 
 const CHECKLIST_REGISTRY = {
@@ -1186,21 +1190,33 @@ function ChecklistView({ project, category, records, onSelectItem }) {
 }
 
 
+// Strips a decimal text input down to at most one "." and 2 digits after it (e.g. U-Value, SHGC)
+function sanitizeDecimal2(raw) {
+  let v = raw.replace(/[^0-9.]/g, "");
+  const firstDot = v.indexOf(".");
+  if (firstDot !== -1) v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "");
+  const [intPart, decPart] = v.split(".");
+  return decPart !== undefined ? `${intPart}.${decPart.slice(0, 2)}` : v;
+}
+
 // Renders just the field inputs for one entry — shared by the repeatable list and single-entry views
 function EntryFieldInputs({ fields, entry, onFieldChange }) {
+  const inputStyle = { width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", boxSizing: "border-box" };
   return fields.map(f => (
     <div key={f.key}>
       <label style={{ display: "block", marginBottom: 4, fontSize: 11, color: "#9CA3AF" }}>{f.label}</label>
       {f.type === "select" ? (
         <select value={entry[f.key]||""} onChange={e => onFieldChange(f.key, e.target.value)}
-          style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", background: "#FFF", boxSizing: "border-box" }}>
+          style={{ ...inputStyle, background: "#FFF" }}>
           <option value="">Select...</option>
           {f.options.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
         </select>
+      ) : f.type === "decimal" ? (
+        <input type="text" inputMode="decimal" value={entry[f.key]||""} onChange={e => onFieldChange(f.key, sanitizeDecimal2(e.target.value))}
+          placeholder="0.00" style={inputStyle}/>
       ) : (
         <input type="text" value={entry[f.key]||""} onChange={e => onFieldChange(f.key, e.target.value)}
-          placeholder={f.label}
-          style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", boxSizing: "border-box" }}/>
+          placeholder={f.label} style={inputStyle}/>
       )}
     </div>
   ));
@@ -1261,6 +1277,9 @@ function ItemDetail({ project, category, item, record, onSave }) {
   });
   const fileRef = useRef();
   const noteTimer = useRef();
+  // Snapshot of note+timestamp as they stood when the note field was last focused —
+  // used to log ONE history entry per edit session instead of one per autosave.
+  const noteSnapshot = useRef({ note: record?.note||"", updatedAt: record?.updatedAt||null });
 
   // Derive stable key for IndexedDB lookup
   const photoKey = `${project.id}__${category.id}__${item.id}`;
@@ -1279,13 +1298,14 @@ function ItemDetail({ project, category, item, record, onSave }) {
 
   const save = (overrides = {}) => {
     // photo field in record is a boolean flag only — actual data lives in IndexedDB
-    const rec = { status, note, photo: photo ? true : null, entries, updatedAt: new Date().toISOString(), ...overrides };
-    if (!rec.status) return;
-    // If status or note is changing from what was previously saved, archive the prior state first
-    const statusChanged = record?.status && overrides.status && overrides.status !== record.status;
-    const noteChanged = record?.status && overrides.note !== undefined && overrides.note !== (record.note||"");
-    if (statusChanged || noteChanged) {
-      rec.history = [...(record.history||[]), { status: record.status, note: record.note||"", updatedAt: record.updatedAt }];
+    const { archive, ...visibleOverrides } = overrides;
+    const rec = { status, note, photo: photo ? true : null, entries, updatedAt: new Date().toISOString(), ...visibleOverrides };
+    // Notes/entries/photos may be documented before a status is picked (e.g. before a photo is
+    // uploaded) — only skip saving if there's truly nothing to save yet.
+    const hasEntryContent = rec.entries?.some(e => Object.values(e).some(v => v));
+    if (!rec.status && !rec.note && !rec.photo && !hasEntryContent) return;
+    if (archive) {
+      rec.history = [...(record?.history||[]), archive];
     } else if (record?.history) {
       rec.history = record.history;
     }
@@ -1297,7 +1317,11 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const handleStatus = (val) => {
     if (photoRequired(val)) return;
     setStatus(val);
-    save({ status: val });
+    // A status change is a discrete, deliberate action — archive it every time, unlike note autosaves
+    const archive = (record?.status && val !== record.status)
+      ? { status: record.status, note: record.note||"", updatedAt: record.updatedAt }
+      : undefined;
+    save({ status: val, archive });
   };
 
   const addEntry = () => {
@@ -1337,13 +1361,25 @@ function ItemDetail({ project, category, item, record, onSave }) {
     save({ photo: null });
   };
 
+  const handleNoteFocus = () => {
+    // Baseline for this edit session — used on blur to decide whether to log one history entry
+    noteSnapshot.current = { note: record?.note||"", updatedAt: record?.updatedAt||null };
+  };
+
   const handleNoteChange = (val) => {
     setNote(val);
-    // Debounce note saves — only write after 800ms of no typing
+    // Debounce note saves — only write after 800ms of no typing. Never archives history itself,
+    // so pausing mid-sentence doesn't spam the log; only the final blur below does that.
+    // Not gated on status — notes can be documented before a status/photo exists.
     clearTimeout(noteTimer.current);
-    if (status) {
-      noteTimer.current = setTimeout(() => save({ note: val }), 800);
-    }
+    noteTimer.current = setTimeout(() => save({ note: val }), 800);
+  };
+
+  const handleNoteBlur = () => {
+    clearTimeout(noteTimer.current);
+    const changed = record?.status && note !== noteSnapshot.current.note;
+    const archive = changed ? { status, note: noteSnapshot.current.note, updatedAt: noteSnapshot.current.updatedAt || record?.updatedAt } : undefined;
+    save({ note, archive });
   };
 
   const itemPrograms = (project.programs||[]).filter(s => {
@@ -1453,10 +1489,9 @@ function ItemDetail({ project, category, item, record, onSave }) {
         Note <span style={{ fontWeight: 400, color: "#9CA3AF", textTransform: "none" }}>(optional)</span>
       </p>
       <textarea value={note} onChange={e => handleNoteChange(e.target.value)}
-        onBlur={() => { clearTimeout(noteTimer.current); if (status) save({ note }); }}
+        onFocus={handleNoteFocus} onBlur={handleNoteBlur}
         placeholder="Add a note..." rows={3}
         style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #E5E7EB", borderRadius: 10, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", resize: "none", outline: "none", boxSizing: "border-box" }}/>
-      {!status && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#9CA3AF" }}>{isMRF ? "Upload a photo, then set status." : "Set a status above to save this item."}</p>}
 
       {/* History — prior status changes, most recent first */}
       {record?.history?.length > 0 && (
