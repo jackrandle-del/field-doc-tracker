@@ -641,6 +641,10 @@ const MULTI_ENTRY_CONFIG = {
     { key: "uValue", type: "decimal", label: "U-Value" },
     { key: "shgc", type: "decimal", label: "SHGC" },
   ]},
+  mrf_4_0: { label: "Bath fans", entryLabel: "bath fan", repeatable: true, fields: [
+    { key: "modelNumber", type: "text", label: "Model number" },
+    { key: "soneRating", type: "decimal", label: "Sone rating" },
+  ]},
 };
 
 const CHECKLIST_REGISTRY = {
@@ -997,8 +1001,8 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
               const color = isGoldItem ? "#A16207" : prog.color;
               return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: bg, color, fontWeight: 600 }}>{label}</span>;
             })}
-            {rec.photo && <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>📷</span>}
-            {!rec.photo && item._cat === "Minimum Rated Features" && rec.status && rec.status !== "na" && (
+            {rec.photos?.length>0 && <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>📷</span>}
+            {!rec.photos?.length && item._cat === "Minimum Rated Features" && rec.status && rec.status !== "na" && (
               <span style={{ fontSize: 10, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "1px 6px", borderRadius: 20 }}>📷 missing</span>
             )}
             {rec.note && <span style={{ fontSize: 11, color: "#6B7280" }}>📝</span>}
@@ -1265,8 +1269,8 @@ function SingleEntryFields({ config, entry, onFieldChange }) {
 function ItemDetail({ project, category, item, record, onSave }) {
   const [status, setStatus] = useState(record?.status||"");
   const [note, setNote] = useState(record?.note||"");
-  const [photo, setPhoto] = useState(null);   // actual data URL — lives in IndexedDB
-  const [photoLoading, setPhotoLoading] = useState(!!record?.photo);
+  const [photos, setPhotos] = useState([]);   // [{id, dataUrl}] — dataUrls live in IndexedDB
+  const [photosLoading, setPhotosLoading] = useState(!!record?.photos?.length);
   const [saved, setSaved] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const entryConfig = MULTI_ENTRY_CONFIG[item.id];
@@ -1281,29 +1285,30 @@ function ItemDetail({ project, category, item, record, onSave }) {
   // used to log ONE history entry per edit session instead of one per autosave.
   const noteSnapshot = useRef({ note: record?.note||"", updatedAt: record?.updatedAt||null });
 
-  // Derive stable key for IndexedDB lookup
+  // Derive stable key for IndexedDB lookup — each photo gets its own suffixed slot
   const photoKey = `${project.id}__${category.id}__${item.id}`;
+  const MAX_PHOTOS = 5;
 
   const isMRF = category.id === "Minimum Rated Features";
-  const photoRequired = (val) => isMRF && val !== "na" && !photo;
+  const photoRequired = (val) => isMRF && val !== "na" && photos.length === 0;
 
-  // Load photo from IndexedDB on mount
+  // Load photos from IndexedDB on mount
   useEffect(() => {
-    if (!record?.photo) { setPhotoLoading(false); return; }
-    idbGetPhoto(photoKey).then(data => {
-      if (data) setPhoto(data);
-      setPhotoLoading(false);
-    }).catch(() => setPhotoLoading(false));
+    const ids = record?.photos || [];
+    if (!ids.length) { setPhotosLoading(false); return; }
+    Promise.all(ids.map(id => idbGetPhoto(`${photoKey}__${id}`).then(dataUrl => ({ id, dataUrl }))))
+      .then(results => { setPhotos(results.filter(r => r.dataUrl)); setPhotosLoading(false); })
+      .catch(() => setPhotosLoading(false));
   }, [photoKey]);
 
   const save = (overrides = {}) => {
-    // photo field in record is a boolean flag only — actual data lives in IndexedDB
+    // photos field in record is an array of IndexedDB slot ids — the actual data lives there
     const { archive, ...visibleOverrides } = overrides;
-    const rec = { status, note, photo: photo ? true : null, entries, updatedAt: new Date().toISOString(), ...visibleOverrides };
+    const rec = { status, note, photos: photos.map(p => p.id), entries, updatedAt: new Date().toISOString(), ...visibleOverrides };
     // Notes/entries/photos may be documented before a status is picked (e.g. before a photo is
     // uploaded) — only skip saving if there's truly nothing to save yet.
     const hasEntryContent = rec.entries?.some(e => Object.values(e).some(v => v));
-    if (!rec.status && !rec.note && !rec.photo && !hasEntryContent) return;
+    if (!rec.status && !rec.note && !rec.photos?.length && !hasEntryContent) return;
     if (archive) {
       rec.history = [...(record?.history||[]), archive];
     } else if (record?.history) {
@@ -1343,22 +1348,25 @@ function ItemDetail({ project, category, item, record, onSave }) {
     save({ entries: next });
   };
 
-  const handlePhoto = e => {
-    const file = e.target.files[0]; if (!file) return;
+  const handleAddPhoto = e => {
+    const file = e.target.files[0]; e.target.value = ""; if (!file || photos.length >= MAX_PHOTOS) return;
     const reader = new FileReader();
     reader.onload = async ev => {
       const dataUrl = ev.target.result;
-      setPhoto(dataUrl);
-      await idbSavePhoto(photoKey, dataUrl);
-      save({ photo: true });
+      const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
+      const next = [...photos, { id, dataUrl }];
+      setPhotos(next);
+      save({ photos: next.map(p => p.id) });
     };
     reader.readAsDataURL(file);
   };
 
-  const handleRemovePhoto = async () => {
-    setPhoto(null);
-    await idbDeletePhoto(photoKey);
-    save({ photo: null });
+  const handleRemovePhoto = async (id) => {
+    await idbDeletePhoto(`${photoKey}__${id}`);
+    const next = photos.filter(p => p.id !== id);
+    setPhotos(next);
+    save({ photos: next.map(p => p.id) });
   };
 
   const handleNoteFocus = () => {
@@ -1424,36 +1432,47 @@ function ItemDetail({ project, category, item, record, onSave }) {
         {saved && <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>✓ Saved</span>}
       </div>
 
-      {/* Photo — shown FIRST for MRF items so the requirement is front and center */}
+      {/* Photos — up to 5 per item, shown FIRST for MRF items so the requirement is front and center */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Photo{isMRF && <span style={{ color: "#EF4444" }}> *</span>}
+            Photos{isMRF && <span style={{ color: "#EF4444" }}> *</span>}
           </p>
-          {isMRF && !photo && (
+          {isMRF && photos.length===0 && (
             <span style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "2px 8px", borderRadius: 20 }}>Required to confirm</span>
           )}
-          {isMRF && photo && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981", background: "#F0FDF4", padding: "2px 8px", borderRadius: 20 }}>✓ Photo uploaded</span>
+          {isMRF && photos.length>0 && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981", background: "#F0FDF4", padding: "2px 8px", borderRadius: 20 }}>✓ {photos.length} photo{photos.length>1?"s":""} uploaded</span>
           )}
         </div>
-        {photoLoading ? (
+        {photosLoading ? (
           <div style={{ width: "100%", height: 80, borderRadius: 12, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: 12, color: "#9CA3AF" }}>Loading photo…</span>
-          </div>
-        ) : photo ? (
-          <div style={{ position: "relative" }}>
-            <img src={photo} alt="" style={{ width: "100%", borderRadius: 12, display: "block", maxHeight: 240, objectFit: "cover" }}/>
-            <button onClick={handleRemovePhoto}
-              style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 14, cursor: "pointer" }}>×</button>
+            <span style={{ fontSize: 12, color: "#9CA3AF" }}>Loading photos…</span>
           </div>
         ) : (
-          <button onClick={() => fileRef.current.click()}
-            style={{ width: "100%", padding: 20, border: `2px dashed ${isMRF ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 12, background: isMRF ? "#FFF5F5" : "#F9FAFB", color: isMRF ? "#EF4444" : "#6B7280", fontSize: 14, cursor: "pointer", fontFamily: "DM Sans, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <span style={{ fontSize: 20 }}>📷</span> {isMRF ? "Upload photo to enable confirmation" : "Take or upload photo"}
-          </button>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {photos.map(p => (
+              <div key={p.id} style={{ position: "relative", width: 84, height: 84 }}>
+                <img src={p.dataUrl} alt="" style={{ width: 84, height: 84, borderRadius: 10, display: "block", objectFit: "cover" }}/>
+                <button onClick={() => handleRemovePhoto(p.id)}
+                  style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 13, cursor: "pointer" }}>×</button>
+              </div>
+            ))}
+            {photos.length < MAX_PHOTOS && (
+              <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 ? "Upload a photo to enable confirmation" : "Add a photo"}
+                style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 10, background: isMRF && photos.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+                +
+              </button>
+            )}
+          </div>
         )}
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: "none" }}/>
+        {photos.length===0 && (
+          <p style={{ margin: "8px 0 0", fontSize: 12, color: isMRF ? "#EF4444" : "#9CA3AF" }}>
+            {isMRF ? "Upload a photo to enable confirmation" : "Take or upload a photo"}
+          </p>
+        )}
+        {photos.length>0 && <p style={{ margin: "8px 0 0", fontSize: 11, color: "#9CA3AF" }}>{photos.length}/{MAX_PHOTOS} photos</p>}
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleAddPhoto} style={{ display: "none" }}/>
       </div>
 
       {/* Status */}
@@ -1551,28 +1570,6 @@ export default function App() {
     }).catch(e => console.error('Auth callback error:', e));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // One-time migration: move any base64 photos from localStorage into IndexedDB
-  useEffect(() => {
-    const migrate = async () => {
-      const records = data.records;
-      const updates = {};
-      for (const [key, rec] of Object.entries(records)) {
-        if (rec?.photo && typeof rec.photo === 'string' && rec.photo.startsWith('data:')) {
-          try {
-            await idbSavePhoto(key, rec.photo);
-            updates[key] = { ...rec, photo: true };
-          } catch(e) {
-            console.warn('Photo migration failed for', key, e);
-          }
-        }
-      }
-      if (Object.keys(updates).length > 0) {
-        setData(d => ({ ...d, records: { ...d.records, ...updates } }));
-        console.log(`Migrated ${Object.keys(updates).length} photo(s) to IndexedDB`);
-      }
-    };
-    migrate();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [screen, setScreen] = useState("projects");
   const [activeProject, setActiveProject] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
