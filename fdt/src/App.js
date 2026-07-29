@@ -47,7 +47,6 @@ const idbDeletePhoto = async (key) => {
 const CLIENT_ID   = "50108c90-8844-4fbc-96af-d4fb7e7fa4ca";
 const TENANT_ID   = "ba936175-44a3-4888-b75e-6f814421a09c";
 const SP_SITE     = "https://ecva.sharepoint.com/sites/MFProjects";
-const SP_FOLDER   = "Shared Documents/Field Documentation Tracker - Folder Link";
 const SCOPES      = "Files.ReadWrite.All Sites.ReadWrite.All User.Read offline_access";
 const AUTH_KEY    = "fdt_auth_v1";
 
@@ -154,15 +153,48 @@ const extFromDataUrl = (dataUrl) => {
 // Strips characters SharePoint disallows in file/folder names
 const sanitizeSpName = (name) => name.replace(/[\\/:*?"<>|]/g, "-").trim();
 
-// SP_FOLDER is expressed relative to the "Shared Documents" library, which is the
-// default document library's drive root — so that prefix is dropped for Graph.
-const SP_FOLDER_PATH = SP_FOLDER.replace(/^Shared Documents\/?/, "");
+// Resolves a folder path (relative to the site's default drive root, e.g. a project's
+// "Site Visits" folder) to its Graph item id. Throws if the folder doesn't exist.
+const getSharePointFolderId = async (siteId, token, path) => {
+  const cleanPath = path.replace(/^\/+|\/+$/g, "");
+  const encodedPath = cleanPath.split("/").map(encodeURIComponent).join("/");
+  const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodedPath}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error(res.status === 404
+      ? "SharePoint folder not found — check the path and try again."
+      : `Could not access SharePoint folder (${res.status})`);
+  }
+  return (await res.json()).id;
+};
 
-const uploadPhotoToSharePoint = async (token, fileName, dataUrl) => {
-  const siteId = await getSharePointSiteId(token);
+// Creates a subfolder under a known parent folder, or reuses it if it already exists
+// (e.g. a second upload on the same inspection date) — never creates a duplicate.
+const createOrGetSubfolder = async (siteId, token, parentId, name) => {
+  const createRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${parentId}/children`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
+  });
+  if (createRes.ok) return (await createRes.json()).id;
+  if (createRes.status === 409) {
+    const getRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${parentId}:/${encodeURIComponent(name)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (getRes.ok) return (await getRes.json()).id;
+  }
+  const err = await createRes.json().catch(() => ({}));
+  throw new Error(err.error?.message || `Could not create date folder (${createRes.status})`);
+};
+
+// MM.DD.YYYY, matching the existing inspection-date subfolder naming already used in SharePoint
+const formatDateFolderName = (d) =>
+  `${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}.${d.getFullYear()}`;
+
+const uploadPhotoToFolder = async (siteId, token, folderId, fileName, dataUrl) => {
   const blob = await (await fetch(dataUrl)).blob();
-  const pathSegments = `${SP_FOLDER_PATH}/${fileName}`.split("/").map(encodeURIComponent).join("/");
-  const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${pathSegments}:/content`, {
+  const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${folderId}:/${encodeURIComponent(fileName)}:/content`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": blob.type || "image/jpeg" },
     body: blob,
@@ -893,13 +925,20 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
 }
 
 // ─── SCREEN: CREATE PROJECT ───────────────────────────────────────────────────
-function CreateProject({ onSave, onBack }) {
-  const [name, setName] = useState("");
-  const [advisor, setAdvisor] = useState("");
+// Shared by project creation and project editing — editing pre-fills every field from
+// initialProject, re-verifies the linked SharePoint folder still exists, and preserves
+// the project's id/createdAt rather than minting a new project.
+function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
+  const isEdit = !!initialProject;
+  const [name, setName] = useState(initialProject?.name || "");
+  const [advisor, setAdvisor] = useState(initialProject?.advisor || "");
   const [step, setStep] = useState("name"); // name | programs | version
-  const [selections, setSelections] = useState([]); // [{programId, version, revision}]
+  const [selections, setSelections] = useState(initialProject?.programs || []); // [{programId, version, revision}]
   const [pickingProgram, setPickingProgram] = useState(null); // programId being configured
   const [pickVersion, setPickVersion] = useState(null);
+  const [folderPath, setFolderPath] = useState(initialProject?.sharePointFolder || "");
+  const [folderStatus, setFolderStatus] = useState(null); // null | "checking" | "ok" | "error"
+  const [folderMsg, setFolderMsg] = useState("");
 
   const startAddProgram = () => setPickingProgram("choose");
 
@@ -910,10 +949,33 @@ function CreateProject({ onSave, onBack }) {
 
   const removeSelection = (idx) => setSelections(s => s.filter((_, i) => i !== idx));
 
+  const verifyFolder = async () => {
+    const path = folderPath.trim();
+    if (!path) { setFolderStatus(null); setFolderMsg(""); return; }
+    if (!auth) { setFolderStatus("error"); setFolderMsg("Connect to SharePoint first to verify this folder."); return; }
+    setFolderStatus("checking"); setFolderMsg("");
+    try {
+      const token = await getValidToken(auth, setAuth);
+      if (!token) throw new Error("Could not get a valid SharePoint session.");
+      const siteId = await getSharePointSiteId(token);
+      await getSharePointFolderId(siteId, token, path);
+      setFolderStatus("ok"); setFolderMsg("Folder found");
+    } catch (e) {
+      setFolderStatus("error"); setFolderMsg(e.message || "Folder not found.");
+    }
+  };
+
+  // Editing an existing link — re-check it's still valid rather than assuming it still is
+  // (this screen exists specifically because a linked folder can be renamed/moved later).
+  useEffect(() => {
+    if (isEdit && folderPath.trim() && auth) { verifyFolder(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (step === "name") {
     return (
       <div style={{ padding: "24px 20px" }}>
-        <h2 style={{ margin: "0 0 24px", fontSize: 20, fontWeight: 700, color: "#111827" }}>New project</h2>
+        <h2 style={{ margin: "0 0 24px", fontSize: 20, fontWeight: 700, color: "#111827" }}>{isEdit ? "Edit project" : "New project"}</h2>
         <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Project name</label>
         <input value={name} onChange={e => setName(e.target.value)}
           placeholder="e.g. Green Park"
@@ -922,8 +984,28 @@ function CreateProject({ onSave, onBack }) {
         <input value={advisor} onChange={e => setAdvisor(e.target.value)}
           placeholder="Full name"
           style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif" }}/>
-        <button onClick={() => name.trim() && setStep("programs")} disabled={!name.trim()}
-          style={{ marginTop: 24, width: "100%", padding: 14, background: !name.trim()?"#E5E7EB":"#1B4332", color: !name.trim()?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: !name.trim()?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
+
+        <label style={{ display: "block", marginTop: 20, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>SharePoint Site Visits folder</label>
+        {!auth && (
+          <div style={{ marginTop: 8, padding: "10px 12px", background: "#F9FAFB", border: "1.5px solid #E5E7EB", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF" }}>Connect to SharePoint to link a folder</p>
+            <button onClick={startLogin}
+              style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: "#0078D4", border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+              Connect
+            </button>
+          </div>
+        )}
+        <input value={folderPath} disabled={!auth}
+          onChange={e => { setFolderPath(e.target.value); setFolderStatus(null); setFolderMsg(""); }}
+          onBlur={verifyFolder}
+          placeholder="e.g. Projects/123 Main St/Site Visits"
+          style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: `1.5px solid ${folderStatus==="error"?"#EF4444":folderStatus==="ok"?"#10B981":"#E5E7EB"}`, borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif", background: !auth ? "#F9FAFB" : "#FFF" }}/>
+        {folderStatus === "checking" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#9CA3AF" }}>Checking…</p>}
+        {folderStatus === "ok" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#10B981" }}>✓ {folderMsg}</p>}
+        {folderStatus === "error" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#EF4444" }}>{folderMsg}</p>}
+
+        <button onClick={() => name.trim() && folderStatus==="ok" && setStep("programs")} disabled={!name.trim() || folderStatus!=="ok"}
+          style={{ marginTop: 24, width: "100%", padding: 14, background: (!name.trim()||folderStatus!=="ok")?"#E5E7EB":"#1B4332", color: (!name.trim()||folderStatus!=="ok")?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: (!name.trim()||folderStatus!=="ok")?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
           Next
         </button>
       </div>
@@ -1002,10 +1084,14 @@ function CreateProject({ onSave, onBack }) {
         + Add program
       </button>
 
-      <button onClick={() => selections.length && onSave({ id: Date.now().toString(), name: name.trim(), advisor: advisor.trim(), programs: selections, createdAt: new Date().toISOString() })}
+      <button onClick={() => selections.length && onSave({
+          id: initialProject?.id || Date.now().toString(),
+          name: name.trim(), advisor: advisor.trim(), programs: selections, sharePointFolder: folderPath.trim(),
+          createdAt: initialProject?.createdAt || new Date().toISOString(),
+        })}
         disabled={!selections.length}
         style={{ marginTop: 20, width: "100%", padding: 14, background: !selections.length?"#E5E7EB":"#1B4332", color: !selections.length?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: !selections.length?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
-        Create project
+        {isEdit ? "Save changes" : "Create project"}
       </button>
     </div>
   );
@@ -1087,7 +1173,7 @@ function SearchBar({ query, onChange, placeholder }) {
 }
 
 // ─── SCREEN: PROJECT DASHBOARD ────────────────────────────────────────────────
-function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, auth, setAuth, updateRecord }) {
+function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, onEdit, auth, setAuth, updateRecord }) {
   const pg = calcProjectProgress(project, records);
   const isMRF = (cat) => cat.id === "Minimum Rated Features";
   const [query, setQuery] = useState("");
@@ -1115,12 +1201,26 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, au
   const pendingCount = pendingPhotoJobs().length;
 
   const handleUploadToSharePoint = async () => {
+    if (!project.sharePointFolder) { setSyncState({ running: false, done: 0, total: 0, errors: ["This project isn't linked to a SharePoint folder yet."] }); return; }
     if (!auth) { startLogin(); return; }
     const token = await getValidToken(auth, setAuth);
     if (!token) { setSyncState({ running: false, done: 0, total: 0, errors: ["Could not connect to SharePoint — please reconnect and try again."] }); return; }
     const jobs = pendingPhotoJobs();
     if (!jobs.length) return;
     setSyncState({ running: true, done: 0, total: jobs.length, errors: [] });
+
+    // Resolve (or create) today's inspection-date subfolder inside this project's Site Visits
+    // folder ONCE for the whole batch — every photo in this run lands in the same folder.
+    let siteId, dateFolderId;
+    try {
+      siteId = await getSharePointSiteId(token);
+      const siteVisitsFolderId = await getSharePointFolderId(siteId, token, project.sharePointFolder);
+      dateFolderId = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, formatDateFolderName(new Date()));
+    } catch (e) {
+      setSyncState({ running: false, done: 0, total: jobs.length, errors: [e.message] });
+      return;
+    }
+
     const workingRecords = {}; // key -> latest record as we mutate it within this batch
     let done = 0; const errors = [];
     for (const job of jobs) {
@@ -1131,7 +1231,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, au
         const nextNum = base.nextPhotoNum || 1;
         const label = sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
         const fileName = `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
-        await uploadPhotoToSharePoint(token, fileName, dataUrl);
+        await uploadPhotoToFolder(siteId, token, dateFolderId, fileName, dataUrl);
         const updatedPhotos = (base.photos||[]).map(p => {
           const pid = typeof p === "string" ? p : p.id;
           if (pid !== job.photoId) return typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p;
@@ -1191,17 +1291,23 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, au
     <div style={{ paddingBottom: 40 }}>
       {/* Hero */}
       <div style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", padding: "24px 20px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ position: "relative" }}>
-            <ProgressRing pct={pg.pct} size={72} stroke={6} fail={pg.fail}/>
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: pg.fail>0?"#EF4444":pg.pct===100?"#10B981":"#60A5FA" }}>{pg.pct}%</div>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <ProgressRing pct={pg.pct} size={72} stroke={6} fail={pg.fail}/>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: pg.fail>0?"#EF4444":pg.pct===100?"#10B981":"#60A5FA" }}>{pg.pct}%</div>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#FFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.name}</h2>
+              <p style={{ margin: "3px 0 0", fontSize: 12, color: "#A7F3D0" }}>{pg.verified}/{pg.total} items verified</p>
+              {project.advisor && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#6EE7B7" }}>TA: {project.advisor}</p>}
+              {pg.fail>0 && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
+            </div>
           </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#FFF" }}>{project.name}</h2>
-            <p style={{ margin: "3px 0 0", fontSize: 12, color: "#A7F3D0" }}>{pg.verified}/{pg.total} items verified</p>
-            {project.advisor && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#6EE7B7" }}>TA: {project.advisor}</p>}
-            {pg.fail>0 && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
-          </div>
+          <button onClick={onEdit} title="Edit project"
+            style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)", color: "#FFF", fontSize: 14, cursor: "pointer" }}>
+            ✎
+          </button>
         </div>
         <div style={{ marginTop: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(project.programs||[]).map((sel, i) => {
@@ -1220,10 +1326,11 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, au
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#374151" }}>☁ SharePoint photo sync</p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF", wordBreak: "break-word" }}>
-            📁 {SP_FOLDER}
+            📁 {project.sharePointFolder ? `${project.sharePointFolder}/${formatDateFolderName(new Date())}` : "Not linked to a SharePoint folder"}
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>
-            {syncState.running ? `Uploading ${syncState.done}/${syncState.total}…`
+            {!project.sharePointFolder ? "Set up by your Project Manager when the project is created"
+              : syncState.running ? `Uploading ${syncState.done}/${syncState.total}…`
               : !auth ? "Not connected"
               : pendingCount === 0 ? "All photos synced"
               : `${pendingCount} photo${pendingCount>1?"s":""} pending`}
@@ -1232,9 +1339,9 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, au
             <p style={{ margin: "2px 0 0", fontSize: 11, color: "#EF4444" }}>{syncState.errors.length} failed — tap to retry</p>
           )}
         </div>
-        <button onClick={handleUploadToSharePoint} disabled={syncState.running || (auth && pendingCount===0)}
-          style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: !auth ? "#0078D4" : (pendingCount===0 ? "#D1D5DB" : "#059669"), border: "none", borderRadius: 6, padding: "6px 14px", cursor: syncState.running ? "wait" : "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
-          {!auth ? "Connect" : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
+        <button onClick={handleUploadToSharePoint} disabled={!project.sharePointFolder || syncState.running || (auth && pendingCount===0)}
+          style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: !project.sharePointFolder ? "#D1D5DB" : !auth ? "#0078D4" : (pendingCount===0 ? "#D1D5DB" : "#059669"), border: "none", borderRadius: 6, padding: "6px 14px", cursor: (!project.sharePointFolder || syncState.running) ? "not-allowed" : "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+          {!project.sharePointFolder ? "Not linked" : !auth ? "Connect" : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
         </button>
       </div>
 
@@ -1742,9 +1849,10 @@ export default function App() {
     else if (screen === "checklist") { setScreen("dashboard"); setActiveCategory(null); }
     else if (screen === "dashboard") { setScreen("projects"); setActiveProject(null); }
     else if (screen === "create") setScreen("projects");
+    else if (screen === "edit") setScreen("dashboard");
   };
 
-  const titles = { projects: "Field Documentation Tracker", create: "New project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", item: "Document item" };
+  const titles = { projects: "Field Documentation Tracker", create: "New project", edit: "Edit project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", item: "Document item" };
 
   return (
     <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "DM Sans, sans-serif" }}>
@@ -1760,13 +1868,23 @@ export default function App() {
       </div>
 
       {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();setAuth(null);}}/>}
-      {screen === "create" && <CreateProject onSave={proj=>{setData(d=>({...d,projects:[...d.projects,proj]}));setScreen("projects");}} onBack={navBack}/>}
+      {screen === "create" && <ProjectForm onSave={proj=>{setData(d=>({...d,projects:[...d.projects,proj]}));setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
+      {screen === "edit" && activeProject && (
+        <ProjectForm
+          initialProject={activeProject}
+          onSave={proj=>{setData(d=>({...d,projects:d.projects.map(p=>p.id===proj.id?proj:p)}));setActiveProject(proj);setScreen("dashboard");}}
+          onBack={navBack}
+          auth={auth}
+          setAuth={setAuth}
+        />
+      )}
       {screen === "dashboard" && activeProject && (
         <ProjectDashboard
           project={activeProject}
           records={data.records}
           onSelectCategory={cat=>{setActiveCategory(cat);setScreen("checklist");}}
           onSelectItem={item=>{setActiveItem(item);setScreen("item");}}
+          onEdit={()=>setScreen("edit")}
           auth={auth}
           setAuth={setAuth}
           updateRecord={updateRecord}
