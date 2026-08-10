@@ -1,0 +1,474 @@
+<title>Checklist Line-Item Review</title>
+<style>
+  :root{
+    --ink:#1A2230; --ink-soft:#4B5768; --paper:#F1F3F5; --surface:#E3E8ED; --surface-2:#D7DEE4;
+    --line:#C3D0DA; --flag:#C2451F; --flag-soft:#F4DCD2; --keep:#3F6B4E; --keep-soft:#DCE9DF;
+    --gold:#96721E; --gold-soft:#F1E6CC;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Roboto Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#E7EEF5; --ink-soft:#9FB0C2; --paper:#0F1722; --surface:#16202D; --surface-2:#1E2A38;
+      --line:#2A3B4C; --flag:#E8623F; --flag-soft:#3A2620; --keep:#5C9271; --keep-soft:#1E2F24;
+      --gold:#D7B15C; --gold-soft:#332A16;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#E7EEF5; --ink-soft:#9FB0C2; --paper:#0F1722; --surface:#16202D; --surface-2:#1E2A38;
+    --line:#2A3B4C; --flag:#E8623F; --flag-soft:#3A2620; --keep:#5C9271; --keep-soft:#1E2F24;
+    --gold:#D7B15C; --gold-soft:#332A16;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"]{
+    --ink:#1A2230; --ink-soft:#4B5768; --paper:#F1F3F5; --surface:#E3E8ED; --surface-2:#D7DEE4;
+    --line:#C3D0DA; --flag:#C2451F; --flag-soft:#F4DCD2; --keep:#3F6B4E; --keep-soft:#DCE9DF;
+    --gold:#96721E; --gold-soft:#F1E6CC;
+    color-scheme: light;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper); color:var(--ink); font-family:var(--sans);
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--flag); color:#fff; }
+  a{ color:inherit; }
+  button, input, textarea{ font-family:inherit; color:inherit; }
+  :focus-visible{ outline:2px solid var(--flag); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; } }
+
+  .wrap{ max-width:840px; margin:0 auto; padding:0 20px 80px; }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  header{
+    position:sticky; top:0; z-index:20; background:var(--paper);
+    border-bottom:1px solid var(--line); padding:18px 0 0;
+  }
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--flag); font-weight:600; margin:0 0 4px;
+  }
+  h1{
+    font-family:var(--mono); font-size:22px; font-weight:700; margin:0 0 2px;
+    letter-spacing:-.01em; text-wrap:balance;
+  }
+  .sub{ margin:0 0 14px; color:var(--ink-soft); font-size:13.5px; max-width:60ch; }
+
+  .controls{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding-bottom:12px; }
+  .name-field{ display:flex; align-items:center; gap:8px; }
+  .name-field label{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); }
+  .name-field input{
+    background:var(--surface); border:1px solid var(--line); border-radius:3px; padding:7px 10px;
+    font-size:13.5px; color:var(--ink); width:170px;
+  }
+  .tally{
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-soft); font-variant-numeric:tabular-nums;
+    display:flex; gap:14px; margin-left:auto;
+  }
+  .tally b{ color:var(--ink); font-weight:700; }
+  .tally .flag-count b{ color:var(--flag); }
+
+  .btn{
+    font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.02em;
+    border-radius:3px; padding:8px 14px; cursor:pointer; border:1px solid transparent;
+  }
+  .btn-primary{ background:var(--flag); color:#fff; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-ghost{ background:transparent; border-color:var(--line); color:var(--ink-soft); }
+  .btn-ghost:hover{ border-color:var(--ink-soft); color:var(--ink); }
+
+  .navrow{ display:flex; gap:6px; overflow-x:auto; padding-bottom:12px; }
+  .navrow a{
+    font-family:var(--mono); font-size:11.5px; white-space:nowrap; text-decoration:none;
+    color:var(--ink-soft); background:var(--surface); border:1px solid var(--line);
+    border-radius:3px; padding:6px 10px;
+  }
+  .navrow a:hover{ color:var(--ink); border-color:var(--ink-soft); }
+
+  /* ── Sections ───────────────────────────────────────────── */
+  .section{ padding-top:36px; scroll-margin-top:150px; }
+  .section-head{ margin-bottom:18px; }
+  .section-head h2{ font-family:var(--mono); font-size:18px; margin:0 0 4px; letter-spacing:-.01em; }
+  .section-head p{ margin:0; color:var(--ink-soft); font-size:13px; max-width:62ch; }
+
+  .cat{ margin-bottom:6px; scroll-margin-top:150px; }
+  .cat-head{
+    display:flex; align-items:baseline; gap:8px; padding:14px 0 8px;
+    border-bottom:1px solid var(--line); margin-bottom:2px;
+  }
+  .cat-code{
+    font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.04em;
+    background:var(--surface-2); color:var(--ink-soft); padding:2px 6px; border-radius:2px;
+  }
+  .cat-name{ font-size:13.5px; font-weight:600; }
+  .cat-n{ font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin-left:auto; font-variant-numeric:tabular-nums; }
+
+  .item{
+    display:grid; grid-template-columns:22px 74px 1fr; gap:12px; align-items:start;
+    padding:11px 0; border-bottom:1px solid var(--line);
+  }
+  .item.is-flagged{ background:var(--flag-soft); margin:0 -14px; padding:11px 14px; border-radius:3px; border-bottom-color:transparent; }
+  .item.is-flagged + .item{ border-top:1px solid var(--line); }
+
+  .item-check{ padding-top:2px; }
+  .item-check input{
+    appearance:none; width:16px; height:16px; border:1.5px solid var(--ink-soft); border-radius:2px;
+    cursor:pointer; position:relative; background:var(--paper); display:block;
+  }
+  .item.is-flagged .item-check input{ background:var(--flag); border-color:var(--flag); }
+  .item-check input:checked::after{
+    content:""; position:absolute; left:3px; top:-1px; width:5px; height:9px;
+    border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg);
+  }
+
+  .item-pn{ font-family:var(--mono); font-size:12px; color:var(--ink-soft); padding-top:1px; font-variant-numeric:tabular-nums; }
+  .item.is-flagged .item-pn{ color:var(--flag); font-weight:700; }
+
+  .item-body{ min-width:0; }
+  .item-text{ font-size:14.5px; }
+  .tier-gold{
+    display:inline-block; font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.04em;
+    color:var(--gold); background:var(--gold-soft); padding:1px 5px; border-radius:2px; margin-left:6px; vertical-align:1px;
+  }
+  .note-toggle{
+    display:inline-block; margin-top:5px; font-family:var(--mono); font-size:11px; color:var(--ink-soft);
+    background:none; border:none; padding:0; cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+  }
+  .note-toggle:hover{ color:var(--ink); }
+  .note-box{ margin-top:7px; }
+  .note-box textarea{
+    width:100%; background:var(--surface); border:1px solid var(--line); border-radius:3px;
+    padding:7px 9px; font-size:13px; font-family:var(--sans); resize:vertical; min-height:44px;
+  }
+
+  .missing-box{
+    margin:14px 0 20px; padding:12px 14px; border:1.5px dashed var(--line); border-radius:4px;
+  }
+  .missing-box label{
+    display:block; font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-soft); margin-bottom:6px;
+  }
+  .missing-box textarea{
+    width:100%; background:transparent; border:none; padding:0; font-size:13.5px; font-family:var(--sans);
+    resize:vertical; min-height:36px;
+  }
+  .missing-box textarea:focus{ outline:none; }
+
+  /* ── Footer ─────────────────────────────────────────────── */
+  footer{ padding-top:44px; border-top:1px solid var(--line); margin-top:16px; }
+  footer h3{ font-family:var(--mono); font-size:14px; margin:0 0 8px; }
+  footer textarea{
+    width:100%; min-height:100px; background:var(--surface); border:1px solid var(--line);
+    border-radius:3px; padding:10px 12px; font-size:14px; font-family:var(--sans); resize:vertical;
+  }
+  .foot-actions{ display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap; }
+  .foot-note{ font-size:12px; color:var(--ink-soft); }
+  .save-flash{ font-family:var(--mono); font-size:11px; color:var(--keep); opacity:0; transition:opacity .3s; }
+  .save-flash.show{ opacity:1; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Field Documentation Tracker</p>
+    <h1>Checklist line-item review</h1>
+    <p class="sub">Go through every item below. Check <b>Flag</b> on anything you think is unnecessary to verify in the field, and use the note field on any item to explain why, question the wording, or suggest a change. Each category ends with a box for anything missing.</p>
+    <div class="controls">
+      <div class="name-field">
+        <label for="taName">Reviewer</label>
+        <input id="taName" type="text" placeholder="Your name" autocomplete="off"/>
+      </div>
+      <div class="tally" id="tally"></div>
+      <button class="btn btn-primary" id="downloadTop">Download review</button>
+    </div>
+    <nav class="navrow">
+      <a href="#sec-es">Energy Star · Rev. 03 (60)</a>
+      <a href="#sec-ec">EarthCraft V7 (41)</a>
+      <a href="#sec-mrf">Minimum Rated Features (25)</a>
+    </nav>
+  </header>
+
+  <main id="main"></main>
+
+  <footer>
+    <h3>General comments</h3>
+    <textarea id="generalNotes" placeholder="Anything else — patterns across items, process feedback, items you'd want field-tested before deciding either way…"></textarea>
+    <div class="foot-actions">
+      <button class="btn btn-primary" id="downloadBottom">Download review</button>
+      <button class="btn btn-ghost" id="resetBtn">Reset all</button>
+      <span class="save-flash" id="saveFlash">Saved</span>
+    </div>
+    <p class="foot-note" style="margin-top:16px;">Your progress auto-saves in this browser as you go. When you're done, click <b>Download review</b> and send the file back.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DATA = {"es": [{"id": "es_1_5_3", "pn": "1.5.3", "tier": null, "text": "Heated plenums: bottom has at least R-13 insulation", "cat": "High Performance Building Envelope"}, {"id": "es_1_6_1", "pn": "1.6.1", "tier": null, "text": "Garages with space heating: walls insulated ≥ R-5ci (CZ 5-6), ≥ R-7.5ci (CZ 7), ≥ R-9.5ci (CZ 8)", "cat": "High Performance Building Envelope"}, {"id": "es_1_3", "pn": "1.3", "tier": null, "text": "All insulation achieves Grade I installation per ANSI/RESNET/ICC 301", "cat": "High Performance Building Envelope"}, {"id": "es_2_1", "pn": "2.1", "tier": null, "text": "Air barrier fully aligned: dropped ceilings/soffits below unconditioned attics, chase/dead space, and all other ceilings", "cat": "High Performance Building Envelope"}, {"id": "es_2_2", "pn": "2.2", "tier": null, "text": "Air barrier fully aligned: walls behind showers, tubs, staircases, and fireplaces", "cat": "High Performance Building Envelope"}, {"id": "es_2_3", "pn": "2.3", "tier": null, "text": "Air barrier fully aligned: architectural bump-outs, dead space, and all other exterior walls", "cat": "High Performance Building Envelope"}, {"id": "es_2_4", "pn": "2.4", "tier": null, "text": "Air barrier fully aligned: floors above garages, floors above unconditioned spaces, and cantilevered floors", "cat": "High Performance Building Envelope"}, {"id": "es_2_5", "pn": "2.5", "tier": null, "text": "Air barrier fully aligned: all other floors adjoining unconditioned space (rim/band joists at exterior wall or porch roof)", "cat": "High Performance Building Envelope"}, {"id": "es_3_1", "pn": "3.1", "tier": null, "text": "Insulated ceilings with attic above: Grade I insulation extends to inside face of exterior wall; ≥ R-21 (CZ 1-5), ≥ R-30 (CZ 6-8)", "cat": "High Performance Building Envelope"}, {"id": "es_3_2", "pn": "3.2", "tier": null, "text": "Attic access panels and drop-down stairs insulated ≥ R-10 or equipped with durable ≥ R-10 cover", "cat": "High Performance Building Envelope"}, {"id": "es_3_3", "pn": "3.3", "tier": null, "text": "Insulation beneath attic platforms (HVAC platforms, walkways) ≥ R-21 (CZ 1-5), ≥ R-30 (CZ 6-8)", "cat": "High Performance Building Envelope"}, {"id": "es_3_4", "pn": "3.4", "tier": null, "text": "Slabs on grade in CZ 4-8: 100% of slab edge insulated to ≥ R-5 per 2009 IECC Table 502.2(1), aligned with thermal boundary", "cat": "High Performance Building Envelope"}, {"id": "es_3_5", "pn": "3.5", "tier": null, "text": "Above-grade concrete slab edges (podiums, balconies) in CZ 4-8: 100% of slab edge insulated to ≥ R-5, aligned with thermal boundary", "cat": "High Performance Building Envelope"}, {"id": "es_3_6", "pn": "3.6", "tier": null, "text": "Concrete slab floors in CZ 4-8 above ambient/garages/unconditioned spaces: floor insulation meets U-factor per 2009 IECC Table 502.1.2", "cat": "High Performance Building Envelope"}, {"id": "es_3_7_1", "pn": "3.7.1", "tier": null, "text": "Above-grade walls and rim/band joists: continuous rigid insulation or insulated siding ≥ R-3 (CZ 1-4), ≥ R-5 (CZ 5-8)", "cat": "High Performance Building Envelope"}, {"id": "es_3_7_2", "pn": "3.7.2", "tier": null, "text": "Above-grade walls: Structural Insulated Panels OR Insulated Concrete Forms OR Double-wall framing", "cat": "High Performance Building Envelope"}, {"id": "es_3_7_3a", "pn": "3.7.3a", "tier": null, "text": "Advanced framing: corners insulated ≥ R-6 to edge", "cat": "High Performance Building Envelope"}, {"id": "es_3_7_3b", "pn": "3.7.3b", "tier": null, "text": "Advanced framing: headers above windows & doors insulated ≥ R-3 (2x4 framing) or ≥ R-5 (all other assemblies)", "cat": "High Performance Building Envelope"}, {"id": "es_3_7_3c", "pn": "3.7.3c", "tier": null, "text": "Advanced framing: interior/exterior wall intersections insulated to same R-value as rest of exterior wall", "cat": "High Performance Building Envelope"}, {"id": "es_4_1", "pn": "4.1", "tier": null, "text": "Ducts, flues, shafts, plumbing, piping, wiring, exhaust fans & penetrations to unconditioned space sealed with blocking/flashing as needed", "cat": "High Performance Building Envelope"}, {"id": "es_4_2", "pn": "4.2", "tier": null, "text": "Recessed lighting adjacent to unconditioned space: ICAT labeled and gasketed; exterior surface insulated ≥ R-10 in CZ 4-8", "cat": "High Performance Building Envelope"}, {"id": "es_4_3", "pn": "4.3", "tier": null, "text": "Continuous top plate or blocking at top of walls adjoining unconditioned space (including balloon-framed parapets) sealed", "cat": "High Performance Building Envelope"}, {"id": "es_4_4", "pn": "4.4", "tier": null, "text": "Drywall sealed to top plate at all unconditioned attic/wall interfaces using caulk, foam, drywall adhesive, or equivalent", "cat": "High Performance Building Envelope"}, {"id": "es_4_5", "pn": "4.5", "tier": null, "text": "Rough opening around windows & exterior doors sealed", "cat": "High Performance Building Envelope"}, {"id": "es_4_6", "pn": "4.6", "tier": null, "text": "Assemblies separating attached garages from occupiable space sealed; air barrier installed, sealed, and aligned", "cat": "High Performance Building Envelope"}, {"id": "es_4_7", "pn": "4.7", "tier": null, "text": "Doors adjacent to unconditioned space or ambient made substantially air-tight with doorsweep and weatherstripping", "cat": "High Performance Building Envelope"}, {"id": "es_4_8", "pn": "4.8", "tier": null, "text": "Attic access panels, roof hatches and drop-down stairs gasketed or equipped with durable gasketed covers", "cat": "High Performance Building Envelope"}, {"id": "es_4_9", "pn": "4.9", "tier": null, "text": "Unit entrance doors from corridor/stairwell made substantially air-tight with doorsweep and weatherstripping", "cat": "High Performance Building Envelope"}, {"id": "es_5_9", "pn": "5.9", "tier": null, "text": "All heating and cooling systems serving a dwelling unit have thermostatic controls within the unit", "cat": "Energy Efficient Systems"}, {"id": "es_5_10", "pn": "5.10", "tier": null, "text": "Stair and elevator shaft vents equipped with motorized dampers; verified closed at time of inspection", "cat": "Energy Efficient Systems"}, {"id": "es_5_11", "pn": "5.11", "tier": null, "text": "Freeze protection systems include automatic controls to shut off when pipe wall/garage/plenum temperatures above 40°F", "cat": "Energy Efficient Systems"}, {"id": "es_5_11_1", "pn": "5.11.1", "tier": null, "text": "Heat tracing for freeze protection: controls based on pipe wall temperature and minimum R-3 pipe insulation", "cat": "Energy Efficient Systems"}, {"id": "es_5_12", "pn": "5.12", "tier": null, "text": "Snow/ice-melting systems: automatic controls to shut off when pavement above 50°F with no precipitation", "cat": "Energy Efficient Systems"}, {"id": "es_5_13", "pn": "5.13", "tier": null, "text": "Hydronic systems: terminal heating/cooling equipment separated from riser by control valve or terminal pump", "cat": "Energy Efficient Systems"}, {"id": "es_5_14", "pn": "5.14", "tier": null, "text": "Hydronic systems: terminal units equipped with pressure independent balancing valves or control valves", "cat": "Energy Efficient Systems"}, {"id": "es_5_15", "pn": "5.15", "tier": null, "text": "Hydronic systems: piping insulated per Item 4.42 of National HVAC Design Report including at planks and penetrations", "cat": "Energy Efficient Systems"}, {"id": "es_5_16", "pn": "5.16", "tier": null, "text": "Hydronic circulating pumps ≥1 HP, 3-phase: NEMA Premium motors; ≥5 HP also with variable frequency drives", "cat": "Energy Efficient Systems"}, {"id": "es_6_1", "pn": "6.1", "tier": null, "text": "Ductwork installed without kinks, sharp bends, compressions, or excessive coiled flexible ductwork", "cat": "Energy Efficient Systems"}, {"id": "es_6_3", "pn": "6.3", "tier": null, "text": "All supply and return ducts in unconditioned space insulated to ≥ R-6, including connections to trunk ducts", "cat": "Energy Efficient Systems"}, {"id": "es_6_6", "pn": "6.6", "tier": null, "text": "Common Space: supply, return, and exhaust ductwork and plenums sealed at all transverse joints, seams, and penetrations", "cat": "Energy Efficient Systems"}, {"id": "es_7_4", "pn": "7.4", "tier": null, "text": "Ventilation override control installed and labeled if function not obvious; townhouses: readily accessible to occupant", "cat": "Indoor Air Quality"}, {"id": "es_7_5_1", "pn": "7.5.1", "tier": null, "text": "Outdoor air inlet on ducted return: motorized damper automatically restricts airflow during vent off-cycle and occupant override", "cat": "Indoor Air Quality"}, {"id": "es_7_6", "pn": "7.6", "tier": null, "text": "System fan in dwelling unit rated ≤ 3 sones if intermittent, ≤ 2 sones if continuous, or exempted", "cat": "Indoor Air Quality"}, {"id": "es_7_7", "pn": "7.7", "tier": null, "text": "If Vent System controller operates HVAC fan: fan operation is intermittent and ECM/ICM type OR controls reduce runtime for HVAC hours", "cat": "Indoor Air Quality"}, {"id": "es_7_8", "pn": "7.8", "tier": null, "text": "In-unit bathroom fans or in-line fans are ENERGY STAR certified if used as part of dwelling-unit mechanical ventilation system", "cat": "Indoor Air Quality"}, {"id": "es_7_10_1", "pn": "7.10.1", "tier": null, "text": "Ventilation air inlets pull air directly from outdoors, not from attic, crawlspace, garage, or adjacent dwelling unit", "cat": "Indoor Air Quality"}, {"id": "es_7_10_2", "pn": "7.10.2", "tier": null, "text": "Inlets ≥2 ft above grade or roof deck; ≥10 ft from known contamination sources; ≥3 ft from dryer exhausts and roof sources", "cat": "Indoor Air Quality"}, {"id": "es_7_10_3", "pn": "7.10.3", "tier": null, "text": "Inlets provided with rodent/insect screen with ≤ 0.5 inch mesh", "cat": "Indoor Air Quality"}, {"id": "es_8_2", "pn": "8.2", "tier": null, "text": "Bathroom mechanical exhaust: continuous ≥ 20 CFM / ≤ 2 sones; intermittent ≥ 50 CFM; vented directly to outdoors", "cat": "Indoor Air Quality"}, {"id": "es_8_4", "pn": "8.4", "tier": null, "text": "Shared garage exhaust system equipped with controls that sense CO and NO2", "cat": "Indoor Air Quality"}, {"id": "es_9_1", "pn": "9.1", "tier": null, "text": "MERV 6+ filter(s) in each ducted mechanical system serving a dwelling unit; all return and outdoor air passes through filter", "cat": "Indoor Air Quality"}, {"id": "es_9_1_1", "pn": "9.1.1", "tier": null, "text": "Filter access panel includes gasket and fits snugly against exposed edge of filter when closed to prevent bypass", "cat": "Indoor Air Quality"}, {"id": "es_10_1", "pn": "10.1", "tier": null, "text": "Furnaces, boilers, and water heaters within pressure boundary are mechanically drafted or direct-vented", "cat": "Indoor Air Quality"}, {"id": "es_10_2", "pn": "10.2", "tier": null, "text": "Fireplaces within pressure boundary are direct-vented", "cat": "Indoor Air Quality"}, {"id": "es_10_3", "pn": "10.3", "tier": null, "text": "No unvented combustion appliances other than cooking ranges or ovens inside pressure boundary", "cat": "Indoor Air Quality"}, {"id": "es_11_3", "pn": "11.3", "tier": null, "text": "In-unit storage water heaters: heat trap confirmed by visual inspection or on AHRI certificate", "cat": "Water Efficiency"}, {"id": "es_12_1_1", "pn": "12.1.1", "tier": null, "text": "ERI Path: All common spaces (except lobby, mechanical rooms, and safety exceptions) have occupancy sensors or automatic bi-level lighting controls installed and operation verified", "cat": "Energy Efficient Systems"}, {"id": "es_12_2", "pn": "12.2", "tier": null, "text": "Exterior lighting: automatic switching on timers or photocell controls, except 24-hour, security, or individual unit meter fixtures", "cat": "Energy Efficient Systems"}, {"id": "es_12_3", "pn": "12.3", "tier": null, "text": "Common spaces and garages: 90% of installed lighting fixtures are integrated LED or contain LED lamps", "cat": "Energy Efficient Systems"}, {"id": "es_13_2", "pn": "13.2", "tier": null, "text": "ERI Path: Common space refrigerators and dishwashers are ENERGY STAR certified; showerheads are WaterSense labeled", "cat": "Energy Efficient Systems"}], "ec": [{"id": "ec_sp2_7", "pn": "SP 2.7", "tier": "ALL", "text": "Outdoor community gathering space provided on site", "cat": "Site Planning"}, {"id": "ec_du1_5", "pn": "DU 1.5", "tier": "ALL", "text": "Maintain 2\" clearance between wall siding and roof surface", "cat": "Durability & Moisture Management"}, {"id": "ec_du1_6", "pn": "DU 1.6", "tier": "ALL", "text": "Install level air conditioner condensing unit pad", "cat": "Durability & Moisture Management"}, {"id": "ec_du1_7", "pn": "DU 1.7", "tier": "ALL", "text": "Roof drip edge with ≥ 1/4\" overhang", "cat": "Durability & Moisture Management"}, {"id": "ec_nc_du2_5", "pn": "DU 2.5", "tier": "ALL", "text": "Do not install wet or water-damaged building materials", "cat": "Durability & Moisture Management"}, {"id": "ec_du2_8", "pn": "DU 2.8", "tier": "ALL", "text": "Design for or install additional dehumidification: rough-in electrical/plumbing for dehumidifier OR install whole-unit ENERGY STAR dehumidifier", "cat": "Durability & Moisture Management"}, {"id": "ec_iaq1", "pn": "IAQ 1", "tier": "ALL", "text": "No unvented combustion fireplaces, appliances, or space heaters; all combustion appliances mechanically drafted or direct-vented (EarthCraft IAQ 1 / Energy Star 10.1–10.3)", "cat": "Indoor Air Quality"}, {"id": "ec_iaq1_2", "pn": "IAQ 1.2", "tier": "ALL", "text": "Sealed-combustion or electric water heater installed within thermal envelope; no unit-level atmospherically vented water heaters or furnaces (EarthCraft IAQ 1.1–1.2 / Energy Star ES 5.0)", "cat": "Indoor Air Quality"}, {"id": "ec_iaq1_3", "pn": "IAQ 1.3", "tier": "ALL", "text": "Carbon monoxide detector installed if combustion appliances exist (one per unit)", "cat": "Indoor Air Quality"}, {"id": "ec_iaq2", "pn": "IAQ 2", "tier": "ALL", "text": "Protect all ducts and indoor coils until floor/wall finishing is complete", "cat": "Indoor Air Quality"}, {"id": "ec_iaq2_1", "pn": "IAQ 2.1", "tier": "ALL", "text": "Filter is easily accessible for property maintenance; MERV 6+ minimum installed in each ducted system; all return and outdoor air passes through filter prior to distribution (EarthCraft IAQ 2.1–2.3 / Energy Star 9.1)", "cat": "Indoor Air Quality"}, {"id": "ec_iaq2_5", "pn": "IAQ 2.5", "tier": "ALL", "text": "No carpet in below-grade units", "cat": "Indoor Air Quality"}, {"id": "ec_es5_1", "pn": "ES 5.1", "tier": "ALL", "text": "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", "cat": "Water Efficiency"}, {"id": "ec_es5_3", "pn": "ES 5.3", "tier": "ALL", "text": "Pipe insulation on first 2' of hot and cold water pipes at water heater", "cat": "Water Efficiency"}, {"id": "ec_we1_0", "pn": "WE 1.0", "tier": "ALL", "text": "Meet National Energy Policy Act low-flow standards for all fixtures", "cat": "Water Efficiency"}, {"id": "ec_we1_1", "pn": "WE 1.1", "tier": "ALL", "text": "Detect and repair all leaks at water-using fixtures, appliances, and equipment", "cat": "Water Efficiency"}, {"id": "ec_we1_2", "pn": "WE 1.2", "tier": "ALL", "text": "Low-flow fixtures throughout: WaterSense toilet ≤1.28 gpf; WaterSense urinal ≤0.5 gpf; WaterSense lavatory faucet ≤1.5 gpm; WaterSense showerhead ≤2.0 gpm (EarthCraft WE 1.2 / Energy Star 13.2)", "cat": "Water Efficiency"}, {"id": "ec_du2_6", "pn": "DU 2.6", "tier": "ALL", "text": "Newly installed and existing plants maintain distance ≥2' from building at maturity", "cat": "Durability & Moisture Management"}, {"id": "ec_v7_re1_0", "pn": "RE 1.0", "tier": "ALL", "text": "Limit framing at all windows and doors", "cat": "Resource Efficiency"}, {"id": "ec_v7_re1_1", "pn": "RE 1.1", "tier": "ALL", "text": "Engineered roof framing (90%)", "cat": "Resource Efficiency"}, {"id": "ec_v7_du1_6", "pn": "DU 1.6", "tier": "ALL", "text": "Continuous foundation termite flashing (required if slab edge is insulated)", "cat": "Durability & Moisture Management"}, {"id": "ec_v7_du1_10", "pn": "DU 1.10", "tier": "ALL", "text": "Drain pan installed for all water heaters and washing machines", "cat": "Durability & Moisture Management"}, {"id": "ec_v7_du2_6", "pn": "DU 2.6", "tier": "ALL", "text": "Capillary break between foundation and framing at all exterior walls", "cat": "Durability & Moisture Management"}, {"id": "ec_v7_du2_7", "pn": "DU 2.7", "tier": "ALL", "text": "Drainage board and damp proofing installed for all below-grade walls", "cat": "Durability & Moisture Management"}, {"id": "ec_v7_iaq1_1", "pn": "IAQ 1.1", "tier": "ALL", "text": "All fireplaces have outdoor combustion air supply; masonry-built fireplaces have gasketed doors", "cat": "Indoor Air Quality"}, {"id": "ec_v7_iaq2_2", "pn": "IAQ 2.2", "tier": "ALL", "text": "Rodent and corrosion-proof screens with mesh ≤0.5\" provided for all openings not fully sealed or caulked", "cat": "Indoor Air Quality"}, {"id": "ec_v7_iaq2_3", "pn": "IAQ 2.3", "tier": "ALL", "text": "All outdoor supply air crosses a filter prior to distribution", "cat": "Indoor Air Quality"}, {"id": "ec_v7_be3_9", "pn": "BE 3.9", "tier": "ALL", "text": "Slab edge insulation ≥ R-10", "cat": "High Performance Building Envelope"}, {"id": "ec_v7_be3_10", "pn": "BE 3.10", "tier": "ALL", "text": "Insulation installation quality: Grade I throughout OR Grade II with continuous insulated sheathing ≥ R-3 (100% coverage)", "cat": "High Performance Building Envelope"}, {"id": "ec_v7_we1_3", "pn": "WE 1.3", "tier": "ALL", "text": "Hot water recirculation system uses manual demand or presence sensor controls", "cat": "Water Efficiency"}, {"id": "ec_du2_7", "pn": "DU 2.7", "tier": "GOLD", "text": "If installed, drain at outside perimeter edge of footing surrounded with 6\" clearstone and filter fabric", "cat": "Durability & Moisture Management"}, {"id": "ec_iaq2_6", "pn": "IAQ 2.6", "tier": "GOLD", "text": "Filters are ≥ MERV 8", "cat": "Indoor Air Quality"}, {"id": "ec_v7_re1_2", "pn": "RE 1.2", "tier": "GOLD", "text": "Advanced framing: 2-stud corners where structurally feasible; ladder T-walls where structurally feasible; headers sized for actual loads", "cat": "Resource Efficiency"}, {"id": "ec_v7_du2_9", "pn": "DU 2.9", "tier": "GOLD", "text": "Additional dehumidification system installed: basement or sealed crawlspace system", "cat": "Durability & Moisture Management"}, {"id": "ec_v7_iaq1_5", "pn": "IAQ 1.5", "tier": "GOLD", "text": "If installed, all fireplaces meet indoor air quality guidelines and have gasketed doors", "cat": "Indoor Air Quality"}, {"id": "ec_v7_be1_14", "pn": "BE 1.14", "tier": "GOLD", "text": "Top plate sealed to drywall at all levels", "cat": "High Performance Building Envelope"}, {"id": "ec_v7_be3_11", "pn": "BE 3.11", "tier": "GOLD", "text": "Corners insulated to ≥ R-6", "cat": "High Performance Building Envelope"}, {"id": "ec_v7_be3_12", "pn": "BE 3.12", "tier": "GOLD", "text": "Headers insulated to ≥ R-3", "cat": "High Performance Building Envelope"}, {"id": "ec_v7_be3_13", "pn": "BE 3.13", "tier": "GOLD", "text": "Fiberglass batts are unfaced and friction-fit throughout", "cat": "High Performance Building Envelope"}, {"id": "ec_v7_be5_0", "pn": "BE 5.0", "tier": "GOLD", "text": "Ducts in unconditioned attic: buried in R-49 insulation OR ducts with R-8 insulation encapsulated in 1.5\" closed-cell foam and buried under ≥2\" blown insulation", "cat": "High Performance Building Envelope"}, {"id": "ec_v7_es1_11", "pn": "ES 1.11", "tier": "GOLD", "text": "HVAC equipment is ENERGY STAR qualified; for split systems, the pairing must be qualified", "cat": "Energy Efficient Systems"}], "mrf": [{"id": "mrf_1_0", "pn": "HVAC Equipment", "tier": "ALL", "text": "Nameplate on indoor and outdoor units. Capture make, model numbers, SEER2, and HSPF2. Document all unique configurations by unit type.", "cat": "Minimum Rated Features"}, {"id": "mrf_1_1", "pn": "Thermostat", "tier": "ALL", "text": "Identify type: Basic / Programmable / Smart. For heat pump systems, confirm adaptive recovery feature is present.", "cat": "Minimum Rated Features"}, {"id": "mrf_1_2", "pn": "Mechanical Ventilation", "tier": "ALL", "text": "Unit label showing system type, cfm rate, hours/day of operation, and fan watts. Document each unique configuration by unit type.", "cat": "Minimum Rated Features"}, {"id": "mrf_1_3", "pn": "Dehumidifier", "tier": "ALL", "text": "If installed, photograph nameplate. Capture model number and note location (in-unit, basement, or crawlspace).", "cat": "Minimum Rated Features"}, {"id": "mrf_2_0", "pn": "Wall Insulation", "tier": "ALL", "text": "Insulation in framing bays. Capture cavity R-value, continuous R-value, grade (I/II), insulation types, framing material, spacing, and depth. Document all unique wall assemblies.", "cat": "Minimum Rated Features"}, {"id": "mrf_2_1", "pn": "Ceiling Insulation", "tier": "ALL", "text": "Attic insulation with depth ruler visible. Capture cavity R-value, continuous R-value, grade, insulation types, framing spacing, and depth. Document all unique roof assemblies.", "cat": "Minimum Rated Features"}, {"id": "mrf_2_2", "pn": "Foundation Insulation", "tier": "ALL", "text": "Foundation insulation showing R-value, grade, and type. Confirm alignment with thermal boundary.", "cat": "Minimum Rated Features"}, {"id": "mrf_2_3", "pn": "Rim & Band Insulation", "tier": "ALL", "text": "Rim and band joist insulation. Capture R-value, grade, and insulation type.", "cat": "Minimum Rated Features"}, {"id": "mrf_2_4", "pn": "Duct Insulation", "tier": "ALL", "text": "Ductwork insulation label. Capture R-value and note whether located in conditioned or unconditioned space.", "cat": "Minimum Rated Features"}, {"id": "mrf_2_5", "pn": "Windows", "tier": "ALL", "text": "NFRC label on each unique window type. Capture U-factor and SHGC for all window configurations.", "cat": "Minimum Rated Features"}, {"id": "mrf_2_6", "pn": "Doors", "tier": "ALL", "text": "NFRC label on each door type (main entry, patio, additional). Capture U-factor and SHGC.", "cat": "Minimum Rated Features"}, {"id": "mrf_2_7", "pn": "Roof Properties", "tier": "ALL", "text": "Roof surface showing exterior color. Confirm presence or absence of radiant barrier.", "cat": "Minimum Rated Features"}, {"id": "mrf_3_0", "pn": "Water Heater", "tier": "ALL", "text": "Nameplate showing brand, model number, and location. If recirc system present, note pump wattage and control type.", "cat": "Minimum Rated Features"}, {"id": "mrf_3_1", "pn": "Hot Water Pipe Insulation", "tier": "ALL", "text": "Supply pipes at water heater and throughout distribution. Confirm R-3 or better insulation on all hot water pipes.", "cat": "Minimum Rated Features"}, {"id": "mrf_3_2", "pn": "Water Fixtures", "tier": "ALL", "text": "Flow rate markings on shower, bathroom faucet, and toilet. Capture shower (gpm), faucet (gpm), and toilet (gpf).", "cat": "Minimum Rated Features"}, {"id": "mrf_4_0", "pn": "Bath Fans", "tier": "ALL", "text": "Model label on each unique bath fan. Capture model number and sone rating.", "cat": "Minimum Rated Features"}, {"id": "mrf_4_1", "pn": "Kitchen Exhaust", "tier": "ALL", "text": "Model label on each unique range hood or exhaust fan. Capture model number and sone rating.", "cat": "Minimum Rated Features"}, {"id": "mrf_5_0", "pn": "Refrigerator", "tier": "ALL", "text": "Model label on all unit types (standard, ADA, common area). Confirm ENERGY STAR certification.", "cat": "Minimum Rated Features"}, {"id": "mrf_5_1", "pn": "Dishwasher", "tier": "ALL", "text": "Model label on all unit types. Confirm ENERGY STAR certification.", "cat": "Minimum Rated Features"}, {"id": "mrf_5_2", "pn": "Stove / Cooktop", "tier": "ALL", "text": "Unit label or data plate. Note fuel source (electric / gas / propane) and whether induction or convection.", "cat": "Minimum Rated Features"}, {"id": "mrf_5_3", "pn": "Clothes Dryer", "tier": "ALL", "text": "Model label. Capture model number, fuel source, and location. Note quantity if central installation.", "cat": "Minimum Rated Features"}, {"id": "mrf_5_4", "pn": "Clothes Washer", "tier": "ALL", "text": "Model label. Capture model number and location. Note quantity if central installation.", "cat": "Minimum Rated Features"}, {"id": "mrf_5_5", "pn": "Ceiling Fan", "tier": "ALL", "text": "Model label showing model number and cfm/watt rating.", "cat": "Minimum Rated Features"}, {"id": "mrf_6_0", "pn": "Interior Lighting", "tier": "ALL", "text": "Representative fixtures in units and common areas. Record percentage of LED, CFL, pin-based, and incandescent.", "cat": "Minimum Rated Features"}, {"id": "mrf_6_1", "pn": "Exterior Lighting", "tier": "ALL", "text": "Exterior fixtures at building perimeter. Record percentage of LED at all exterior locations.", "cat": "Minimum Rated Features"}]};
+
+  var SECTIONS = [
+    { key:"es",  id:"sec-es",  title:"Energy Star MFNC — v1 / 1.1 / 1.2, Rev. 03",
+      desc:"The single-family/multifamily new-construction checklist as currently built for this revision.", items:DATA.es },
+    { key:"ec",  id:"sec-ec",  title:"EarthCraft — Version 7",
+      desc:"Certified and Gold tiers combined into one list. Gold-only items are marked GOLD.", items:DATA.ec },
+    { key:"mrf", id:"sec-mrf", title:"Minimum Rated Features",
+      desc:"Documentation-only items — no pass/fail, just specs and photos captured in the field.", items:DATA.mrf }
+  ];
+
+  var CATEGORY_ORDER = ["Site Planning","Construction Waste Management","Resource Efficiency",
+    "Durability & Moisture Management","Indoor Air Quality","High Performance Building Envelope",
+    "Energy Efficient Systems","Water Efficiency","Education & Operations","Minimum Rated Features"];
+
+  var CATEGORY_CODE = { "Site Planning":"SP","Construction Waste Management":"CW","Resource Efficiency":"RE",
+    "Durability & Moisture Management":"DU","Indoor Air Quality":"IAQ","High Performance Building Envelope":"BE",
+    "Energy Efficient Systems":"ES","Water Efficiency":"WE","Education & Operations":"EO","Minimum Rated Features":"MRF" };
+
+  var STORE_KEY = "fdt_review_v1";
+  var state = loadState();
+
+  function loadState(){
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e){}
+    return { name:"", items:{}, missing:{}, general:"" };
+  }
+
+  var saveTimer = null;
+  function saveState(){
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){}
+    var flash = document.getElementById("saveFlash");
+    flash.classList.add("show");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){ flash.classList.remove("show"); }, 900);
+  }
+
+  function itemState(id){
+    if (!state.items[id]) state.items[id] = { flagged:false, note:"" };
+    return state.items[id];
+  }
+
+  function groupByCategory(items){
+    var groups = {};
+    items.forEach(function(it){
+      (groups[it.cat] = groups[it.cat] || []).push(it);
+    });
+    return CATEGORY_ORDER
+      .filter(function(c){ return groups[c]; })
+      .map(function(c){ return { cat:c, items:groups[c] }; });
+  }
+
+  function renderItem(it){
+    var s = itemState(it.id);
+    var row = document.createElement("div");
+    row.className = "item" + (s.flagged ? " is-flagged" : "");
+
+    var checkWrap = document.createElement("div");
+    checkWrap.className = "item-check";
+    var check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = s.flagged;
+    check.setAttribute("aria-label", "Flag " + it.pn + " as unnecessary");
+    check.addEventListener("change", function(){
+      s.flagged = check.checked;
+      row.className = "item" + (s.flagged ? " is-flagged" : "");
+      renderTally();
+      saveState();
+    });
+    checkWrap.appendChild(check);
+
+    var pn = document.createElement("div");
+    pn.className = "item-pn";
+    pn.textContent = it.pn || "";
+
+    var body = document.createElement("div");
+    body.className = "item-body";
+    var text = document.createElement("div");
+    text.className = "item-text";
+    text.textContent = it.text;
+    if (it.tier === "GOLD") {
+      var chip = document.createElement("span");
+      chip.className = "tier-gold";
+      chip.textContent = "GOLD";
+      text.appendChild(chip);
+    }
+    body.appendChild(text);
+
+    var toggle = document.createElement("button");
+    toggle.className = "note-toggle";
+    var noteBox = document.createElement("div");
+    noteBox.className = "note-box";
+    noteBox.style.display = s.note ? "block" : "none";
+    var textarea = document.createElement("textarea");
+    textarea.placeholder = "Note on this item…";
+    textarea.value = s.note || "";
+    textarea.addEventListener("input", function(){
+      s.note = textarea.value;
+      toggle.textContent = s.note ? "Edit note" : "+ note";
+      renderTally();
+      saveState();
+    });
+    noteBox.appendChild(textarea);
+    toggle.textContent = s.note ? "Edit note" : "+ note";
+    toggle.addEventListener("click", function(){
+      noteBox.style.display = noteBox.style.display === "none" ? "block" : "none";
+      if (noteBox.style.display === "block") textarea.focus();
+    });
+    body.appendChild(toggle);
+    body.appendChild(noteBox);
+
+    row.appendChild(checkWrap);
+    row.appendChild(pn);
+    row.appendChild(body);
+    return row;
+  }
+
+  function renderSection(sec){
+    var wrap = document.createElement("div");
+    wrap.className = "section";
+    wrap.id = sec.id;
+
+    var head = document.createElement("div");
+    head.className = "section-head";
+    head.innerHTML = "<h2>" + sec.title + "</h2><p>" + sec.desc + "</p>";
+    wrap.appendChild(head);
+
+    groupByCategory(sec.items).forEach(function(group){
+      var catWrap = document.createElement("div");
+      catWrap.className = "cat";
+
+      var catHead = document.createElement("div");
+      catHead.className = "cat-head";
+      catHead.innerHTML = "<span class=\"cat-code\">" + (CATEGORY_CODE[group.cat] || "") + "</span>" +
+        "<span class=\"cat-name\">" + group.cat + "</span>" +
+        "<span class=\"cat-n\">" + group.items.length + "</span>";
+      catWrap.appendChild(catHead);
+
+      group.items.forEach(function(it){ catWrap.appendChild(renderItem(it)); });
+
+      var missingKey = sec.key + "::" + group.cat;
+      var missBox = document.createElement("div");
+      missBox.className = "missing-box";
+      var label = document.createElement("label");
+      label.textContent = "Missing from " + group.cat + "?";
+      var mArea = document.createElement("textarea");
+      mArea.placeholder = "Describe anything that should be added here…";
+      mArea.value = state.missing[missingKey] || "";
+      mArea.addEventListener("input", function(){
+        state.missing[missingKey] = mArea.value;
+        saveState();
+      });
+      missBox.appendChild(label);
+      missBox.appendChild(mArea);
+      catWrap.appendChild(missBox);
+
+      wrap.appendChild(catWrap);
+    });
+
+    return wrap;
+  }
+
+  function renderTally(){
+    var total = 0, flagged = 0, noted = 0;
+    SECTIONS.forEach(function(sec){
+      sec.items.forEach(function(it){
+        total++;
+        var s = state.items[it.id];
+        if (s && s.flagged) flagged++;
+        if (s && s.note && s.note.trim()) noted++;
+      });
+    });
+    document.getElementById("tally").innerHTML =
+      "<span class=\"flag-count\"><b>" + flagged + "</b> flagged</span>" +
+      "<span><b>" + noted + "</b> noted</span>" +
+      "<span><b>" + total + "</b> total</span>";
+  }
+
+  function buildReport(){
+    var lines = [];
+    var name = state.name || "(not entered)";
+    var now = new Date().toLocaleString();
+    lines.push("FIELD DOCUMENTATION TRACKER — CHECKLIST LINE-ITEM REVIEW");
+    lines.push("Reviewer: " + name);
+    lines.push("Generated: " + now);
+    lines.push("");
+    var total=0, flagged=0;
+    SECTIONS.forEach(function(sec){ sec.items.forEach(function(it){ total++; if(state.items[it.id] && state.items[it.id].flagged) flagged++; }); });
+    lines.push(flagged + " of " + total + " items flagged as unnecessary.");
+    lines.push("");
+
+    SECTIONS.forEach(function(sec){
+      lines.push("========================================================");
+      lines.push(sec.title.toUpperCase() + "  (" + sec.items.length + " items)");
+      lines.push("========================================================");
+      groupByCategory(sec.items).forEach(function(group){
+        lines.push("");
+        lines.push("-- " + group.cat + " --");
+        group.items.forEach(function(it){
+          var s = state.items[it.id] || {};
+          var tag = s.flagged ? "[FLAG UNNECESSARY] " : "";
+          var tierTag = it.tier === "GOLD" ? " [GOLD]" : "";
+          lines.push(tag + (it.pn ? it.pn + " — " : "") + it.text + tierTag);
+          if (s.note && s.note.trim()) lines.push("    Note: " + s.note.trim());
+        });
+        var missingKey = sec.key + "::" + group.cat;
+        var mv = (state.missing[missingKey] || "").trim();
+        if (mv) {
+          lines.push("  Missing from this category: " + mv);
+        }
+      });
+      lines.push("");
+    });
+
+    lines.push("========================================================");
+    lines.push("GENERAL COMMENTS");
+    lines.push("========================================================");
+    lines.push(state.general && state.general.trim() ? state.general.trim() : "(none)");
+
+    return lines.join("\n");
+  }
+
+  function download(){
+    var report = buildReport();
+    var safeName = (state.name || "review").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    var filename = "fdt-checklist-review-" + safeName + ".txt";
+    if (window.claude && window.claude.downloads) {
+      window.claude.downloads.save({ filename: filename, data: report }).catch(function(){});
+    } else {
+      var blob = new Blob([report], { type: "text/plain" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  // ── Wire up static controls ──────────────────────────────
+  var nameInput = document.getElementById("taName");
+  nameInput.value = state.name || "";
+  nameInput.addEventListener("input", function(){ state.name = nameInput.value; saveState(); });
+
+  var generalNotes = document.getElementById("generalNotes");
+  generalNotes.value = state.general || "";
+  generalNotes.addEventListener("input", function(){ state.general = generalNotes.value; saveState(); });
+
+  document.getElementById("downloadTop").addEventListener("click", download);
+  document.getElementById("downloadBottom").addEventListener("click", download);
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    if (!confirm("Clear all flags, notes, and comments in this browser? This can't be undone.")) return;
+    state = { name:"", items:{}, missing:{}, general:"" };
+    saveState();
+    location.reload();
+  });
+
+  // ── Render ────────────────────────────────────────────────
+  var main = document.getElementById("main");
+  SECTIONS.forEach(function(sec){ main.appendChild(renderSection(sec)); });
+  renderTally();
+})();
+</script>
