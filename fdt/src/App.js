@@ -1056,6 +1056,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   const [folderMsg, setFolderMsg] = useState("");
   const [energyModel, setEnergyModel] = useState(initialProject?.energyModel || null);
   const [energyModelFileName, setEnergyModelFileName] = useState(initialProject?.energyModelFileName || "");
+  const [energyModelUploadedAt, setEnergyModelUploadedAt] = useState(initialProject?.energyModelUploadedAt || null);
   const [energyModelError, setEnergyModelError] = useState("");
   const emFileRef = useRef();
 
@@ -1069,6 +1070,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
       try {
         setEnergyModel(parseEkotropeXml(ev.target.result));
         setEnergyModelFileName(file.name);
+        setEnergyModelUploadedAt(new Date().toISOString());
       } catch (err) {
         setEnergyModelError(err.message || "Could not parse this file.");
       }
@@ -1077,7 +1079,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
     reader.readAsText(file);
   };
 
-  const removeEnergyModel = () => { setEnergyModel(null); setEnergyModelFileName(""); setEnergyModelError(""); };
+  const removeEnergyModel = () => { setEnergyModel(null); setEnergyModelFileName(""); setEnergyModelUploadedAt(null); setEnergyModelError(""); };
 
   const confirmVersionRevision = (programId, version, revision) => {
     setSelections(s => [...s, { programId, version, revision }]);
@@ -1146,7 +1148,10 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
         </label>
         {energyModelFileName ? (
           <div style={{ marginTop: 8, padding: "10px 12px", background: "#F0FDF4", border: "1.5px solid #10B981", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <p style={{ margin: 0, fontSize: 12.5, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>✓ {energyModelFileName}</p>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 12.5, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>✓ {energyModelFileName}</p>
+              {energyModelUploadedAt && <p style={{ margin: "2px 0 0", fontSize: 11, color: "#059669" }}>Uploaded {fmtDate(energyModelUploadedAt)}</p>}
+            </div>
             <button onClick={removeEnergyModel}
               style={{ fontSize: 11, color: "#065F46", background: "none", border: "1px solid #A7F3D0", borderRadius: 6, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
               Remove
@@ -1245,7 +1250,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
       <button onClick={() => selections.length && onSave({
           id: initialProject?.id || Date.now().toString(),
           name: name.trim(), advisor: advisor.trim(), programs: selections, sharePointFolder: folderPath.trim(),
-          energyModel, energyModelFileName,
+          energyModel, energyModelFileName, energyModelUploadedAt,
           createdAt: initialProject?.createdAt || new Date().toISOString(),
         })}
         disabled={!selections.length}
@@ -1754,7 +1759,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
     statusRef.current = val;
     // A status change is a discrete, deliberate action — archive it every time, unlike note autosaves
     const archive = (record?.status && val !== record.status)
-      ? { status: record.status, note: record.note||"", updatedAt: record.updatedAt }
+      ? { status: record.status, note: record.note||"", mismatch: !!record.modelMismatch, mismatchNote: record.modelMismatchNote||"", updatedAt: record.updatedAt }
       : undefined;
     save({ status: val, archive });
   };
@@ -1806,9 +1811,12 @@ function ItemDetail({ project, category, item, record, onSave }) {
 
   const handleMismatchToggle = () => {
     const next = !mismatch;
+    // Log every flag/unflag with a timestamp — lets you tell whether a mismatch was marked
+    // before or after the model was last updated (see the model's upload date above).
+    const archive = { status: record?.status||"", note: record?.note||"", mismatch: !!record?.modelMismatch, mismatchNote: record?.modelMismatchNote||"", updatedAt: record?.updatedAt };
     setMismatch(next);
     mismatchRef.current = next;
-    save();
+    save({ archive });
   };
 
   const handleMismatchNoteChange = (val) => {
@@ -1836,7 +1844,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const handleNoteBlur = () => {
     clearTimeout(noteTimer.current);
     const changed = record?.status && note !== noteSnapshot.current.note;
-    const archive = changed ? { status: statusRef.current, note: noteSnapshot.current.note, updatedAt: noteSnapshot.current.updatedAt || record?.updatedAt } : undefined;
+    const archive = changed ? { status: statusRef.current, note: noteSnapshot.current.note, mismatch: !!record?.modelMismatch, mismatchNote: record?.modelMismatchNote||"", updatedAt: noteSnapshot.current.updatedAt || record?.updatedAt } : undefined;
     save({ note, archive });
   };
 
@@ -1872,9 +1880,12 @@ function ItemDetail({ project, category, item, record, onSave }) {
       {/* Energy model reference — what the Ekotrope model assumes for this item */}
       {modelRefLines && modelRefLines.length > 0 && (
         <div style={{ marginBottom: 24, padding: "12px 14px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10 }}>
-          <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            ⚡ Energy model says
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              ⚡ Energy model says
+            </p>
+            {project.energyModelUploadedAt && <span style={{ fontSize: 10.5, color: "#60A5FA" }}>as of {fmtDate(project.energyModelUploadedAt)}</span>}
+          </div>
           {modelRefLines.map((line, i) => (
             <p key={i} style={{ margin: i===0 ? 0 : "3px 0 0", fontSize: 13, color: "#1E3A8A", lineHeight: 1.5 }}>{line}</p>
           ))}
@@ -2004,11 +2015,15 @@ function ItemDetail({ project, category, item, record, onSave }) {
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
               {[...record.history].reverse().map((h, i) => (
                 <div key={i} style={{ padding: "10px 12px", background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: h.note ? 6 : 0 }}>
-                    <StatusBadge status={h.status}/>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: (h.note || h.mismatch) ? 6 : 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <StatusBadge status={h.status}/>
+                      {h.mismatch && <span style={{ fontSize: 10, fontWeight: 600, color: "#991B1B", background: "#FEF2F2", padding: "1px 6px", borderRadius: 20 }}>⚡ flagged</span>}
+                    </div>
                     <span style={{ fontSize: 11, color: "#9CA3AF" }}>{fmtDate(h.updatedAt)}</span>
                   </div>
                   {h.note && <p style={{ margin: 0, fontSize: 12, color: "#4B5563", lineHeight: 1.5 }}>{h.note}</p>}
+                  {h.mismatch && h.mismatchNote && <p style={{ margin: "4px 0 0", fontSize: 12, color: "#991B1B", lineHeight: 1.5 }}>⚡ {h.mismatchNote}</p>}
                 </div>
               ))}
             </div>
