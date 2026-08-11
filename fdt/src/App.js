@@ -206,6 +206,125 @@ const uploadPhotoToFolder = async (siteId, token, folderId, fileName, dataUrl) =
   return res.json();
 };
 
+// ── EKOTROPE ENERGY MODEL (.xml) PARSING ──────────────────────────────────────
+// Parses the fields we've confirmed the schema for. Sections we haven't seen a
+// real populated example of (e.g. foundation walls for basement/crawlspace units)
+// are intentionally left unparsed rather than guessed — better no reference than
+// a wrong one, given the whole point is catching discrepancies against the model.
+function parseEkotropeXml(xmlText) {
+  const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+  if (doc.querySelector("parsererror")) throw new Error("This file doesn't look like valid XML.");
+  const building = doc.querySelector("buildingfile > building");
+  if (!building) throw new Error("This doesn't look like an Ekotrope energy model export.");
+
+  const txt = (el, sel) => { if (!el) return null; const n = el.querySelector(sel); const v = n?.textContent; return v ? v.trim() : null; };
+  const num = (el, sel) => { const v = txt(el, sel); return v !== null && v !== "" && !isNaN(v) ? parseFloat(v) : null; };
+  const bool = (el, sel) => txt(el, sel) === "true";
+
+  // <notes> is modeler free text — often HTML-escaped (e.g. "&lt;div&gt;"), which the XML
+  // parser decodes back into literal tag-looking text rather than real markup. Strip it.
+  const rawNotes = txt(building, "notes");
+  const notes = rawNotes ? rawNotes.replace(/<[^>]+>/g, "\n").replace(/\n{2,}/g, "\n").split("\n").map(s => s.trim()).filter(Boolean).join("\n") : null;
+
+  const walls = Array.from(building.querySelectorAll("aboveGradeWalls > aboveGradeWall")).map(w => {
+    const t = w.querySelector("aboveGradeWallType");
+    return { name: txt(w, "name"), rCavity: num(t, "frameCavityInsRval"), rContinuous: num(t, "continousInsRval"), grade: txt(t, "cavityInsGrade") };
+  });
+
+  const ceilings = Array.from(building.querySelectorAll("roofs > roof")).map(r => {
+    const t = r.querySelector("ceilingType");
+    return { name: txt(r, "name") || txt(t, "name"), type: txt(t, "type"), rCavity: num(t, "cavityInsRval"), rContinuous: num(t, "continousInsRval"), grade: txt(t, "cavityInsGrade"), radiantBarrier: txt(r, "radiantBarrier"), exteriorColor: txt(r, "exteriorColor") };
+  });
+
+  const foundation = Array.from(building.querySelectorAll("slabs > slab")).map(s => {
+    const t = s.querySelector("slabType");
+    return { name: txt(s, "name") || txt(t, "name"), perimeterR: num(t, "perimeterInsRVal"), perimeterDepth: num(t, "perimeterInsDepth"), underslabR: num(t, "unSlabInsRVal"), underslabWidth: num(t, "unSlabInsWidth"), grade: txt(t, "insulGrade") };
+  });
+
+  const windowsSeen = new Map();
+  building.querySelectorAll("windows > window").forEach(w => {
+    const t = w.querySelector("windowType");
+    const name = txt(t, "name") || txt(w, "name");
+    if (name && !windowsSeen.has(name)) windowsSeen.set(name, { name, uValue: num(t, "uValue"), shgc: num(t, "sHGC") });
+  });
+  const windows = Array.from(windowsSeen.values());
+
+  const doors = Array.from(building.querySelectorAll("doors > door")).map(d => {
+    const t = d.querySelector("doorType");
+    return { name: txt(d, "name") || txt(t, "name"), rValueOpaque: num(t, "rvalOpaque") };
+  });
+
+  const ductsSeen = new Map();
+  building.querySelectorAll("ductSystems > ductSystem > duct").forEach(d => {
+    const percentArea = num(d, "percentArea");
+    if (!percentArea) return;
+    const key = txt(d, "type") + "|" + txt(d, "location") + "|" + num(d, "RVal");
+    if (!ductsSeen.has(key)) ductsSeen.set(key, { type: txt(d, "type"), location: txt(d, "location"), rVal: num(d, "RVal"), percentArea });
+  });
+  const ducts = Array.from(ductsSeen.values());
+
+  const infil = building.querySelector("infiltration");
+  const ventilation = infil ? { type: txt(infil, "mechVentType"), rateCfm: num(infil, "mechVentRate"), hoursPerDay: num(infil, "mechVentHoursPerDay"), fanWatts: num(infil, "mechVentFanWatts") } : null;
+
+  // Equipment instances vary a lot by type (heat pump, furnace, boiler, water heater…) so
+  // rather than guess every possible "*Type" child tag name, find whichever one is present.
+  const hvac = [], waterHeaters = [];
+  building.querySelectorAll("equipInfo > equipmentInstances > equipmentInstance").forEach(inst => {
+    const libraryType = txt(inst, "libraryType");
+    const typeChild = Array.from(inst.children).find(c => /Type$/.test(c.tagName) && c.tagName !== "libraryType");
+    if (!typeChild) return;
+    const entry = {
+      libraryType, name: txt(typeChild, "name"), fuelType: txt(typeChild, "fuelType"),
+      heatingEfficiency: num(typeChild, "heatingEfficiency"), coolingEfficiency: num(typeChild, "coolingEfficiency"),
+      seasonalEqEff: num(typeChild, "seasonalEqEff"), effUnitType: txt(typeChild, "effUnitType"),
+      ratedOutCapacity: num(typeChild, "ratedOutCapacity") || num(typeChild, "heatingRatedOutCapacity47"),
+      energyFactor: num(typeChild, "energyFactor"), tankVolumeGallons: num(typeChild, "tankVolumeGallons"),
+    };
+    if (/water heat/i.test(libraryType || "")) waterHeaters.push(entry); else hvac.push(entry);
+  });
+
+  const dhwEl = building.querySelector("equipInfo > dhwDistribution");
+  const dhw = dhwEl ? { allFixturesLowFlow: bool(dhwEl, "allFixturesLowFlow"), allDhwPipesInsulatedR3: bool(dhwEl, "allDhwPipesInsulatedR3") } : null;
+
+  const la = building.querySelector("lightApps");
+  const lighting = la ? { intLED: num(la, "percentIntLED"), extLED: num(la, "percentExtLED"), cfl: num(la, "percentCFL"), fluorescent: num(la, "percentFluorescent"), incandescent: num(la, "percentIntLight") } : null;
+  const refrigerator = la && num(la, "refrigeratorKWH") ? { kwhYear: num(la, "refrigeratorKWH"), location: txt(la, "refrigeratorLocation") } : null;
+  const dishwasher = la && num(la, "dishwasherkWhYear") ? { capacity: txt(la, "dishwasherCapacity"), kwhYear: num(la, "dishwasherkWhYear") } : null;
+  const range = la ? { fuel: txt(la, "ovenFuel"), induction: bool(la, "inductionRange"), convection: bool(la, "convectionOven") } : null;
+  const dryer = la ? { fuel: txt(la, "dryerFuel"), location: txt(la, "dryerLocation"), cef: num(la, "dryerCEF") } : null;
+  const washer = la ? { location: txt(la, "washerLocation"), ler: num(la, "washerLER"), capacity: num(la, "washerCapacity") } : null;
+  const ceilingFan = la && num(la, "ceilingFanCFMWatt") ? { cfmWatt: num(la, "ceilingFanCFMWatt") } : null;
+
+  return { notes, walls, ceilings, foundation, windows, doors, ducts, ventilation, hvac, waterHeaters, dhw, lighting, refrigerator, dishwasher, range, dryer, washer, ceilingFan };
+}
+
+const fmtNum = (n, d) => n === null || n === undefined ? null : Number(n).toFixed(d === undefined ? 1 : d).replace(/\.0+$/, "");
+
+// Maps an MRF item id to reference lines drawn from the parsed energy model.
+// Items with no entry here have nothing comparable in an Ekotrope export.
+const MRF_MODEL_FIELDS = {
+  mrf_1_0: (m) => m.hvac.length ? m.hvac.map(h => `${h.libraryType}: ${h.name || ""}${h.heatingEfficiency ? ` — Htg ${fmtNum(h.heatingEfficiency)}` : ""}${h.coolingEfficiency ? ` / Clg ${fmtNum(h.coolingEfficiency)}` : ""}${h.seasonalEqEff ? ` ${fmtNum(h.seasonalEqEff)} ${h.effUnitType || ""}` : ""}`) : null,
+  mrf_1_2: (m) => m.ventilation ? [`${m.ventilation.type || "Mechanical ventilation"} — ${fmtNum(m.ventilation.rateCfm, 0)} CFM, ${fmtNum(m.ventilation.hoursPerDay)} hrs/day, ${fmtNum(m.ventilation.fanWatts)}W`] : null,
+  mrf_2_0: (m) => m.walls.length ? m.walls.map(w => `${w.name}: R-${fmtNum(w.rCavity)} cavity${w.rContinuous ? ` + R-${fmtNum(w.rContinuous)} continuous` : ""}, Grade ${w.grade || "?"}`) : null,
+  mrf_2_1: (m) => m.ceilings.length ? m.ceilings.map(c => `${c.name}${c.type ? ` (${c.type})` : ""}: R-${fmtNum(c.rCavity)}${c.rContinuous ? ` + R-${fmtNum(c.rContinuous)} continuous` : ""}, Grade ${c.grade || "?"}`) : null,
+  mrf_2_2: (m) => m.foundation.length ? m.foundation.map(f => `${f.name}: Perimeter R-${fmtNum(f.perimeterR)} (${fmtNum(f.perimeterDepth)} ft), Underslab R-${fmtNum(f.underslabR)} (${fmtNum(f.underslabWidth)} ft), Grade ${f.grade || "?"}`) : null,
+  mrf_2_4: (m) => m.ducts.length ? m.ducts.map(d => `${d.type} duct, ${d.location}: R-${fmtNum(d.rVal)} (${fmtNum(d.percentArea, 0)}% of area)`) : null,
+  mrf_2_5: (m) => m.windows.length ? m.windows.map(w => `${w.name}: U-${fmtNum(w.uValue, 2)}, SHGC ${fmtNum(w.shgc, 2)}`) : null,
+  mrf_2_6: (m) => m.doors.length ? m.doors.map(d => `${d.name}: R-${fmtNum(d.rValueOpaque, 2)} opaque`) : null,
+  mrf_2_7: (m) => m.ceilings.length ? m.ceilings.map(c => `${c.exteriorColor || "?"} color, radiant barrier: ${c.radiantBarrier || "?"}`) : null,
+  mrf_3_0: (m) => m.waterHeaters.length ? m.waterHeaters.map(w => `${w.name || ""}: ${w.fuelType || ""}, ${fmtNum(w.energyFactor, 2)} EF/UEF, ${fmtNum(w.tankVolumeGallons, 0)} gal`) : null,
+  mrf_3_1: (m) => m.dhw ? [`Model assumes hot water pipes insulated ≥R-3: ${m.dhw.allDhwPipesInsulatedR3 ? "Yes" : "No"}`] : null,
+  mrf_3_2: (m) => m.dhw ? [`Model assumes all fixtures low-flow: ${m.dhw.allFixturesLowFlow ? "Yes" : "No"}`] : null,
+  mrf_5_0: (m) => m.refrigerator ? [`${fmtNum(m.refrigerator.kwhYear, 0)} kWh/yr, ${m.refrigerator.location}`] : null,
+  mrf_5_1: (m) => m.dishwasher ? [`${m.dishwasher.capacity} capacity, ${fmtNum(m.dishwasher.kwhYear, 0)} kWh/yr`] : null,
+  mrf_5_2: (m) => m.range ? [`${m.range.fuel}${m.range.induction ? ", induction" : ""}${m.range.convection ? ", convection" : ""}`] : null,
+  mrf_5_3: (m) => m.dryer ? [`${m.dryer.fuel}, ${m.dryer.location}, CEF ${fmtNum(m.dryer.cef, 2)}`] : null,
+  mrf_5_4: (m) => m.washer ? [`${m.washer.location}, LER ${fmtNum(m.washer.ler, 0)}, ${fmtNum(m.washer.capacity, 1)} cu ft`] : null,
+  mrf_5_5: (m) => m.ceilingFan ? [`${fmtNum(m.ceilingFan.cfmWatt, 1)} CFM/Watt`] : null,
+  mrf_6_0: (m) => m.lighting ? [`LED ${fmtNum(m.lighting.intLED, 0)}%, CFL ${fmtNum(m.lighting.cfl, 0)}%, Fluorescent ${fmtNum(m.lighting.fluorescent, 0)}%, Incandescent ${fmtNum(m.lighting.incandescent, 0)}%`] : null,
+  mrf_6_1: (m) => m.lighting ? [`LED ${fmtNum(m.lighting.extLED, 0)}%`] : null,
+};
+
 const EARTHCRAFT_CERTIFIED_V7 = [
   // ── SITE PLANNING ──────────────────────────────────────────────────────────
     { id: "ec_sp2_7", pointNumber: "SP 2.7", tier: "ALL", text: "Outdoor community gathering space provided on site", category: "Site Planning" },
@@ -769,7 +888,7 @@ function calcCatProgress(items, records, projectId, categoryId) {
 }
 
 function calcProjectProgress(project, records) {
-  let total = 0, verified = 0, fail = 0;
+  let total = 0, verified = 0, fail = 0, mismatches = 0;
   CATEGORIES.forEach(cat => {
     const items = getItemsForSelection(project.programs || [], cat.id);
     items.forEach(item => {
@@ -777,9 +896,10 @@ function calcProjectProgress(project, records) {
       const r = records[`${project.id}__${cat.id}__${item.id}`];
       if (r?.status === "pass" || r?.status === "na") verified++;
       if (r?.status === "fail") fail++;
+      if (r?.modelMismatch) mismatches++;
     });
   });
-  return { pct: total ? Math.round((verified / total) * 100) : 0, fail, total, verified };
+  return { pct: total ? Math.round((verified / total) * 100) : 0, fail, total, verified, mismatches };
 }
 
 function programLabel(sel) {
@@ -934,8 +1054,30 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   const [folderPath, setFolderPath] = useState(initialProject?.sharePointFolder || "");
   const [folderStatus, setFolderStatus] = useState(null); // null | "checking" | "ok" | "error"
   const [folderMsg, setFolderMsg] = useState("");
+  const [energyModel, setEnergyModel] = useState(initialProject?.energyModel || null);
+  const [energyModelFileName, setEnergyModelFileName] = useState(initialProject?.energyModelFileName || "");
+  const [energyModelError, setEnergyModelError] = useState("");
+  const emFileRef = useRef();
 
   const startAddProgram = () => setPickingProgram("choose");
+
+  const handleEnergyModelFile = (e) => {
+    const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+    setEnergyModelError("");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        setEnergyModel(parseEkotropeXml(ev.target.result));
+        setEnergyModelFileName(file.name);
+      } catch (err) {
+        setEnergyModelError(err.message || "Could not parse this file.");
+      }
+    };
+    reader.onerror = () => setEnergyModelError("Could not read this file.");
+    reader.readAsText(file);
+  };
+
+  const removeEnergyModel = () => { setEnergyModel(null); setEnergyModelFileName(""); setEnergyModelError(""); };
 
   const confirmVersionRevision = (programId, version, revision) => {
     setSelections(s => [...s, { programId, version, revision }]);
@@ -998,6 +1140,27 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
         {folderStatus === "checking" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#9CA3AF" }}>Checking…</p>}
         {folderStatus === "ok" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#10B981" }}>✓ {folderMsg}</p>}
         {folderStatus === "error" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#EF4444" }}>{folderMsg}</p>}
+
+        <label style={{ display: "block", marginTop: 20, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          Energy model <span style={{ fontWeight: 400, color: "#9CA3AF", textTransform: "none" }}>(optional — Ekotrope .xml export)</span>
+        </label>
+        {energyModelFileName ? (
+          <div style={{ marginTop: 8, padding: "10px 12px", background: "#F0FDF4", border: "1.5px solid #10B981", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <p style={{ margin: 0, fontSize: 12.5, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>✓ {energyModelFileName}</p>
+            <button onClick={removeEnergyModel}
+              style={{ fontSize: 11, color: "#065F46", background: "none", border: "1px solid #A7F3D0", borderRadius: 6, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+              Remove
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => emFileRef.current.click()}
+            style={{ marginTop: 8, width: "100%", padding: "12px", border: "1.5px dashed #D1D5DB", borderRadius: 10, background: "#F9FAFB", color: "#6B7280", fontSize: 13, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+            + Upload energy model
+          </button>
+        )}
+        {energyModelError && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#EF4444" }}>{energyModelError}</p>}
+        <input ref={emFileRef} type="file" accept=".xml" onChange={handleEnergyModelFile} style={{ display: "none" }}/>
+        <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "#9CA3AF" }}>Lets Technical Advisors see the modeled wall/ceiling/foundation/window/equipment values in the Minimum Rated Features section, and flag anything that doesn't match in the field.</p>
 
         <button onClick={() => name.trim() && folderStatus==="ok" && setStep("programs")} disabled={!name.trim() || folderStatus!=="ok"}
           style={{ marginTop: 24, width: "100%", padding: 14, background: (!name.trim()||folderStatus!=="ok")?"#E5E7EB":"#1B4332", color: (!name.trim()||folderStatus!=="ok")?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: (!name.trim()||folderStatus!=="ok")?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
@@ -1082,6 +1245,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
       <button onClick={() => selections.length && onSave({
           id: initialProject?.id || Date.now().toString(),
           name: name.trim(), advisor: advisor.trim(), programs: selections, sharePointFolder: folderPath.trim(),
+          energyModel, energyModelFileName,
           createdAt: initialProject?.createdAt || new Date().toISOString(),
         })}
         disabled={!selections.length}
@@ -1131,6 +1295,7 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
               <span style={{ fontSize: 10, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "1px 6px", borderRadius: 20 }}>📷 missing</span>
             )}
             {rec.note && <span style={{ fontSize: 11, color: "#6B7280" }}>📝</span>}
+            {rec.modelMismatch && <span style={{ fontSize: 10, fontWeight: 600, color: "#991B1B", background: "#FEF2F2", padding: "1px 6px", borderRadius: 20 }}>⚡ model mismatch</span>}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
@@ -1297,6 +1462,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
               <p style={{ margin: "3px 0 0", fontSize: 12, color: "#A7F3D0" }}>{pg.verified}/{pg.total} items verified</p>
               {project.advisor && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#6EE7B7" }}>TA: {project.advisor}</p>}
               {pg.fail>0 && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
+              {pg.mismatches>0 && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚡ {pg.mismatches} model mismatch{pg.mismatches>1?"es":""}</p>}
             </div>
           </div>
           <button onClick={onEdit} title="Edit project"
@@ -1372,8 +1538,11 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
 function ChecklistView({ project, category, records, onSelectItem }) {
   const allItems = getItemsForSelection(project.programs||[], category.id).map(i => ({ ...i, _cat: category.id }));
   const [query, setQuery] = useState("");
+  const [modelNotesOpen, setModelNotesOpen] = useState(false);
   const p = calcCatProgress(allItems, records, project.id, category.id);
   const q = query.trim().toLowerCase();
+  const isMRF = category.id === "Minimum Rated Features";
+  const modelNotes = isMRF ? project.energyModel?.notes : null;
 
   const displayItems = q
     ? allItems.filter(i =>
@@ -1401,6 +1570,18 @@ function ChecklistView({ project, category, records, onSelectItem }) {
         </div>
         {q && <p style={{ margin: "6px 0 0", fontSize: 11, color: "#9CA3AF" }}>{displayItems.length} of {allItems.length} items</p>}
       </div>
+      {modelNotes && (
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid #F3F4F6", background: "#EFF6FF" }}>
+          <button onClick={() => setModelNotesOpen(o => !o)}
+            style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.06em" }}>⚡ Energy model notes</span>
+            <span style={{ fontSize: 10, color: "#1D4ED8", transform: modelNotesOpen ? "rotate(180deg)" : "none" }}>▾</span>
+          </button>
+          {modelNotesOpen && (
+            <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "#1E3A8A", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{modelNotes}</p>
+          )}
+        </div>
+      )}
       {displayItems.length === 0 && q && (
         <div style={{ padding: "32px 20px", textAlign: "center", color: "#9CA3AF" }}>
           <p style={{ margin: 0, fontSize: 14 }}>No items match "{query}"</p>
@@ -1513,6 +1694,14 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const noteRef = useRef(note);
   const photosRef = useRef(photos);
   const entriesRef = useRef(entries);
+  const mismatchRef = useRef(!!record?.modelMismatch);
+  const mismatchNoteRef = useRef(record?.modelMismatchNote || "");
+
+  // Energy-model reference lines for this item, if one was uploaded and this item has a
+  // known comparison point (see MRF_MODEL_FIELDS) — null otherwise, incl. non-MRF items.
+  const modelRefLines = project.energyModel ? MRF_MODEL_FIELDS[item.id]?.(project.energyModel) : null;
+  const [mismatch, setMismatch] = useState(!!record?.modelMismatch);
+  const [mismatchNote, setMismatchNote] = useState(record?.modelMismatchNote || "");
 
   // Derive stable key for IndexedDB lookup — each photo gets its own suffixed slot
   const photoKey = `${project.id}__${category.id}__${item.id}`;
@@ -1540,6 +1729,8 @@ function ItemDetail({ project, category, item, record, onSave }) {
       note: noteRef.current,
       photos: photosRef.current.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt: syncedAt||null, spFileName: spFileName||null })),
       entries: entriesRef.current,
+      modelMismatch: mismatchRef.current,
+      modelMismatchNote: mismatchNoteRef.current,
       updatedAt: new Date().toISOString(),
       ...visibleOverrides,
     };
@@ -1613,6 +1804,20 @@ function ItemDetail({ project, category, item, record, onSave }) {
     save({ photos: next.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt, spFileName })) });
   };
 
+  const handleMismatchToggle = () => {
+    const next = !mismatch;
+    setMismatch(next);
+    mismatchRef.current = next;
+    save();
+  };
+
+  const handleMismatchNoteChange = (val) => {
+    setMismatchNote(val);
+    mismatchNoteRef.current = val;
+  };
+
+  const handleMismatchNoteBlur = () => save();
+
   const handleNoteFocus = () => {
     // Baseline for this edit session — used on blur to decide whether to log one history entry
     noteSnapshot.current = { note: record?.note||"", updatedAt: record?.updatedAt||null };
@@ -1663,6 +1868,30 @@ function ItemDetail({ project, category, item, record, onSave }) {
             })}
         </div>
       </div>
+
+      {/* Energy model reference — what the Ekotrope model assumes for this item */}
+      {modelRefLines && modelRefLines.length > 0 && (
+        <div style={{ marginBottom: 24, padding: "12px 14px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10 }}>
+          <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            ⚡ Energy model says
+          </p>
+          {modelRefLines.map((line, i) => (
+            <p key={i} style={{ margin: i===0 ? 0 : "3px 0 0", fontSize: 13, color: "#1E3A8A", lineHeight: 1.5 }}>{line}</p>
+          ))}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, cursor: "pointer" }}>
+            <input type="checkbox" checked={mismatch} onChange={handleMismatchToggle}
+              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#EF4444" }}/>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: mismatch ? "#991B1B" : "#1E3A8A" }}>
+              Field doesn't match the model — flag for the energy modeler
+            </span>
+          </label>
+          {mismatch && (
+            <textarea value={mismatchNote} onChange={e => handleMismatchNoteChange(e.target.value)} onBlur={handleMismatchNoteBlur}
+              placeholder="What's different in the field?" rows={2}
+              style={{ width: "100%", marginTop: 8, padding: "8px 10px", border: "1.5px solid #FECACA", borderRadius: 8, fontSize: 13, fontFamily: "DM Sans, sans-serif", color: "#111827", resize: "none", outline: "none", boxSizing: "border-box", background: "#FFF" }}/>
+          )}
+        </div>
+      )}
 
       {/* Structured entries (wall/ceiling/foundation assemblies, etc.) */}
       {entryConfig && (entryConfig.repeatable ? (
