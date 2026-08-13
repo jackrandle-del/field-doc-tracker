@@ -902,15 +902,6 @@ function calcProjectProgress(project, records) {
   return { pct: total ? Math.round((verified / total) * 100) : 0, fail, total, verified, mismatches };
 }
 
-function programLabel(sel) {
-  const p = PROGRAM_CATALOG.find(x => x.id === sel.programId);
-  return p ? `${p.label} v${sel.version} ${sel.revision}` : sel.programId;
-}
-
-function programColor(programId) {
-  return PROGRAM_CATALOG.find(x => x.id === programId)?.color || "#6B7280";
-}
-
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
 function fmtDate(iso) {
   if (!iso) return null;
@@ -1050,7 +1041,6 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   const [step, setStep] = useState("name"); // name | programs | version
   const [selections, setSelections] = useState(initialProject?.programs || []); // [{programId, version, revision}]
   const [pickingProgram, setPickingProgram] = useState(null); // programId being configured
-  const [pickVersion, setPickVersion] = useState(null);
   const [folderPath, setFolderPath] = useState(initialProject?.sharePointFolder || "");
   const [folderStatus, setFolderStatus] = useState(null); // null | "checking" | "ok" | "error"
   const [folderMsg, setFolderMsg] = useState("");
@@ -1083,7 +1073,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
 
   const confirmVersionRevision = (programId, version, revision) => {
     setSelections(s => [...s, { programId, version, revision }]);
-    setPickingProgram(null); setPickVersion(null);
+    setPickingProgram(null);
   };
 
   const removeSelection = (idx) => setSelections(s => s.filter((_, i) => i !== idx));
@@ -1340,7 +1330,6 @@ function SearchBar({ query, onChange, placeholder }) {
 // ─── SCREEN: PROJECT DASHBOARD ────────────────────────────────────────────────
 function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, onEdit, auth, setAuth, updateRecord }) {
   const pg = calcProjectProgress(project, records);
-  const isMRF = (cat) => cat.id === "Minimum Rated Features";
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const [syncState, setSyncState] = useState({ running: false, done: 0, total: 0, errors: [] });
