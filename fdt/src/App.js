@@ -2086,6 +2086,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
     Promise.all(meta.map(m => idbGetPhoto(`${photoKey}__${m.id}`).then(dataUrl => ({ ...m, dataUrl }))))
       .then(results => { setPhotos(results.filter(r => r.dataUrl)); setPhotosLoading(false); })
       .catch(() => setPhotosLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoKey]);
 
   const save = (overrides = {}) => {
