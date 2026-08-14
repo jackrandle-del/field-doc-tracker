@@ -1526,8 +1526,11 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
           </div>
         )}
 
-        <button onClick={() => name.trim() && folderStatus==="ok" && setStep("programs")} disabled={!name.trim() || folderStatus!=="ok"}
-          style={{ marginTop: 24, width: "100%", padding: 14, background: (!name.trim()||folderStatus!=="ok")?"#E5E7EB":"#1B4332", color: (!name.trim()||folderStatus!=="ok")?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: (!name.trim()||folderStatus!=="ok")?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
+        {/* TEMP TEST-ONLY: SharePoint folder requirement dropped below so this preview branch is
+            usable without OAuth (the app's redirect URI isn't authorized for preview domains).
+            REVERT before merging to main — see git history on this branch. */}
+        <button onClick={() => name.trim() && setStep("programs")} disabled={!name.trim()}
+          style={{ marginTop: 24, width: "100%", padding: 14, background: !name.trim()?"#E5E7EB":"#1B4332", color: !name.trim()?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: !name.trim()?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
           Next
         </button>
       </div>
