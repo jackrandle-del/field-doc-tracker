@@ -340,8 +340,8 @@ const EARTHCRAFT_CERTIFIED_V7 = [
   { id: "ec_iaq2",   pointNumber: "IAQ 2",   tier: "ALL",  text: "Protect all ducts and indoor coils until floor/wall finishing is complete", category: "Indoor Air Quality" },
   { id: "ec_iaq2_1", pointNumber: "IAQ 2.1", tier: "ALL",  text: "Filter is easily accessible for property maintenance; MERV 6+ minimum installed in each ducted system; all return and outdoor air passes through filter prior to distribution (EarthCraft IAQ 2.1–2.3 / Energy Star 9.1)", category: "Indoor Air Quality", mergedWith: ["es_9_1"] },
   { id: "ec_iaq2_5", pointNumber: "IAQ 2.5", tier: "ALL",  text: "No carpet in below-grade units", category: "Indoor Air Quality" },
-  { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Water Efficiency", mergedWith: ["es_11_3"] },
-  { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Water Efficiency" },
+  { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Energy Efficient Systems", mergedWith: ["es_11_3"] },
+  { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Energy Efficient Systems" },
   { id: "ec_we1_0",  pointNumber: "WE 1.0",  tier: "ALL",  text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
   { id: "ec_we1_1",  pointNumber: "WE 1.1",  tier: "ALL",  text: "Detect no leaks at any water-using fixture, appliance or equipment", category: "Water Efficiency" },
   { id: "ec_we1_2",  pointNumber: "WE 1.2",  tier: "ALL",  text: "Low-flow fixtures throughout: WaterSense toilet ≤1.28 gpf; WaterSense urinal ≤0.5 gpf; WaterSense lavatory faucet ≤1.5 gpm; WaterSense showerhead ≤2.0 gpm (EarthCraft WE 1.2 / Energy Star 13.2)", category: "Water Efficiency", mergedWith: ["es_13_2"] },
@@ -453,8 +453,8 @@ const EARTHCRAFT_GOLD_V7 = [
   { id: "ec_iaq2",   pointNumber: "IAQ 2",   tier: "ALL",  text: "Protect all ducts and indoor coils until floor/wall finishing is complete", category: "Indoor Air Quality" },
   { id: "ec_iaq2_1", pointNumber: "IAQ 2.1", tier: "ALL",  text: "Filter is easily accessible for property maintenance; MERV 6+ minimum installed in each ducted system; all return and outdoor air passes through filter prior to distribution (EarthCraft IAQ 2.1–2.3 / Energy Star 9.1)", category: "Indoor Air Quality", mergedWith: ["es_9_1"] },
   { id: "ec_iaq2_5", pointNumber: "IAQ 2.5", tier: "ALL",  text: "No carpet in below-grade units", category: "Indoor Air Quality" },
-  { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Water Efficiency", mergedWith: ["es_11_3"] },
-  { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Water Efficiency" },
+  { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Energy Efficient Systems", mergedWith: ["es_11_3"] },
+  { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Energy Efficient Systems" },
   { id: "ec_we1_0",  pointNumber: "WE 1.0",  tier: "ALL",  text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
   { id: "ec_we1_1",  pointNumber: "WE 1.1",  tier: "ALL",  text: "Detect no leaks at any water-using fixture, appliance or equipment", category: "Water Efficiency" },
   { id: "ec_we1_2",  pointNumber: "WE 1.2",  tier: "ALL",  text: "Low-flow fixtures throughout: WaterSense toilet ≤1.28 gpf; WaterSense urinal ≤0.5 gpf; WaterSense lavatory faucet ≤1.5 gpm; WaterSense showerhead ≤2.0 gpm (EarthCraft WE 1.2 / Energy Star 13.2)", category: "Water Efficiency", mergedWith: ["es_13_2"] },
@@ -1073,8 +1073,8 @@ const EARTHCRAFT_CERTIFIED_V6 = [
   // ── BUILDING ENVELOPE ───────────────────────────────────────────────────────
   { id: "ec_v7_be3_9",   pointNumber: "BE 3.9",  tier: "ALL", text: "Slab edge insulation ≥ R-10", category: "High Performance Building Envelope" },
   // ── ENERGY SYSTEMS: WATER HEATING ───────────────────────────────────────────
-  { id: "ec_es5_1",      pointNumber: "ES 5.1",  tier: "ALL", text: "Heat trap on all storage water heaters; confirm by visual inspection or AHRI certificate", category: "Water Efficiency", mergedWith: ["es_11_3"] },
-  { id: "ec_es5_3",      pointNumber: "ES 5.3",  tier: "ALL", text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Water Efficiency" },
+  { id: "ec_es5_1",      pointNumber: "ES 5.1",  tier: "ALL", text: "Heat trap on all storage water heaters; confirm by visual inspection or AHRI certificate", category: "Energy Efficient Systems", mergedWith: ["es_11_3"] },
+  { id: "ec_es5_3",      pointNumber: "ES 5.3",  tier: "ALL", text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Energy Efficient Systems" },
   // ── WATER EFFICIENCY ────────────────────────────────────────────────────────
   { id: "ec_we1_0",      pointNumber: "WE 1.0",  tier: "ALL", text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
   { id: "ec_we1_1",      pointNumber: "WE 1.1",  tier: "ALL", text: "Detect and repair all leaks at water-using fixtures, appliances, and equipment", category: "Water Efficiency" },
