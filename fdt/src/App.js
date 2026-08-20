@@ -637,6 +637,7 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_re_2_3_4", pointNumber: "2.3 > 4", text: "Deliver panelized construction or SIPs to the site pre-framed (≥90%): > Modular construction", category: "Resource Efficiency", points: 2, matchKey: "RE|deliverpanelizedconstructionorsipstothesitepreframed90modularconstruction" },
   { id: "ec_opt_re_re_2_4", pointNumber: "RE 2.4", text: "Structural headers are steel or engineered wood (≥90%)", category: "Resource Efficiency", points: 2, matchKey: "RE|structuralheadersaresteelorengineeredwood90" },
   { id: "ec_opt_re_3_2", pointNumber: "3.2", text: "Lumber/Millwork/Flooring: Use No Tropical Wood", category: "Resource Efficiency", points: 2, matchKey: "RE|lumbermillworkflooringusenotropicalwood" },
+  { id: "ec_opt_re_3_3", pointNumber: "3.3", text: "Use building materials extracted, processed and manufactured ≤500 miles from site (1 point per product, maximum 5 points)", category: "Resource Efficiency", points: 5, matchKey: "RE|usebuildingmaterialsextractedprocessedandmanufactured500milesfromsite1pointperproductmaximum5points" },
   { id: "ec_opt_re_3_4_1", pointNumber: "RE 3.4 > 1", text: "Reused, recycled, MDF with no added urea-formaldehyde, local species or FSC certified wood in all: > Cabinet faces", category: "Resource Efficiency", points: 2, matchKey: "RE|reusedrecycledmdfwithnoaddedureaformaldehydelocalspeciesorfsccertifiedwoodinallcabinetfaces" },
   { id: "ec_opt_re_3_4_2", pointNumber: "RE 3.4 > 2", text: "Reused, recycled, MDF with no added urea-formaldehyde, local species or FSC certified wood in all: > Countertops", category: "Resource Efficiency", points: 2, matchKey: "RE|reusedrecycledmdfwithnoaddedureaformaldehydelocalspeciesorfsccertifiedwoodinallcountertops" },
   { id: "ec_opt_re_3_6", pointNumber: "RE 3.6", text: "Insulation (≥25% recycled content material)", category: "Resource Efficiency", points: 1, matchKey: "RE|insulation25recycledcontentmaterial" },
@@ -797,6 +798,21 @@ function ecOptNormText(t) {
 
 function ecCellStr(v) { return v === null || v === undefined ? "" : String(v).trim(); }
 
+// Excel/openpyxl store an item code like "3.8" as a bare number, with no category prefix and
+// with float drift accumulated from the source workbook's auto-incrementing formulas (reads
+// back as "3.8000000000000007"). A code written as text ("RE 1.0", "DU 1.6") already carries
+// its prefix and has no drift — leave those alone. toPrecision(6) collapses the drift back to
+// the intended value without needing per-item hardcoding (verified against BE 1.10-style cases
+// found during the mandatory-checklist audit).
+function ecCleanCode(catCode, rawCode) {
+  const s = (rawCode || "").trim();
+  if (/^-?\d+(\.\d+)?$/.test(s)) {
+    const cleaned = Number(Number(s).toPrecision(6)).toString();
+    return catCode ? `${catCode} ${cleaned}` : cleaned;
+  }
+  return s;
+}
+
 function ecIsRealPoints(v) {
   const s = ecCellStr(v);
   if (s === "" || s === "-") return false;
@@ -815,11 +831,21 @@ function ecIsPlanned(v) {
 
 const EC_CAT_HEADER_RE = /^[A-Z][A-Z &]+\([A-Z]{2,5}\)$/;
 
-// Parses a populated EarthCraft Multifamily workbook (.xlsx) and returns the optional,
-// point-bearing items this specific project has marked "Planned" that also appear in
-// EARTHCRAFT_OPTIONAL_LIBRARY (curated by TA review — see note above). Row layout and
-// hierarchy (category header -> subsection -> level note -> up to 3 levels of items,
-// Points/Planned in columns E/F) verified directly against real V6.5 and V7 workbooks.
+// Parses a populated EarthCraft Multifamily workbook (.xlsx). Row layout and hierarchy
+// (category header -> subsection -> level note -> up to 3 levels of items, Points/Planned
+// in columns E/F, TA status in column G) verified directly against real V6.5 and V7
+// workbooks. Two independent things get pulled out of the same row-walk:
+//   - `items`/`unmatched`: rows under an "OPTIONAL AT ..." level note — these have a real
+//     Points value UNLESS the item awards a variable amount (e.g. "1 point per product,
+//     max 5" shows "1-5"), so whether it's actually being pursued is read from the Planned
+//     column alone, never from Points' format.
+//   - `mandatoryStatuses`: rows under a pure "REQUIRED AT ALL LEVELS" note (no accompanying
+//     "OPTIONAL AT ..." for a lower tier) — these never carry a Points/Planned value at all
+//     (both are "-"), just a TA status in column G, and are matched against the project's
+//     own mandatory checklist by category + point number (see
+//     applyEarthCraftMandatoryStatusAutoPass) rather than EARTHCRAFT_OPTIONAL_LIBRARY.
+//     A "REQUIRED AT PLATINUM/GOLD, OPTIONAL AT ..." row is NOT in this bucket — it still has
+//     "OPTIONAL" in its note text, so it's handled by the first bucket instead.
 function parseEarthCraftWorkbook(arrayBuffer) {
   const wb = XLSX.read(arrayBuffer, { type: "array" });
   const sheetName = wb.SheetNames.includes("Worksheet") ? "Worksheet" : wb.SheetNames[0];
@@ -832,10 +858,15 @@ function parseEarthCraftWorkbook(arrayBuffer) {
   let catCode = null, optionalSection = false;
   let topCode = null, topText = null, midMarker = null, midText = null;
 
-  const matched = [], seenIds = new Set(), unmatched = [];
+  const matched = [], seenIds = new Set(), unmatched = [], mandatoryStatuses = [];
 
   const handleLeaf = (text, pointsVal, plannedVal, statusVal, code) => {
-    if (!optionalSection || !ecIsRealPoints(pointsVal) || !ecIsPlanned(plannedVal)) return;
+    if (!optionalSection) {
+      const status = ecCellStr(statusVal);
+      if (catCode && status) mandatoryStatuses.push({ category: catCode, pointNumber: code, status });
+      return;
+    }
+    if (!ecIsPlanned(plannedVal)) return;
     const key = `${catCode}|${ecOptNormText(text)}`;
     const libItem = libByKey.get(key);
     if (libItem) {
@@ -865,7 +896,7 @@ function parseEarthCraftWorkbook(arrayBuffer) {
     if (a && !b && a.includes(":")) continue; // subsection header, e.g. "SP 2: SITE DESIGN"
 
     if (a && b) {
-      topCode = a; topText = b; midMarker = midText = null;
+      topCode = ecCleanCode(catCode, a); topText = b; midMarker = midText = null;
       handleLeaf(topText, e, f, g, topCode);
     } else if (!a && b && c) {
       midMarker = b; midText = c;
@@ -875,7 +906,7 @@ function parseEarthCraftWorkbook(arrayBuffer) {
     }
   }
 
-  return { items: matched, unmatched };
+  return { items: matched, unmatched, mandatoryStatuses };
 }
 
 // ─── PROGRAM CATALOG ─────────────────────────────────────────────────────────
@@ -1494,22 +1525,55 @@ function applyEarthCraftAutoPass(project, existingRecords) {
 // mandatory item instead. Matched by category + point number; falls back to the code before " > "
 // for items like BE 3.10 that are split into sub-options (A/B) in the optional library but exist
 // as a single combined item in the mandatory checklist.
+function ecNormPointNumber(s) { return (s || "").trim().toLowerCase(); }
+function ecBasePointNumber(s) { return ecNormPointNumber(s).split(">")[0].trim(); }
+
+function findEarthCraftMandatoryMatch(mandatoryItems, category, pointNumber) {
+  return mandatoryItems.find(m => m.category === category && ecNormPointNumber(m.pointNumber) === ecNormPointNumber(pointNumber))
+    || mandatoryItems.find(m => m.category === category && ecBasePointNumber(m.pointNumber) === ecBasePointNumber(pointNumber));
+}
+
 function applyEarthCraftGoldOverlapAutoPass(project, existingRecords) {
   const updates = {};
   const goldSel = (project.programs || []).find(s => s.programId === "earthcraft_gold");
   if (!goldSel) return updates;
   const mandatoryItems = CHECKLIST_REGISTRY[`${goldSel.programId}||${goldSel.version}||${goldSel.revision}`] || [];
-  const norm = s => (s || "").trim().toLowerCase();
-  const base = s => norm(s).split(">")[0].trim();
   for (const item of project.earthcraftOptionalItems || []) {
     if (!item.goldMandatoryOverlap) continue;
     if ((item.workbookStatus || "").trim().toLowerCase() !== "y") continue;
-    const match = mandatoryItems.find(m => m.category === item.category && norm(m.pointNumber) === norm(item.pointNumber))
-      || mandatoryItems.find(m => m.category === item.category && base(m.pointNumber) === base(item.pointNumber));
+    const match = findEarthCraftMandatoryMatch(mandatoryItems, item.category, item.pointNumber);
     if (!match) continue;
     const key = `${project.id}__${match.category}__${match.id}`;
     if (existingRecords[key]) continue;
     updates[key] = { status: "pass", fromWorkbook: true, updatedAt: new Date().toISOString() };
+  }
+  return updates;
+}
+
+// The workbook also carries a TA status for plain mandatory items (see parseEarthCraftWorkbook's
+// `mandatoryStatuses` — rows under a pure "REQUIRED AT ALL LEVELS" note, no Points/Planned value
+// at all). Only an exact "y" counts as passing — every other status ('vf', 'ad', 'na', 'n', ...)
+// is left alone for the TA to check in the field, per explicit instruction. Matched against
+// whichever EarthCraft program(s) (Certified and/or Gold) the project actually selected, since
+// these items are tier-agnostic and appear identically in both.
+function applyEarthCraftMandatoryStatusAutoPass(project, existingRecords) {
+  const updates = {};
+  const ecSelections = (project.programs || []).filter(s => s.programId === "earthcraft_certified" || s.programId === "earthcraft_gold");
+  if (!ecSelections.length) return updates;
+  for (const status of project.earthcraftMandatoryStatuses || []) {
+    if (status.status.trim().toLowerCase() !== "y") continue;
+    // status.category is the short workbook code ("SP", "DU"...) — CHECKLIST_REGISTRY items use
+    // the full category name (see CATEGORIES), so translate before matching.
+    const categoryName = (CATEGORIES.find(c => c.code === status.category) || {}).id;
+    if (!categoryName) continue;
+    for (const sel of ecSelections) {
+      const mandatoryItems = CHECKLIST_REGISTRY[`${sel.programId}||${sel.version}||${sel.revision}`] || [];
+      const match = findEarthCraftMandatoryMatch(mandatoryItems, categoryName, status.pointNumber);
+      if (!match) continue;
+      const key = `${project.id}__${match.category}__${match.id}`;
+      if (existingRecords[key] || updates[key]) continue;
+      updates[key] = { status: "pass", fromWorkbook: true, updatedAt: new Date().toISOString() };
+    }
   }
   return updates;
 }
@@ -1695,6 +1759,11 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   // workbook status survives to drive applyEarthCraftGoldOverlapAutoPass regardless of upload/
   // program-selection order.
   const [earthcraftRawItems, setEarthcraftRawItems] = useState(initialProject?.earthcraftOptionalItems || null);
+  // TA status ("y"/"vf"/"ad"/"na"/"n") for plain mandatory items pulled straight from the
+  // workbook — see parseEarthCraftWorkbook's `mandatoryStatuses` and
+  // applyEarthCraftMandatoryStatusAutoPass. Independent of earthcraftRawItems, which only
+  // covers the optional-points section.
+  const [earthcraftMandatoryStatuses, setEarthcraftMandatoryStatuses] = useState(initialProject?.earthcraftMandatoryStatuses || null);
   const [earthcraftWorkbookFileName, setEarthcraftWorkbookFileName] = useState(initialProject?.earthcraftWorkbookFileName || "");
   const [earthcraftWorkbookUploadedAt, setEarthcraftWorkbookUploadedAt] = useState(initialProject?.earthcraftWorkbookUploadedAt || null);
   const [earthcraftError, setEarthcraftError] = useState("");
@@ -1738,8 +1807,9 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const { items } = parseEarthCraftWorkbook(ev.target.result);
+        const { items, mandatoryStatuses } = parseEarthCraftWorkbook(ev.target.result);
         setEarthcraftRawItems(items);
+        setEarthcraftMandatoryStatuses(mandatoryStatuses);
         setEarthcraftWorkbookFileName(file.name);
         setEarthcraftWorkbookUploadedAt(new Date().toISOString());
       } catch (err) {
@@ -1751,7 +1821,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   };
 
   const removeEarthcraftWorkbook = () => {
-    setEarthcraftRawItems(null); setEarthcraftWorkbookFileName(""); setEarthcraftWorkbookUploadedAt(null);
+    setEarthcraftRawItems(null); setEarthcraftMandatoryStatuses(null); setEarthcraftWorkbookFileName(""); setEarthcraftWorkbookUploadedAt(null);
     setEarthcraftError("");
   };
 
@@ -1962,7 +2032,8 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
           id: initialProject?.id || Date.now().toString(),
           name: name.trim(), advisor: advisor.trim(), programs: selections, sharePointFolder: folderPath.trim(),
           energyModel, energyModelFileName, energyModelUploadedAt,
-          earthcraftOptionalItems: earthcraftRawItems || [], earthcraftWorkbookFileName, earthcraftWorkbookUploadedAt,
+          earthcraftOptionalItems: earthcraftRawItems || [], earthcraftMandatoryStatuses: earthcraftMandatoryStatuses || [],
+          earthcraftWorkbookFileName, earthcraftWorkbookUploadedAt,
           createdAt: initialProject?.createdAt || new Date().toISOString(),
         })}
         disabled={!selections.length}
@@ -2829,11 +2900,11 @@ export default function App() {
       </div>
 
       {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();setAuth(null);}}/>}
-      {screen === "create" && <ProjectForm onSave={proj=>{setData(d=>({...d,projects:[...d.projects,proj],records:{...d.records,...applyEarthCraftAutoPass(proj,d.records),...applyEarthCraftGoldOverlapAutoPass(proj,d.records)}}));setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
+      {screen === "create" && <ProjectForm onSave={proj=>{setData(d=>({...d,projects:[...d.projects,proj],records:{...d.records,...applyEarthCraftAutoPass(proj,d.records),...applyEarthCraftGoldOverlapAutoPass(proj,d.records),...applyEarthCraftMandatoryStatusAutoPass(proj,d.records)}}));setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
       {screen === "edit" && activeProject && (
         <ProjectForm
           initialProject={activeProject}
-          onSave={proj=>{setData(d=>({...d,projects:d.projects.map(p=>p.id===proj.id?proj:p),records:{...d.records,...applyEarthCraftAutoPass(proj,d.records),...applyEarthCraftGoldOverlapAutoPass(proj,d.records)}}));setActiveProject(proj);setScreen("dashboard");}}
+          onSave={proj=>{setData(d=>({...d,projects:d.projects.map(p=>p.id===proj.id?proj:p),records:{...d.records,...applyEarthCraftAutoPass(proj,d.records),...applyEarthCraftGoldOverlapAutoPass(proj,d.records),...applyEarthCraftMandatoryStatusAutoPass(proj,d.records)}}));setActiveProject(proj);setScreen("dashboard");}}
           onBack={navBack}
           auth={auth}
           setAuth={setAuth}
