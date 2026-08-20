@@ -413,6 +413,7 @@ const EARTHCRAFT_CERTIFIED_V7 = [
   { id: "ec_v7_be_be_4_2_2", pointNumber: "BE 4.2 > 2", text: "Skylight U-factor and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
   { id: "ec_v7_es_es_1_1", pointNumber: "ES 1.1", text: "If programmable thermostat installed for heat pump, include adaptive recovery technology", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v7_es_es_2", pointNumber: "ES 2", text: "Seal air handlers and duct systems with mastic", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_1", pointNumber: "ES 2.1", text: "Install ducts per ACCA Manual D duct design", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v7_es_es_2_2", pointNumber: "ES 2.2", text: "Fully duct all supply and return ducts", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v7_es_es_2_3_1", pointNumber: "ES 2.3 > 1", text: "Duct insulation: > ≥ R-6: Ducts in conditioned and interstitial spaces (between floors)", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v7_es_es_2_3_2", pointNumber: "ES 2.3 > 2", text: "Duct insulation: > ≥ R-8: Ducts in unconditioned space", category: "Energy Efficient Systems", tier: "ALL" },
@@ -539,6 +540,7 @@ const EARTHCRAFT_GOLD_V7 = [
   { id: "ec_v7_be_be_4_2_2", pointNumber: "BE 4.2 > 2", text: "Skylight U-factor and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
   { id: "ec_v7_es_es_1_1", pointNumber: "ES 1.1", text: "If programmable thermostat installed for heat pump, include adaptive recovery technology", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v7_es_es_2", pointNumber: "ES 2", text: "Seal air handlers and duct systems with mastic", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_1", pointNumber: "ES 2.1", text: "Install ducts per ACCA Manual D duct design", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v7_es_es_2_2", pointNumber: "ES 2.2", text: "Fully duct all supply and return ducts", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v7_es_es_2_3_1", pointNumber: "ES 2.3 > 1", text: "Duct insulation: > ≥ R-6: Ducts in conditioned and interstitial spaces (between floors)", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v7_es_es_2_3_2", pointNumber: "ES 2.3 > 2", text: "Duct insulation: > ≥ R-8: Ducts in unconditioned space", category: "Energy Efficient Systems", tier: "ALL" },
@@ -576,6 +578,8 @@ const EARTHCRAFT_GOLD_V7 = [
   { id: "ec_v7_es_es_2_11_1", pointNumber: "ES 2.11 > 1", text: "Minimize pressure imbalance within units: > Install fully ducted jumper ducts, transfer grills, or dedicated return for each bedroom", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v7_es_es_2_12", pointNumber: "ES 2.12", text: "Install rigid duct work or pull all flex ducts with no pinches and support at intervals ≤ 5’", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v7_es_es_2_15", pointNumber: "ES 2.15", text: "HVAC system and ductwork is dry and clean", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_1_8", pointNumber: "ES 1.8", text: "Heating equipment efficiency: ENERGY STAR qualified furnace(s) ≥95 AFUE and within 40% of load calculation, OR ENERGY STAR qualified heat pump(s) ≥8.5 HSPF and within 25% of load calculation", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_1_10", pointNumber: "ES 1.10", text: "ENERGY STAR qualified cooling equipment ≥SEER 15", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v7_es_es_4_9", pointNumber: "ES 4.9", text: "If installed, ceiling fans must be ENERGY STAR qualified (1/bedroom and 1 in living room)", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v7_es_es_4_12", pointNumber: "ES 4.12", text: "Install and label accessible ventilation controls, with override controls for continuously operating ventilation fans", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v7_es_es_4_13", pointNumber: "ES 4.13", text: "Supply/exhaust fans rated at ≤3 sones (intermittent) and ≤1 sone (continuous)", category: "Energy Efficient Systems", tier: "GOLD" },
@@ -600,6 +604,7 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_sp_sp_2_5_2", pointNumber: "SP 2.5 > 2", text: "Connectivity to adjacent sites: > Dedicated pedestrian and bike access", category: "Site Planning", points: 1, matchKey: "SP|connectivitytoadjacentsitesdedicatedpedestrianandbikeaccess" },
   { id: "ec_opt_sp_sp_2_6", pointNumber: "SP 2.6", text: "Community Gardens", category: "Site Planning", points: 1, matchKey: "SP|communitygardens" },
   { id: "ec_opt_sp_sp_2_7", pointNumber: "SP 2.7", text: "Outdoor Community gathering space", category: "Site Planning", points: 2, matchKey: "SP|outdoorcommunitygatheringspace" },
+  { id: "ec_opt_sp_sp_2_8", pointNumber: "SP 2.8", text: "Install plant species that serve as pollinators on site for regional wildlife and/or local endangered species for a minimum of 20% of plantings", category: "Site Planning", points: 1, matchKey: "SP|installplantspeciesthatserveaspollinatorsonsiteforregionalwildlifeandorlocalendangeredspeciesforaminimumof20ofplantings" },
   { id: "ec_opt_sp_sp_3_10", pointNumber: "SP 3.10", text: "Tree preservation and protection measures employed on site", category: "Site Planning", points: 2, matchKey: "SP|treepreservationandprotectionmeasuresemployedonsite" },
   { id: "ec_opt_sp_sp_3_11", pointNumber: "SP 3.11", text: "Leave site undisturbed and protect greenspace from future development (min 25%)", category: "Site Planning", points: 2, matchKey: "SP|leavesiteundisturbedandprotectgreenspacefromfuturedevelopmentmin25" },
   { id: "ec_opt_sp_sp_3_12", pointNumber: "SP 3.12", text: "Mill cleared logs (100%)", category: "Site Planning", points: 1, matchKey: "SP|millclearedlogs100" },
@@ -610,6 +615,12 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_sp_sp_4_2", pointNumber: "SP 4.2", text: "Tenant access to business center", category: "Site Planning", points: 1, matchKey: "SP|tenantaccesstobusinesscenter" },
   { id: "ec_opt_sp_sp_4_3", pointNumber: "SP 4.3", text: "Covered bus stop", category: "Site Planning", points: 2, matchKey: "SP|coveredbusstop" },
   { id: "ec_opt_sp_sp_4_4", pointNumber: "SP 4.4", text: "Electric vehicle charging facility", category: "Site Planning", points: 2, matchKey: "SP|electricvehiclechargingfacility" },
+  { id: "ec_opt_cw_cw_1_2_1", pointNumber: "CW 1.2 > 1", text: "Post waste management plan and divert 75% from landfill of: > Wood", category: "Construction Waste Management", points: 2, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofwood" },
+  { id: "ec_opt_cw_cw_1_2_2", pointNumber: "CW 1.2 > 2", text: "Post waste management plan and divert 75% from landfill of: > Cardboard", category: "Construction Waste Management", points: 1, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofcardboard" },
+  { id: "ec_opt_cw_cw_1_2_3", pointNumber: "CW 1.2 > 3", text: "Post waste management plan and divert 75% from landfill of: > Metal (including beverage containers)", category: "Construction Waste Management", points: 1, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofmetalincludingbeveragecontainers" },
+  { id: "ec_opt_cw_cw_1_2_4", pointNumber: "CW 1.2 > 4", text: "Post waste management plan and divert 75% from landfill of: > Drywall (recycle or grind and spread on site)", category: "Construction Waste Management", points: 2, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofdrywallrecycleorgrindandspreadonsite" },
+  { id: "ec_opt_cw_cw_1_2_5", pointNumber: "CW 1.2 > 5", text: "Post waste management plan and divert 75% from landfill of: > Plastic (including beverage containers)", category: "Construction Waste Management", points: 1, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofplasticincludingbeveragecontainers" },
+  { id: "ec_opt_cw_cw_1_2_6", pointNumber: "CW 1.2 > 6", text: "Post waste management plan and divert 75% from landfill of: > Shingles", category: "Construction Waste Management", points: 2, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofshingles" },
   { id: "ec_opt_cw_cw_1_3", pointNumber: "CW 1.3", text: "Central Cut Area", category: "Construction Waste Management", points: 2, matchKey: "CW|centralcutarea" },
   { id: "ec_opt_re_re_1_2_1", pointNumber: "RE 1.2 > 1", text: "Advanced Framing: > 2-stud corners where structurally feasible", category: "Resource Efficiency", points: 3, matchKey: "RE|advancedframing2studcornerswherestructurallyfeasible", goldMandatoryOverlap: true },
   { id: "ec_opt_re_re_1_2_2", pointNumber: "RE 1.2 > 2", text: "Advanced Framing: > Ladder T-walls where structurally feasible", category: "Resource Efficiency", points: 2, matchKey: "RE|advancedframingladdertwallswherestructurallyfeasible", goldMandatoryOverlap: true },
@@ -626,6 +637,9 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_re_2_3_4", pointNumber: "2.3 > 4", text: "Deliver panelized construction or SIPs to the site pre-framed (≥90%): > Modular construction", category: "Resource Efficiency", points: 2, matchKey: "RE|deliverpanelizedconstructionorsipstothesitepreframed90modularconstruction" },
   { id: "ec_opt_re_re_2_4", pointNumber: "RE 2.4", text: "Structural headers are steel or engineered wood (≥90%)", category: "Resource Efficiency", points: 2, matchKey: "RE|structuralheadersaresteelorengineeredwood90" },
   { id: "ec_opt_re_3_2", pointNumber: "3.2", text: "Lumber/Millwork/Flooring: Use No Tropical Wood", category: "Resource Efficiency", points: 2, matchKey: "RE|lumbermillworkflooringusenotropicalwood" },
+  { id: "ec_opt_re_3_4_1", pointNumber: "RE 3.4 > 1", text: "Reused, recycled, MDF with no added urea-formaldehyde, local species or FSC certified wood in all: > Cabinet faces", category: "Resource Efficiency", points: 2, matchKey: "RE|reusedrecycledmdfwithnoaddedureaformaldehydelocalspeciesorfsccertifiedwoodinallcabinetfaces" },
+  { id: "ec_opt_re_3_4_2", pointNumber: "RE 3.4 > 2", text: "Reused, recycled, MDF with no added urea-formaldehyde, local species or FSC certified wood in all: > Countertops", category: "Resource Efficiency", points: 2, matchKey: "RE|reusedrecycledmdfwithnoaddedureaformaldehydelocalspeciesorfsccertifiedwoodinallcountertops" },
+  { id: "ec_opt_re_3_6", pointNumber: "RE 3.6", text: "Insulation (≥25% recycled content material)", category: "Resource Efficiency", points: 1, matchKey: "RE|insulation25recycledcontentmaterial" },
   { id: "ec_opt_re_3_8_1", pointNumber: "3.8 > 1", text: "Engineered trim: > Interior (≥80%)", category: "Resource Efficiency", points: 1, matchKey: "RE|engineeredtriminterior80" },
   { id: "ec_opt_re_3_8_2", pointNumber: "3.8 > 2", text: "Engineered trim: > Exterior, including soffit, fascia and trim (≥75%)", category: "Resource Efficiency", points: 1, matchKey: "RE|engineeredtrimexteriorincludingsoffitfasciaandtrim75" },
   { id: "ec_opt_re_re_4_0", pointNumber: "RE 4.0", text: "Gut Rehab (project exposing wall cavities or removing exterior cladding) or Adaptive Reuse (for adaptive reuse see addendum to worksheet)", category: "Resource Efficiency", points: 8, matchKey: "RE|gutrehabprojectexposingwallcavitiesorremovingexteriorcladdingoradaptivereuseforadaptivereuseseeaddendumtoworksheet" },
@@ -649,7 +663,14 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_du_du_2_14_2", pointNumber: "DU 2.14 > 2", text: "Capillary break: > Between foundation and framing for all walls", category: "Durability & Moisture Management", points: 1, matchKey: "DU|capillarybreakbetweenfoundationandframingforallwalls" },
   { id: "ec_opt_iaq_iaq_1_5", pointNumber: "IAQ 1.5", text: "If installed, all fireplaces meet indoor air quality guidelines and have gasketed doors", category: "Indoor Air Quality", points: 2, matchKey: "IAQ|ifinstalledallfireplacesmeetindoorairqualityguidelinesandhavegasketeddoors", goldMandatoryOverlap: true },
   { id: "ec_opt_iaq_iaq_2_6", pointNumber: "IAQ 2.6", text: "Filters are ≥ MERV 8", category: "Indoor Air Quality", points: 1, matchKey: "IAQ|filtersaremerv8", goldMandatoryOverlap: true },
+  { id: "ec_opt_iaq_iaq_2_7_1", pointNumber: "IAQ 2.7 > 1", text: "Certified low or no VOC materials: > Interior paints", category: "Indoor Air Quality", points: 1, matchKey: "IAQ|certifiedlowornovocmaterialsinteriorpaints" },
+  { id: "ec_opt_iaq_iaq_2_7_2", pointNumber: "IAQ 2.7 > 2", text: "Certified low or no VOC materials: > Stains and finishes on wood floors", category: "Indoor Air Quality", points: 2, matchKey: "IAQ|certifiedlowornovocmaterialsstainsandfinishesonwoodfloors" },
+  { id: "ec_opt_iaq_iaq_2_7_3", pointNumber: "IAQ 2.7 > 3", text: "Certified low or no VOC materials: > Sealants and adhesives", category: "Indoor Air Quality", points: 2, matchKey: "IAQ|certifiedlowornovocmaterialssealantsandadhesives" },
+  { id: "ec_opt_iaq_iaq_2_7_4", pointNumber: "IAQ 2.7 > 4", text: "Certified low or no VOC materials: > Carpet", category: "Indoor Air Quality", points: 1, matchKey: "IAQ|certifiedlowornovocmaterialscarpet" },
   { id: "ec_opt_iaq_iaq_2_8", pointNumber: "IAQ 2.8", text: "Protect all bath fans until floor/wall finishing is complete", category: "Indoor Air Quality", points: 1, matchKey: "IAQ|protectallbathfansuntilfloorwallfinishingiscomplete" },
+  { id: "ec_opt_iaq_iaq_2_9_1", pointNumber: "IAQ 2.9 > 1", text: "No added urea-formaldehyde: > Insulation", category: "Indoor Air Quality", points: 1, matchKey: "IAQ|noaddedureaformaldehydeinsulation" },
+  { id: "ec_opt_iaq_iaq_2_9_2", pointNumber: "IAQ 2.9 > 2", text: "No added urea-formaldehyde: > Subfloor", category: "Indoor Air Quality", points: 1, matchKey: "IAQ|noaddedureaformaldehydesubfloor" },
+  { id: "ec_opt_iaq_iaq_2_9_3", pointNumber: "IAQ 2.9 > 3", text: "No added urea-formaldehyde: > All cabinets, shelves, and countertops", category: "Indoor Air Quality", points: 2, matchKey: "IAQ|noaddedureaformaldehydeallcabinetsshelvesandcountertops" },
   { id: "ec_opt_iaq_iaq_2_10", pointNumber: "IAQ 2.10", text: "Seal all particle board surfaces with water-based sealant", category: "Indoor Air Quality", points: 1, matchKey: "IAQ|sealallparticleboardsurfaceswithwaterbasedsealant" },
   { id: "ec_opt_iaq_iaq_2_11", pointNumber: "IAQ 2.11", text: "No carpet in all units", category: "Indoor Air Quality", points: 3, matchKey: "IAQ|nocarpetinallunits" },
   { id: "ec_opt_iaq_iaq_2_12", pointNumber: "IAQ 2.12", text: "No carpet in main living area of all units", category: "Indoor Air Quality", points: 1, matchKey: "IAQ|nocarpetinmainlivingareaofallunits" },
@@ -691,6 +712,11 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_be_4_8_2", pointNumber: "4.8 > 2", text: "Skylight U-factor and SHGC: > SHGC ≤0.24", category: "High Performance Building Envelope", points: 3, matchKey: "BE|skylightufactorandshgcshgc024" },
   { id: "ec_opt_be_4_11", pointNumber: "4.11", text: "Solar shade screens (min all east and west windows)", category: "High Performance Building Envelope", points: 2, matchKey: "BE|solarshadescreensminalleastandwestwindows" },
   { id: "ec_opt_be_be_5_0_a", pointNumber: "BE 5.0 > A.", text: "If Ducts located in unconditioned attic: > Attic Side Radiant Barrier", category: "High Performance Building Envelope", points: 2, matchKey: "BE|ifductslocatedinunconditionedatticatticsideradiantbarrier" },
+  { id: "ec_opt_es_es_1_8_a", pointNumber: "ES 1.8 > A.", text: "Heating equipment efficiency: > ENERGY STAR qualified furnace(s) ≥95 AFUE and within 40% of load calculation", category: "Energy Efficient Systems", points: 2, matchKey: "ES|heatingequipmentefficiencyenergystarqualifiedfurnaces95afueandwithin40ofloadcalculation", goldMandatoryOverlap: true },
+  { id: "ec_opt_es_es_1_8_b", pointNumber: "ES 1.8 > B.", text: "Heating equipment efficiency: > ENERGY STAR qualified heat pump(s) ≥8.5 HSPF and within 25% of load calculation", category: "Energy Efficient Systems", points: 2, matchKey: "ES|heatingequipmentefficiencyenergystarqualifiedheatpumps85hspfandwithin25ofloadcalculation", goldMandatoryOverlap: true },
+  { id: "ec_opt_es_es_1_10", pointNumber: "ES 1.10", text: "ENERGY STAR qualified cooling equipment ≥SEER 15", category: "Energy Efficient Systems", points: 2, matchKey: "ES|energystarqualifiedcoolingequipmentseer15", goldMandatoryOverlap: true },
+  { id: "ec_opt_es_es_1_15", pointNumber: "ES 1.15", text: "ENERGY STAR qualified cooling equipment ≥ SEER 16", category: "Energy Efficient Systems", points: 3, matchKey: "ES|energystarqualifiedcoolingequipmentseer16" },
+  { id: "ec_opt_es_es_1_16", pointNumber: "ES 1.16", text: "Heat pump efficiency ≥9.0 HSPF", category: "Energy Efficient Systems", points: 2, matchKey: "ES|heatpumpefficiency90hspf" },
   { id: "ec_opt_es_es_1_18", pointNumber: "ES 1.18", text: "Condenser units are spaced 2 feet apart", category: "Energy Efficient Systems", points: 2, matchKey: "ES|condenserunitsarespaced2feetapart" },
   { id: "ec_opt_es_2_11_1", pointNumber: "2.11 > 1", text: "Minimize pressure imbalance within units: > Install fully ducted jumper ducts, transfer grills, or dedicated return for each bedroom", category: "Energy Efficient Systems", points: 2, matchKey: "ES|minimizepressureimbalancewithinunitsinstallfullyductedjumperductstransfergrillsordedicatedreturnforeachbedroom" },
   { id: "ec_opt_es_2_11_2", pointNumber: "2.11 > 2", text: "Minimize pressure imbalance within units: > Measured pressure differential ≤ 3 Pa between bedroom and return", category: "Energy Efficient Systems", points: 3, matchKey: "ES|minimizepressureimbalancewithinunitsmeasuredpressuredifferential3pabetweenbedroomandreturn" },
@@ -704,8 +730,9 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_es_es_2_19", pointNumber: "ES 2.19", text: "Return plenum duct take-off free area is 120% of supply plenum duct take-off free area", category: "Energy Efficient Systems", points: 2, matchKey: "ES|returnplenumducttakeofffreeareais120ofsupplyplenumducttakeofffreearea" },
   { id: "ec_opt_es_4_8", pointNumber: "4.8", text: "If installed, ceiling fans must be ENERGY STAR qualified (1/bedroom and 1 in living room)", category: "Energy Efficient Systems", points: 1, matchKey: "ES|ifinstalledceilingfansmustbeenergystarqualified1bedroomand1inlivingroom" },
   { id: "ec_opt_es_4_9", pointNumber: "4.9", text: "ENERGY STAR bath fans with properly sized ductwork and measured airflow ≥50 cfm", category: "Energy Efficient Systems", points: 2, matchKey: "ES|energystarbathfanswithproperlysizedductworkandmeasuredairflow50cfm" },
-  { id: "ec_opt_es_4_1", pointNumber: "4.1", text: "Electric kitchen range vented to exterior ≥ 100 cfm fan", category: "Energy Efficient Systems", points: 3, matchKey: "ES|electrickitchenrangeventedtoexterior100cfmfan" },
+  { id: "ec_opt_es_4_1", pointNumber: "4.10", text: "Electric kitchen range vented to exterior ≥ 100 cfm fan", category: "Energy Efficient Systems", points: 3, matchKey: "ES|electrickitchenrangeventedtoexterior100cfmfan" },
   { id: "ec_opt_es_4_12", pointNumber: "4.12", text: "Install and label accessible ventilation controls, with override controls for continuously operating ventilation fans", category: "Energy Efficient Systems", points: 1, matchKey: "ES|installandlabelaccessibleventilationcontrolswithoverridecontrolsforcontinuouslyoperatingventilationfans" },
+  { id: "ec_opt_es_4_13", pointNumber: "4.13", text: "Supply/exhaust fans rated at ≤3 sones (intermittent) and ≤1 sone (continuous)", category: "Energy Efficient Systems", points: 1, matchKey: "ES|supplyexhaustfansratedat3sonesintermittentand1sonecontinuous" },
   { id: "ec_opt_es_4_14_1", pointNumber: "4.14 > 1", text: "Radon resistant construction: > Passive, radon/soil gas vent system labeled on each floor", category: "Energy Efficient Systems", points: 1, matchKey: "ES|radonresistantconstructionpassiveradonsoilgasventsystemlabeledoneachfloor" },
   { id: "ec_opt_es_4_14_2", pointNumber: "4.14 > 2", text: "Radon resistant construction: > Radon test of building prior to occupancy", category: "Energy Efficient Systems", points: 1, matchKey: "ES|radonresistantconstructionradontestofbuildingpriortooccupancy" },
   { id: "ec_opt_es_4_15", pointNumber: "4.15", text: "Exhaust fan wired with light in bathroom", category: "Energy Efficient Systems", points: 1, matchKey: "ES|exhaustfanwiredwithlightinbathroom" },
@@ -735,6 +762,7 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_we_we_1_12", pointNumber: "WE 1.12", text: "Hot water demand ≤0.13 gal of water between loop and fixture and ≤2 gal of water in loop between water heater and furthest fixture (not applicable to central systems)", category: "Water Efficiency", points: 2, matchKey: "WE|hotwaterdemand013galofwaterbetweenloopandfixtureand2galofwaterinloopbetweenwaterheaterandfurthestfixturenotapplicabletocentralsystems" },
   { id: "ec_opt_we_we_2_4_a", pointNumber: "WE 2.4 > A.", text: "Landscape design: > Turf ≤ 40% of landscaped area", category: "Water Efficiency", points: 2, matchKey: "WE|landscapedesignturf40oflandscapedarea" },
   { id: "ec_opt_we_we_2_5", pointNumber: "WE 2.5", text: "Vegetate slopes exceeding 4:1", category: "Water Efficiency", points: 1, matchKey: "WE|vegetateslopesexceeding41" },
+  { id: "ec_opt_we_we_2_7", pointNumber: "WE 2.7", text: "Drought-tolerant/native landscaping turf and plants", category: "Water Efficiency", points: 1, matchKey: "WE|droughttolerantnativelandscapingturfandplants" },
   { id: "ec_opt_we_we_2_6_1", pointNumber: "WE 2.6 > 1", text: "If installed, irrigation system is: (Max 4 points) > Design, install, and audit irrigation system by WaterSense Irrigation Partner with no leaks", category: "Water Efficiency", points: 2, matchKey: "WE|ifinstalledirrigationsystemismax4pointsdesigninstallandauditirrigationsystembywatersenseirrigationpartnerwithnoleaks" },
   { id: "ec_opt_we_we_2_6_2", pointNumber: "WE 2.6 > 2", text: "If installed, irrigation system is: (Max 4 points) > Micro-irrigation system (e.g., drip irrigation) includes pressure regulator, filter and flush end assemblies", category: "Water Efficiency", points: 2, matchKey: "WE|ifinstalledirrigationsystemismax4pointsmicroirrigationsystemegdripirrigationincludespressureregulatorfilterandflushendassemblies" },
   { id: "ec_opt_we_we_2_6_3", pointNumber: "WE 2.6 > 3", text: "If installed, irrigation system is: (Max 4 points) > Distribution uniformity ≥65% lower quarter", category: "Water Efficiency", points: 2, matchKey: "WE|ifinstalledirrigationsystemismax4pointsdistributionuniformity65lowerquarter" },
@@ -746,7 +774,13 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_we_we_2_9_4", pointNumber: "WE 2.9 > 4", text: "Irrigation: (Max 5 points) > Provide weather station or soil moisture sensor on irrigation system", category: "Water Efficiency", points: 2, matchKey: "WE|irrigationmax5pointsprovideweatherstationorsoilmoisturesensoronirrigationsystem" },
   { id: "ec_opt_we_we_2_10", pointNumber: "WE 2.10", text: "Timer on exterior water spigots", category: "Water Efficiency", points: 1, matchKey: "WE|timeronexteriorwaterspigots" },
   { id: "ec_opt_eo_1_2", pointNumber: "1.2", text: "Community Recycling Facility", category: "Education & Operations", points: 2, matchKey: "EO|communityrecyclingfacility" },
+  { id: "ec_opt_eo_eo_2_1", pointNumber: "EO 2.1", text: "Property Maintenance Staff representative attends design review and/or kick off meeting", category: "Education & Operations", points: 1, matchKey: "EO|propertymaintenancestaffrepresentativeattendsdesignreviewandorkickoffmeeting" },
   { id: "ec_opt_eo_eo_2_2", pointNumber: "EO 2.2", text: "Market EarthCraft Multifamily program", category: "Education & Operations", points: 1, matchKey: "EO|marketearthcraftmultifamilyprogram" },
+  { id: "ec_opt_eo_eo_2_3", pointNumber: "EO 2.3", text: "Provide pre-occupancy briefing for tenant", category: "Education & Operations", points: 2, matchKey: "EO|providepreoccupancybriefingfortenant" },
+  { id: "ec_opt_eo_eo_2_4", pointNumber: "EO 2.4", text: "Project participates in post occupancy project debriefing", category: "Education & Operations", points: 2, matchKey: "EO|projectparticipatesinpostoccupancyprojectdebriefing" },
+  { id: "ec_opt_eo_eo_2_5", pointNumber: "EO 2.5", text: "Environmental management and building maintenance guidelines for staff", category: "Education & Operations", points: 2, matchKey: "EO|environmentalmanagementandbuildingmaintenanceguidelinesforstaff" },
+  { id: "ec_opt_eo_eo_2_6", pointNumber: "EO 2.6", text: "Landscape maintenance guide for maintenance and management personnel", category: "Education & Operations", points: 2, matchKey: "EO|landscapemaintenanceguideformaintenanceandmanagementpersonnel" },
+  { id: "ec_opt_eo_eo_3_0", pointNumber: "EO 3.0", text: "ENERGY STAR Multifamily New Construction", category: "Education & Operations", points: 2, matchKey: "EO|energystarmultifamilynewconstruction" },
   { id: "ec_opt_inv_1", pointNumber: "1", text: "On-site fuel cell or co-generation system", category: "Innovation", points: 4, matchKey: "INV|onsitefuelcellorcogenerationsystem" },
   { id: "ec_opt_inv_1_1", pointNumber: "1.1", text: "Solar-ready design", category: "Innovation", points: 2, matchKey: "INV|solarreadydesign" },
   { id: "ec_opt_inv_1_2", pointNumber: "1.2", text: "Wind and/or Solar electric system (10% of project requirements)", category: "Innovation", points: 5, matchKey: "INV|windandorsolarelectricsystem10ofprojectrequirements" },
@@ -1135,6 +1169,7 @@ const EARTHCRAFT_CERTIFIED_V6 = [
   { id: "ec_v65_be_be_4_2_2", pointNumber: "BE 4.2 > 2", text: "Skylight U-factor and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
   { id: "ec_v65_es_es_1_1", pointNumber: "ES 1.1", text: "If programmable thermostat installed for heat pump, include adaptive recovery technology", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v65_es_es_2", pointNumber: "ES 2", text: "Seal air handlers and duct systems with mastic", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v65_es_es_2_1", pointNumber: "ES 2.1", text: "Install ducts per ACCA Manual D duct design", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v65_es_es_2_2", pointNumber: "ES 2.2", text: "Fully duct all supply and return ducts", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v65_es_es_2_3_1", pointNumber: "ES 2.3 > 1", text: "Duct insulation: > ≥ R-6: Ducts in conditioned and interstitial spaces (between floors)", category: "Energy Efficient Systems", tier: "ALL" },
   { id: "ec_v65_es_es_2_3_2", pointNumber: "ES 2.3 > 2", text: "Duct insulation: > ≥ R-8: Ducts in unconditioned space", category: "Energy Efficient Systems", tier: "ALL" },
@@ -1190,6 +1225,8 @@ const EARTHCRAFT_GOLD_V6 = [
   { id: "ec_v65_es_es_2_11_1", pointNumber: "ES 2.11 > 1", text: "Minimize pressure imbalance within units: > Install fully ducted jumper ducts, transfer grills, or dedicated return for each bedroom", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v65_es_es_2_12", pointNumber: "ES 2.12", text: "Install rigid duct work or pull all flex ducts with no pinches and support at intervals ≤ 5’", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v65_es_es_2_15", pointNumber: "ES 2.15", text: "HVAC system and ductwork is dry and clean", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v65_es_es_1_8", pointNumber: "ES 1.8", text: "Heating equipment efficiency: ENERGY STAR qualified furnace(s) ≥95 AFUE and within 40% of load calculation, OR ENERGY STAR qualified heat pump(s) ≥8.5 HSPF and within 25% of load calculation", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v65_es_es_1_10", pointNumber: "ES 1.10", text: "ENERGY STAR qualified cooling equipment ≥SEER 15", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v65_es_es_4_8", pointNumber: "ES 4.8", text: "If installed, ceiling fans must be ENERGY STAR qualified (1/bedroom and 1 in living room)", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v65_es_es_4_12", pointNumber: "ES 4.12", text: "Install and label accessible ventilation controls, with override controls for continuously operating ventilation fans", category: "Energy Efficient Systems", tier: "GOLD" },
   { id: "ec_v65_es_es_4_13", pointNumber: "ES 4.13", text: "Supply/exhaust fans rated at ≤3 sones (intermittent) and ≤1 sone (continuous)", category: "Energy Efficient Systems", tier: "GOLD" },
@@ -1394,6 +1431,10 @@ const CHECKLIST_REGISTRY = {
   "earthcraft_sf2024_gold||v2024||Southface":      EARTHCRAFT_SF2024_GOLD,
 };
 
+function isEarthCraftGoldSelected(programSelections) {
+  return (programSelections || []).some(s => s.programId === "earthcraft_gold");
+}
+
 function getItemsForSelection(programSelections, categoryId, extraItems) {
   const seen = new Set();
   const result = [];
@@ -1408,10 +1449,15 @@ function getItemsForSelection(programSelections, categoryId, extraItems) {
       if (!seen.has(item.id)) { seen.add(item.id); result.push({ ...item, sourceKey: key }); }
     }
   }
-  // Project-specific EarthCraft optional points, matched from an uploaded workbook —
-  // see parseEarthCraftWorkbook. Tracked alongside the static checklist even when an
-  // item happens to also be mandatory for the project's tier (see CLAUDE.md/memory).
+  // Project-specific EarthCraft optional points, matched from an uploaded workbook — see
+  // parseEarthCraftWorkbook. An item flagged goldMandatoryOverlap is already on this list as a
+  // mandatory pass/fail item for Gold (see EARTHCRAFT_GOLD_V7/V6), so it's excluded here — live,
+  // from the project's CURRENT program selections — to avoid showing it twice. Its workbook
+  // status still isn't wasted: see applyEarthCraftGoldOverlapAutoPass, which auto-passes the
+  // mandatory item instead.
+  const goldSelected = isEarthCraftGoldSelected(programSelections);
   for (const item of extraItems || []) {
+    if (item.goldMandatoryOverlap && goldSelected) continue;
     if (item.category === categoryId && !seen.has(item.id)) { seen.add(item.id); result.push({ ...item, sourceKey: "earthcraft_optional_import" }); }
   }
   return result;
@@ -1431,9 +1477,37 @@ function saveData(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)
 // exists (e.g. a TA's own field check on a re-uploaded workbook takes precedence).
 function applyEarthCraftAutoPass(project, existingRecords) {
   const updates = {};
+  const goldSelected = isEarthCraftGoldSelected(project.programs);
   for (const item of project.earthcraftOptionalItems || []) {
+    if (item.goldMandatoryOverlap && goldSelected) continue; // tracked as a mandatory item instead — see applyEarthCraftGoldOverlapAutoPass
     if ((item.workbookStatus || "").trim().toLowerCase() !== "y") continue;
     const key = `${project.id}__${item.category}__${item.id}`;
+    if (existingRecords[key]) continue;
+    updates[key] = { status: "pass", fromWorkbook: true, updatedAt: new Date().toISOString() };
+  }
+  return updates;
+}
+
+// A workbook "y" on an item that's ALSO mandatory for Gold (goldMandatoryOverlap — see
+// EARTHCRAFT_OPTIONAL_LIBRARY) isn't tracked as its own optional point (see getItemsForSelection),
+// so the "already verified" signal has nowhere to land unless we route it to the matching
+// mandatory item instead. Matched by category + point number; falls back to the code before " > "
+// for items like BE 3.10 that are split into sub-options (A/B) in the optional library but exist
+// as a single combined item in the mandatory checklist.
+function applyEarthCraftGoldOverlapAutoPass(project, existingRecords) {
+  const updates = {};
+  const goldSel = (project.programs || []).find(s => s.programId === "earthcraft_gold");
+  if (!goldSel) return updates;
+  const mandatoryItems = CHECKLIST_REGISTRY[`${goldSel.programId}||${goldSel.version}||${goldSel.revision}`] || [];
+  const norm = s => (s || "").trim().toLowerCase();
+  const base = s => norm(s).split(">")[0].trim();
+  for (const item of project.earthcraftOptionalItems || []) {
+    if (!item.goldMandatoryOverlap) continue;
+    if ((item.workbookStatus || "").trim().toLowerCase() !== "y") continue;
+    const match = mandatoryItems.find(m => m.category === item.category && norm(m.pointNumber) === norm(item.pointNumber))
+      || mandatoryItems.find(m => m.category === item.category && base(m.pointNumber) === base(item.pointNumber));
+    if (!match) continue;
+    const key = `${project.id}__${match.category}__${match.id}`;
     if (existingRecords[key]) continue;
     updates[key] = { status: "pass", fromWorkbook: true, updatedAt: new Date().toISOString() };
   }
@@ -1615,11 +1689,11 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   const [energyModelUploadedAt, setEnergyModelUploadedAt] = useState(initialProject?.energyModelUploadedAt || null);
   const [energyModelError, setEnergyModelError] = useState("");
   const emFileRef = useRef();
-  // Raw matched items from the workbook, before filtering out anything already tracked as
-  // mandatory for Gold. Kept unfiltered in state because upload happens on this "name" step,
-  // before programs are picked on the next step — filtering has to be re-derived below from
-  // the LIVE `selections`, not decided once at upload time, or picking/removing Gold after
-  // uploading would leave the wrong items in (or out).
+  // Raw matched items from the workbook, unfiltered — this is what actually gets saved onto the
+  // project. Gold-mandatory-overlap items are filtered OUT of the optional checklist display at
+  // render time instead (see getItemsForSelection), not here and not at save time, so their
+  // workbook status survives to drive applyEarthCraftGoldOverlapAutoPass regardless of upload/
+  // program-selection order.
   const [earthcraftRawItems, setEarthcraftRawItems] = useState(initialProject?.earthcraftOptionalItems || null);
   const [earthcraftWorkbookFileName, setEarthcraftWorkbookFileName] = useState(initialProject?.earthcraftWorkbookFileName || "");
   const [earthcraftWorkbookUploadedAt, setEarthcraftWorkbookUploadedAt] = useState(initialProject?.earthcraftWorkbookUploadedAt || null);
@@ -1888,7 +1962,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
           id: initialProject?.id || Date.now().toString(),
           name: name.trim(), advisor: advisor.trim(), programs: selections, sharePointFolder: folderPath.trim(),
           energyModel, energyModelFileName, energyModelUploadedAt,
-          earthcraftOptionalItems, earthcraftWorkbookFileName, earthcraftWorkbookUploadedAt,
+          earthcraftOptionalItems: earthcraftRawItems || [], earthcraftWorkbookFileName, earthcraftWorkbookUploadedAt,
           createdAt: initialProject?.createdAt || new Date().toISOString(),
         })}
         disabled={!selections.length}
@@ -2755,11 +2829,11 @@ export default function App() {
       </div>
 
       {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();setAuth(null);}}/>}
-      {screen === "create" && <ProjectForm onSave={proj=>{setData(d=>({...d,projects:[...d.projects,proj],records:{...d.records,...applyEarthCraftAutoPass(proj,d.records)}}));setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
+      {screen === "create" && <ProjectForm onSave={proj=>{setData(d=>({...d,projects:[...d.projects,proj],records:{...d.records,...applyEarthCraftAutoPass(proj,d.records),...applyEarthCraftGoldOverlapAutoPass(proj,d.records)}}));setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
       {screen === "edit" && activeProject && (
         <ProjectForm
           initialProject={activeProject}
-          onSave={proj=>{setData(d=>({...d,projects:d.projects.map(p=>p.id===proj.id?proj:p),records:{...d.records,...applyEarthCraftAutoPass(proj,d.records)}}));setActiveProject(proj);setScreen("dashboard");}}
+          onSave={proj=>{setData(d=>({...d,projects:d.projects.map(p=>p.id===proj.id?proj:p),records:{...d.records,...applyEarthCraftAutoPass(proj,d.records),...applyEarthCraftGoldOverlapAutoPass(proj,d.records)}}));setActiveProject(proj);setScreen("dashboard");}}
           onBack={navBack}
           auth={auth}
           setAuth={setAuth}
