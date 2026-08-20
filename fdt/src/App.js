@@ -327,56 +327,25 @@ const MRF_MODEL_FIELDS = {
 };
 
 const EARTHCRAFT_CERTIFIED_V7 = [
+  // SP 2.7 removed 2026-08-20: mandatory-mislabeled -- genuinely optional in the real V7
+  // workbook, already correctly tracked as ec_opt_sp_sp_2_7 in EARTHCRAFT_OPTIONAL_LIBRARY.
   // ── SITE PLANNING ──────────────────────────────────────────────────────────
-    { id: "ec_sp2_7", pointNumber: "SP 2.7", tier: "ALL", text: "Outdoor community gathering space provided on site", category: "Site Planning" },
-  { id: "ec_du1_5",  pointNumber: "DU 1.5",  tier: "ALL",  text: "Maintain 2\" clearance between wall siding and roof surface", category: "Durability & Moisture Management" },
-  { id: "ec_du1_6",  pointNumber: "DU 1.6",  tier: "ALL",  text: "Install level air conditioner condensing unit pad", category: "Durability & Moisture Management" },
-  { id: "ec_du1_7",  pointNumber: "DU 1.7",  tier: "ALL",  text: "Roof drip edge with ≥ 1/4\" overhang", category: "Durability & Moisture Management" },
+  { id: "ec_du1_5",  pointNumber: "DU 1.7",  tier: "ALL",  text: "Maintain 2\" clearance between wall siding and roof surface", category: "Durability & Moisture Management" },
+  { id: "ec_du1_6",  pointNumber: "DU 1.8",  tier: "ALL",  text: "Install level air conditioner condensing unit pad", category: "Durability & Moisture Management" },
   { id: "ec_nc_du2_5", pointNumber: "DU 2.5",  tier: "ALL",  text: "Do not install wet or water-damaged building materials", category: "Durability & Moisture Management" },
   { id: "ec_du2_8",  pointNumber: "DU 2.8",  tier: "ALL",  text: "Design for or install additional dehumidification: rough-in electrical/plumbing for dehumidifier OR install whole-unit ENERGY STAR dehumidifier", category: "Durability & Moisture Management" },
-  { id: "ec_iaq1",   pointNumber: "IAQ 1",   tier: "ALL",  text: "No unvented combustion fireplaces, appliances, or space heaters; all combustion appliances mechanically drafted or direct-vented (EarthCraft IAQ 1 / Energy Star 10.1–10.3)", category: "Indoor Air Quality", mergedWith: ["es_10_1","es_10_2","es_10_3"] },
-  { id: "ec_iaq1_2", pointNumber: "IAQ 1.2", tier: "ALL",  text: "Sealed-combustion or electric water heater installed within thermal envelope; no unit-level atmospherically vented water heaters or furnaces (EarthCraft IAQ 1.1–1.2 / Energy Star ES 5.0)", category: "Indoor Air Quality", mergedWith: ["es_10_1","ec_es5_0_ref"] },
-  { id: "ec_iaq1_3", pointNumber: "IAQ 1.3", tier: "ALL",  text: "Carbon monoxide detector installed if combustion appliances exist (one per unit)", category: "Indoor Air Quality" },
+  { id: "ec_iaq1",   pointNumber: "IAQ 1.0", tier: "ALL",  text: "No unvented combustion fireplaces, appliances, or space heaters; all combustion appliances mechanically drafted or direct-vented (EarthCraft IAQ 1 / Energy Star 10.1–10.3)", category: "Indoor Air Quality", mergedWith: ["es_10_1","es_10_2","es_10_3"] },
+  { id: "ec_iaq1_2", pointNumber: "IAQ 1.2 / 1.3", tier: "ALL",  text: "Sealed-combustion or electric water heater installed within thermal envelope; no unit-level atmospherically vented water heaters or furnaces (EarthCraft IAQ 1.1–1.2 / Energy Star ES 5.0)", category: "Indoor Air Quality", mergedWith: ["es_10_1","ec_es5_0_ref"] },
+  { id: "ec_iaq1_3", pointNumber: "IAQ 1.4", tier: "ALL",  text: "Carbon monoxide detector installed if combustion appliances exist (one per unit)", category: "Indoor Air Quality" },
   { id: "ec_iaq2",   pointNumber: "IAQ 2",   tier: "ALL",  text: "Protect all ducts and indoor coils until floor/wall finishing is complete", category: "Indoor Air Quality" },
   { id: "ec_iaq2_1", pointNumber: "IAQ 2.1", tier: "ALL",  text: "Filter is easily accessible for property maintenance; MERV 6+ minimum installed in each ducted system; all return and outdoor air passes through filter prior to distribution (EarthCraft IAQ 2.1–2.3 / Energy Star 9.1)", category: "Indoor Air Quality", mergedWith: ["es_9_1"] },
   { id: "ec_iaq2_5", pointNumber: "IAQ 2.5", tier: "ALL",  text: "No carpet in below-grade units", category: "Indoor Air Quality" },
   { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Water Efficiency", mergedWith: ["es_11_3"] },
   { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Water Efficiency" },
   { id: "ec_we1_0",  pointNumber: "WE 1.0",  tier: "ALL",  text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
-  { id: "ec_we1_1",  pointNumber: "WE 1.1",  tier: "ALL",  text: "Detect and repair all leaks at water-using fixtures, appliances, and equipment", category: "Water Efficiency" },
+  { id: "ec_we1_1",  pointNumber: "WE 1.1",  tier: "ALL",  text: "Detect no leaks at any water-using fixture, appliance or equipment", category: "Water Efficiency" },
   { id: "ec_we1_2",  pointNumber: "WE 1.2",  tier: "ALL",  text: "Low-flow fixtures throughout: WaterSense toilet ≤1.28 gpf; WaterSense urinal ≤0.5 gpf; WaterSense lavatory faucet ≤1.5 gpm; WaterSense showerhead ≤2.0 gpm (EarthCraft WE 1.2 / Energy Star 13.2)", category: "Water Efficiency", mergedWith: ["es_13_2"] },
-  { id: "ec_du2_6",  pointNumber: "DU 2.6",  tier: "ALL",  text: "Newly installed and existing plants maintain distance ≥2' from building at maturity", category: "Durability & Moisture Management" },
-  { id: "ec_v7_re1_1", pointNumber: "RE 1.1", text: "Engineered roof framing (90%)", category: "Resource Efficiency", tier: "ALL" },
-  { id: "ec_v7_du1_6", pointNumber: "DU 1.6", text: "Continuous foundation termite flashing (required if slab edge is insulated)", category: "Durability & Moisture Management", tier: "ALL" },
-  { id: "ec_v7_du1_10", pointNumber: "DU 1.10", text: "Drain pan installed for all water heaters and washing machines", category: "Durability & Moisture Management", tier: "ALL" },
-  { id: "ec_v7_du2_6", pointNumber: "DU 2.6", text: "Capillary break between foundation and framing at all exterior walls", category: "Durability & Moisture Management", tier: "ALL" },
-  { id: "ec_v7_du2_7", pointNumber: "DU 2.7", text: "Drainage board and damp proofing installed for all below-grade walls", category: "Durability & Moisture Management", tier: "ALL" },
-  { id: "ec_v7_iaq1_1", pointNumber: "IAQ 1.1", text: "All fireplaces have outdoor combustion air supply; masonry-built fireplaces have gasketed doors", category: "Indoor Air Quality", tier: "ALL" },
-  { id: "ec_v7_iaq2_2", pointNumber: "IAQ 2.2", text: "Rodent and corrosion-proof screens with mesh ≤0.5\" provided for all openings not fully sealed or caulked", category: "Indoor Air Quality", tier: "ALL" },
-  { id: "ec_v7_iaq2_3", pointNumber: "IAQ 2.3", text: "All outdoor supply air crosses a filter prior to distribution", category: "Indoor Air Quality", tier: "ALL" },
-  { id: "ec_v7_be3_9", pointNumber: "BE 3.9", text: "Slab edge insulation ≥ R-10", category: "High Performance Building Envelope", tier: "ALL" },
-  { id: "ec_v7_be3_10", pointNumber: "BE 3.10", text: "Insulation installation quality: Grade I throughout OR Grade II with continuous insulated sheathing ≥ R-3 (100% coverage)", category: "High Performance Building Envelope", tier: "ALL" },
-  { id: "ec_v7_we1_3", pointNumber: "WE 1.3", text: "Hot water recirculation system uses manual demand or presence sensor controls", category: "Water Efficiency", tier: "ALL" }
-];
-
-const EARTHCRAFT_GOLD_V7 = [
-  { id: "ec_du1_5",  pointNumber: "DU 1.5",  tier: "ALL",  text: "Maintain 2\" clearance between wall siding and roof surface", category: "Durability & Moisture Management" },
-  { id: "ec_du1_6",  pointNumber: "DU 1.6",  tier: "ALL",  text: "Install level air conditioner condensing unit pad", category: "Durability & Moisture Management" },
-  { id: "ec_du1_7",  pointNumber: "DU 1.7",  tier: "ALL",  text: "Roof drip edge with ≥ 1/4\" overhang", category: "Durability & Moisture Management" },
-  { id: "ec_nc_du2_5", pointNumber: "DU 2.5",  tier: "ALL",  text: "Do not install wet or water-damaged building materials", category: "Durability & Moisture Management" },
-  { id: "ec_du2_8",  pointNumber: "DU 2.8",  tier: "ALL",  text: "Design for or install additional dehumidification: rough-in electrical/plumbing for dehumidifier OR install whole-unit ENERGY STAR dehumidifier", category: "Durability & Moisture Management" },
-  { id: "ec_iaq1",   pointNumber: "IAQ 1",   tier: "ALL",  text: "No unvented combustion fireplaces, appliances, or space heaters; all combustion appliances mechanically drafted or direct-vented (EarthCraft IAQ 1 / Energy Star 10.1–10.3)", category: "Indoor Air Quality", mergedWith: ["es_10_1","es_10_2","es_10_3"] },
-  { id: "ec_iaq1_2", pointNumber: "IAQ 1.2", tier: "ALL",  text: "Sealed-combustion or electric water heater installed within thermal envelope; no unit-level atmospherically vented water heaters or furnaces (EarthCraft IAQ 1.1–1.2 / Energy Star ES 5.0)", category: "Indoor Air Quality", mergedWith: ["es_10_1","ec_es5_0_ref"] },
-  { id: "ec_iaq1_3", pointNumber: "IAQ 1.3", tier: "ALL",  text: "Carbon monoxide detector installed if combustion appliances exist (one per unit)", category: "Indoor Air Quality" },
-  { id: "ec_iaq2",   pointNumber: "IAQ 2",   tier: "ALL",  text: "Protect all ducts and indoor coils until floor/wall finishing is complete", category: "Indoor Air Quality" },
-  { id: "ec_iaq2_1", pointNumber: "IAQ 2.1", tier: "ALL",  text: "Filter is easily accessible for property maintenance; MERV 6+ minimum installed in each ducted system; all return and outdoor air passes through filter prior to distribution (EarthCraft IAQ 2.1–2.3 / Energy Star 9.1)", category: "Indoor Air Quality", mergedWith: ["es_9_1"] },
-  { id: "ec_iaq2_5", pointNumber: "IAQ 2.5", tier: "ALL",  text: "No carpet in below-grade units", category: "Indoor Air Quality" },
-  { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Water Efficiency", mergedWith: ["es_11_3"] },
-  { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Water Efficiency" },
-  { id: "ec_we1_0",  pointNumber: "WE 1.0",  tier: "ALL",  text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
-  { id: "ec_we1_1",  pointNumber: "WE 1.1",  tier: "ALL",  text: "Detect and repair all leaks at water-using fixtures, appliances, and equipment", category: "Water Efficiency" },
-  { id: "ec_we1_2",  pointNumber: "WE 1.2",  tier: "ALL",  text: "Low-flow fixtures throughout: WaterSense toilet ≤1.28 gpf; WaterSense urinal ≤0.5 gpf; WaterSense lavatory faucet ≤1.5 gpm; WaterSense showerhead ≤2.0 gpm (EarthCraft WE 1.2 / Energy Star 13.2)", category: "Water Efficiency", mergedWith: ["es_13_2"] },
-  { id: "ec_du2_6",  pointNumber: "DU 2.6",  tier: "ALL",  text: "Newly installed and existing plants maintain distance ≥2' from building at maturity", category: "Durability & Moisture Management" },
+  { id: "ec_du2_6",  pointNumber: "WE 2.3",  tier: "ALL",  text: "Newly installed and existing plants maintain distance ≥2' from building at maturity", category: "Water Efficiency" },
   { id: "ec_v7_re1_1", pointNumber: "RE 1.1", text: "Engineered roof framing (90%)", category: "Resource Efficiency", tier: "ALL" },
   { id: "ec_v7_du1_6", pointNumber: "DU 1.6", text: "Continuous foundation termite flashing (required if slab edge is insulated)", category: "Durability & Moisture Management", tier: "ALL" },
   { id: "ec_v7_du1_10", pointNumber: "DU 1.10", text: "Drain pan installed for all water heaters and washing machines", category: "Durability & Moisture Management", tier: "ALL" },
@@ -388,9 +357,124 @@ const EARTHCRAFT_GOLD_V7 = [
   { id: "ec_v7_be3_9", pointNumber: "BE 3.9", text: "Slab edge insulation ≥ R-10", category: "High Performance Building Envelope", tier: "ALL" },
   { id: "ec_v7_be3_10", pointNumber: "BE 3.10", text: "Insulation installation quality: Grade I throughout OR Grade II with continuous insulated sheathing ≥ R-3 (100% coverage)", category: "High Performance Building Envelope", tier: "ALL" },
   { id: "ec_v7_we1_3", pointNumber: "WE 1.3", text: "Hot water recirculation system uses manual demand or presence sensor controls", category: "Water Efficiency", tier: "ALL" },
-  { id: "ec_du2_7",  pointNumber: "DU 2.7",  tier: "GOLD", text: "If installed, drain at outside perimeter edge of footing surrounded with 6\" clearstone and filter fabric", category: "Durability & Moisture Management" },
+  // ── Added 2026-08-20 from the full V7 mandatory-checklist audit (see CLAUDE.md) ──────────────
+  { id: "ec_v7_sp_sp_3_8", pointNumber: "SP 3.8", text: "Label all storm drains or storm inlets to discourage dumping of pollutants", category: "Site Planning", tier: "ALL" },
+  { id: "ec_v7_sp_sp_3_9", pointNumber: "SP 3.9", text: "Road/vehicle cleaning protocols posted and enforced", category: "Site Planning", tier: "ALL" },
+  { id: "ec_v7_re_re_1_0", pointNumber: "RE 1.0", text: "Limit framing at all windows and doors", category: "Resource Efficiency", tier: "ALL" },
+  { id: "ec_v7_du_du_1", pointNumber: "DU 1", text: "All roof valleys direct water away from walls, dormers, chimneys, etc.", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_1", pointNumber: "DU 1.1", text: "Install drainage plane per manufacturer's specifications", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_2_1", pointNumber: "DU 1.2 > 1", text: "Integrate drainage plane with: > Window and door pan flashing at sills and side flashing", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_2_2", pointNumber: "DU 1.2 > 2", text: "Integrate drainage plane with: > Window and door head/top flashing", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_3", pointNumber: "DU 1.3", text: "Double layer of building paper or house wrap behind cementitious stucco, stone veneer or synthetic stone veneer on framed walls", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_4", pointNumber: "DU 1.4", text: "Roof gutters discharge water ≥5' from foundation", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_5_1", pointNumber: "DU 1.5 > 1", text: "Flashing: > Self-sealing bituminous membrane or equivalent at valleys and roof deck penetrations", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_5_2", pointNumber: "DU 1.5 > 2", text: "Flashing: > Step and kick-out flashing at wall/roof and wall/porch intersections, flashing ≥4” on wall surface and integrated with wall and roof/deck/porch drainage planes", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_2", pointNumber: "DU 2", text: "Gravel bed (57's, no fines) beneath sub-grade slabs, on grade slabs, or raised slabs", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_2_1", pointNumber: "DU 2.1", text: "100% coverage of ≥6mil vapor barrier beneath all slabs, in all crawlspaces", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_2_2", pointNumber: "DU 2.2", text: "Foundation drain on top of sub-grade footing", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_be_be_1_1", pointNumber: "BE 1.1", text: "Seal bottom plates to subfloor or foundation for entire unit envelope", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_5_1", pointNumber: "BE 1.5 > 1", text: "Seal penetrations through: > Foundations and exterior wall assemblies", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_5_2", pointNumber: "BE 1.5 > 2", text: "Seal penetrations through: > Top and bottom plates", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_5_5", pointNumber: "BE 1.5 > 5", text: "Seal penetrations through: > Sheathing", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_5_7", pointNumber: "BE 1.5 > 7", text: "Seal penetrations through: > All ceilings", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_1", pointNumber: "BE 1.6 > 1", text: "Seal penetrations around: > Shower, sinks, toilets and tub drains", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_2", pointNumber: "BE 1.6 > 2", text: "Seal penetrations around: > HVAC supply and return boots sealed to subfloor or drywall (floor, walls, or ceilings)", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_3", pointNumber: "BE 1.6 > 3", text: "Seal penetrations around: > Window and door rough openings", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_4", pointNumber: "BE 1.6 > 4", text: "Seal penetrations around: > All drywall penetrations (common walls between attached units included)", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_5", pointNumber: "BE 1.6 > 5", text: "Seal penetrations around: > Exhaust fans to drywall", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_6", pointNumber: "BE 1.6 > 6", text: "Seal penetrations around: > Attic pull-down stairs, scuttle holes and kneewall doors", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_7", pointNumber: "BE 1.6 > 7", text: "Seal penetrations around: > Chases", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_7_1", pointNumber: "BE 1.7 > 1", text: "Seal seams and gaps in: > Band joist sheathing", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_7_2", pointNumber: "BE 1.7 > 2", text: "Seal seams and gaps in: > Exterior wall sheathing", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_8_1", pointNumber: "BE 1.8 > 1", text: "Install rigid air barriers: > Behind tubs and showers on insulated walls", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_9_1", pointNumber: "BE 1.9 > 1", text: "Install weather-stripping at: > All exterior doors (if not included in door assembly)", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_10", pointNumber: "BE 1.10", text: "All recessed can lights must be air tight, gasketed at all floors and also IC-rated in insulated ceilings;  in Climate Zone 4, insulate exterior surface of fixture to ≥R-10", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_12", pointNumber: "BE 1.12", text: "Units adjacent to CMU walls: framing and sub-floor at unit envelope, including interstitial space, must be sealed to CMU", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_13", pointNumber: "BE 1.13", text: "Seal top plate to drywall at the attic level", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_1", pointNumber: "BE 3 > 1", text: "Floors: > Framed ≥ R-19", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_2", pointNumber: "BE 3 > 2", text: "Floors: > Cantilevered ≥ R-30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_3", pointNumber: "BE 3 > 3", text: "Floors: > Podium/Elevated Slab ≥ R-19", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_1_1", pointNumber: "BE 3.1 > 1", text: "Walls: > Exterior walls and band joists ≥ R-15", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_1_2", pointNumber: "BE 3.1 > 2", text: "Walls: > Elevator walls adjacent to dwelling units ≥ R-13", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_1_3", pointNumber: "BE 3.1 > 3", text: "Walls: > Foundation walls ≥ R-10 continuous or ≥ R-13 cavity; Climate Zone 2/3 ≥ R-5 continuous or ≥ R-13 cavity; Climate Zone 4 ≥ R-10 continuous or ≥ R-13 cavity", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_2_1", pointNumber: "BE 3.2 > 1", text: "Ceilings/Roof: > Vented: Climate Zone 4 ≥ R-49", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_2_2", pointNumber: "BE 3.2 > 2", text: "Ceilings/Roof: > Continuous Roof Deck: Climate Zone 4 ≥ R-30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_2_3", pointNumber: "BE 3.2 > 3", text: "Ceilings/Roof: > Cathedral: Climate Zone 4 ≥ R-38", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_3_1", pointNumber: "BE 3.3 > 1", text: "Attic/Roof: > Install wind baffles at eaves in every vented bay, or equivalent air barrier at edge of ceiling", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_3_2", pointNumber: "BE 3.3 > 2", text: "Attic/Roof: > Energy heel trusses or raised top plate", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_3_3", pointNumber: "BE 3.3 > 3", text: "Attic/Roof: > Attic platforms allow for full-depth insulation below", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_5", pointNumber: "BE 3.5", text: "Attic pull-down/scuttle hole ≥ R-49", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_7", pointNumber: "BE 3.7", text: "Steel framed buildings require thermal break ≥ R-7.5", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_1", pointNumber: "BE 4 > 1", text: "Door U-factors and SHGC: > U-factor ≤0.35", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_2", pointNumber: "BE 4 > 2", text: "Door U-factors and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_1_1", pointNumber: "BE 4.1 > 1", text: "Window U-factor and SHGC: > U-factor ≤0.30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_1_2", pointNumber: "BE 4.1 > 2", text: "Window U-factor and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_2_1", pointNumber: "BE 4.2 > 1", text: "Skylight U-factor and SHGC: > U-factor ≤0.55", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_2_2", pointNumber: "BE 4.2 > 2", text: "Skylight U-factor and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_es_es_1_1", pointNumber: "ES 1.1", text: "If programmable thermostat installed for heat pump, include adaptive recovery technology", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2", pointNumber: "ES 2", text: "Seal air handlers and duct systems with mastic", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_2", pointNumber: "ES 2.2", text: "Fully duct all supply and return ducts", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_3_1", pointNumber: "ES 2.3 > 1", text: "Duct insulation: > ≥ R-6: Ducts in conditioned and interstitial spaces (between floors)", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_3_2", pointNumber: "ES 2.3 > 2", text: "Duct insulation: > ≥ R-8: Ducts in unconditioned space", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_4", pointNumber: "ES 2.4", text: "No ducts in exterior walls or vaulted ceilings and no plenum within 2' of roofline.", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_5", pointNumber: "ES 2.5", text: "Locate all air handlers within conditioned space", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_6", pointNumber: "ES 2.6", text: "Indoor coil protected until finished floor installed", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_8", pointNumber: "ES 2.8", text: "No duct take-offs within 6\" of supply plenum or supply trunk cap", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_9", pointNumber: "ES 2.9", text: "Design and construct mechanical closets accessible for service and maintenance requirements", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4", pointNumber: "ES 4", text: "Install exhaust fans in all bathrooms and duct to outside", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_1", pointNumber: "ES 4.1", text: "Gas kitchen range vented to exterior  ≥100 cfm fan", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_2", pointNumber: "ES 4.3 > 2", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > ≥ 2' above grade", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_4", pointNumber: "ES 4.3 > 4", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > Fresh air duct may not be run to the roof", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_5", pointNumber: "ES 4.3 > 5", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > Fresh air shutoff may not be controlled by humidistat", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_6", pointNumber: "ES 4.3 > 6", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > Install rigid duct with insulation", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_7", pointNumber: "ES 4.3 > 7", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > All intakes must be ducted to exterior of building", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_4", pointNumber: "ES 4.4", text: "Seal seams of all intake and exhaust ducts with mastic", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_5", pointNumber: "ES 4.5", text: "Duct clothes dryers to outside", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_7", pointNumber: "ES 4.7", text: "Back-draft dampers for kitchen and bathroom exhaust", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_5_0", pointNumber: "ES 5.0", text: "Water Heater must be installed in conditioned space. If gas, direct vent", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_5_1", pointNumber: "ES 5.1", text: "Heat trap on all storage water heaters", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_5_3", pointNumber: "ES 5.3", text: "Pipe insulation on first 2'", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_6", pointNumber: "ES 6", text: "High-efficacy lighting in 100% of all permanent fixtures", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_6_1", pointNumber: "ES 6.1", text: "If installed, ENERGY STAR dishwasher", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_6_2", pointNumber: "ES 6.2", text: "If installed, ENERGY STAR refrigerator", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_7", pointNumber: "ES 7", text: "100% LED bulbs in all corridor/breezeway and all common spaces", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_we_we_2", pointNumber: "WE 2", text: "Cover all exposed soil with 2\"-3\" mulch layer", category: "Water Efficiency", tier: "ALL" },
+  { id: "ec_v7_we_we_2_1_1", pointNumber: "WE 2.1 > 1", text: "Irrigation system: > Must have rain sensor shutoff switch", category: "Water Efficiency", tier: "ALL" }
+];
+
+const EARTHCRAFT_GOLD_V7 = [
+  { id: "ec_du1_5",  pointNumber: "DU 1.7",  tier: "ALL",  text: "Maintain 2\" clearance between wall siding and roof surface", category: "Durability & Moisture Management" },
+  { id: "ec_du1_6",  pointNumber: "DU 1.8",  tier: "ALL",  text: "Install level air conditioner condensing unit pad", category: "Durability & Moisture Management" },
+  { id: "ec_nc_du2_5", pointNumber: "DU 2.5",  tier: "ALL",  text: "Do not install wet or water-damaged building materials", category: "Durability & Moisture Management" },
+  { id: "ec_du2_8",  pointNumber: "DU 2.8",  tier: "ALL",  text: "Design for or install additional dehumidification: rough-in electrical/plumbing for dehumidifier OR install whole-unit ENERGY STAR dehumidifier", category: "Durability & Moisture Management" },
+  { id: "ec_iaq1",   pointNumber: "IAQ 1.0", tier: "ALL",  text: "No unvented combustion fireplaces, appliances, or space heaters; all combustion appliances mechanically drafted or direct-vented (EarthCraft IAQ 1 / Energy Star 10.1–10.3)", category: "Indoor Air Quality", mergedWith: ["es_10_1","es_10_2","es_10_3"] },
+  { id: "ec_iaq1_2", pointNumber: "IAQ 1.2 / 1.3", tier: "ALL",  text: "Sealed-combustion or electric water heater installed within thermal envelope; no unit-level atmospherically vented water heaters or furnaces (EarthCraft IAQ 1.1–1.2 / Energy Star ES 5.0)", category: "Indoor Air Quality", mergedWith: ["es_10_1","ec_es5_0_ref"] },
+  { id: "ec_iaq1_3", pointNumber: "IAQ 1.4", tier: "ALL",  text: "Carbon monoxide detector installed if combustion appliances exist (one per unit)", category: "Indoor Air Quality" },
+  { id: "ec_iaq2",   pointNumber: "IAQ 2",   tier: "ALL",  text: "Protect all ducts and indoor coils until floor/wall finishing is complete", category: "Indoor Air Quality" },
+  { id: "ec_iaq2_1", pointNumber: "IAQ 2.1", tier: "ALL",  text: "Filter is easily accessible for property maintenance; MERV 6+ minimum installed in each ducted system; all return and outdoor air passes through filter prior to distribution (EarthCraft IAQ 2.1–2.3 / Energy Star 9.1)", category: "Indoor Air Quality", mergedWith: ["es_9_1"] },
+  { id: "ec_iaq2_5", pointNumber: "IAQ 2.5", tier: "ALL",  text: "No carpet in below-grade units", category: "Indoor Air Quality" },
+  { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Water Efficiency", mergedWith: ["es_11_3"] },
+  { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Water Efficiency" },
+  { id: "ec_we1_0",  pointNumber: "WE 1.0",  tier: "ALL",  text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
+  { id: "ec_we1_1",  pointNumber: "WE 1.1",  tier: "ALL",  text: "Detect no leaks at any water-using fixture, appliance or equipment", category: "Water Efficiency" },
+  { id: "ec_we1_2",  pointNumber: "WE 1.2",  tier: "ALL",  text: "Low-flow fixtures throughout: WaterSense toilet ≤1.28 gpf; WaterSense urinal ≤0.5 gpf; WaterSense lavatory faucet ≤1.5 gpm; WaterSense showerhead ≤2.0 gpm (EarthCraft WE 1.2 / Energy Star 13.2)", category: "Water Efficiency", mergedWith: ["es_13_2"] },
+  { id: "ec_du2_6",  pointNumber: "WE 2.3",  tier: "ALL",  text: "Newly installed and existing plants maintain distance ≥2' from building at maturity", category: "Water Efficiency" },
+  { id: "ec_v7_re1_1", pointNumber: "RE 1.1", text: "Engineered roof framing (90%)", category: "Resource Efficiency", tier: "ALL" },
+  { id: "ec_v7_du1_6", pointNumber: "DU 1.6", text: "Continuous foundation termite flashing (required if slab edge is insulated)", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du1_10", pointNumber: "DU 1.10", text: "Drain pan installed for all water heaters and washing machines", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du2_6", pointNumber: "DU 2.6", text: "Capillary break between foundation and framing at all exterior walls", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du2_7", pointNumber: "DU 2.7", text: "Drainage board and damp proofing installed for all below-grade walls", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_iaq1_1", pointNumber: "IAQ 1.1", text: "All fireplaces have outdoor combustion air supply; masonry-built fireplaces have gasketed doors", category: "Indoor Air Quality", tier: "ALL" },
+  { id: "ec_v7_iaq2_2", pointNumber: "IAQ 2.2", text: "Rodent and corrosion-proof screens with mesh ≤0.5\" provided for all openings not fully sealed or caulked", category: "Indoor Air Quality", tier: "ALL" },
+  { id: "ec_v7_iaq2_3", pointNumber: "IAQ 2.3", text: "All outdoor supply air crosses a filter prior to distribution", category: "Indoor Air Quality", tier: "ALL" },
+  { id: "ec_v7_be3_9", pointNumber: "BE 3.9", text: "Slab edge insulation ≥ R-10", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be3_10", pointNumber: "BE 3.10", text: "Insulation installation quality: Grade I throughout OR Grade II with continuous insulated sheathing ≥ R-3 (100% coverage)", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_we1_3", pointNumber: "WE 1.3", text: "Hot water recirculation system uses manual demand or presence sensor controls", category: "Water Efficiency", tier: "ALL" },
+  { id: "ec_du2_7",  pointNumber: "DU 2.10", tier: "GOLD", text: "If installed, drain at outside perimeter edge of footing surrounded with 6\" clearstone and filter fabric", category: "Durability & Moisture Management" },
   { id: "ec_iaq2_6", pointNumber: "IAQ 2.6", tier: "GOLD", text: "Filters are ≥ MERV 8", category: "Indoor Air Quality" },
-  { id: "ec_v7_re1_2", pointNumber: "RE 1.2", text: "Advanced framing: 2-stud corners where structurally feasible; ladder T-walls where structurally feasible; headers sized for actual loads", category: "Resource Efficiency", tier: "GOLD" },
+  { id: "ec_v7_re1_2_1", pointNumber: "RE 1.2 > 1", text: "2-stud corners where structurally feasible", category: "Resource Efficiency", tier: "GOLD", points: 3 },
+  { id: "ec_v7_re1_2_2", pointNumber: "RE 1.2 > 2", text: "Ladder T-walls where structurally feasible", category: "Resource Efficiency", tier: "GOLD", points: 2 },
+  { id: "ec_v7_re1_2_3", pointNumber: "RE 1.2 > 3", text: "Size headers for loads (non-structural headers in non-load bearing walls)", category: "Resource Efficiency", tier: "GOLD", points: 1 },
   { id: "ec_v7_du2_9", pointNumber: "DU 2.9", text: "Additional dehumidification system installed: basement or sealed crawlspace system", category: "Durability & Moisture Management", tier: "GOLD" },
   { id: "ec_v7_iaq1_5", pointNumber: "IAQ 1.5", text: "If installed, all fireplaces meet indoor air quality guidelines and have gasketed doors", category: "Indoor Air Quality", tier: "GOLD" },
   { id: "ec_v7_be1_14", pointNumber: "BE 1.14", text: "Top plate sealed to drywall at all levels", category: "High Performance Building Envelope", tier: "GOLD" },
@@ -398,7 +482,105 @@ const EARTHCRAFT_GOLD_V7 = [
   { id: "ec_v7_be3_12", pointNumber: "BE 3.12", text: "Headers insulated to ≥ R-3", category: "High Performance Building Envelope", tier: "GOLD" },
   { id: "ec_v7_be3_13", pointNumber: "BE 3.13", text: "Fiberglass batts are unfaced and friction-fit throughout", category: "High Performance Building Envelope", tier: "GOLD" },
   { id: "ec_v7_be5_0", pointNumber: "BE 5.0", text: "Ducts in unconditioned attic: buried in R-49 insulation OR ducts with R-8 insulation encapsulated in 1.5\" closed-cell foam and buried under ≥2\" blown insulation", category: "High Performance Building Envelope", tier: "GOLD" },
-  { id: "ec_v7_es1_11", pointNumber: "ES 1.11", text: "HVAC equipment is ENERGY STAR qualified; for split systems, the pairing must be qualified", category: "Energy Efficient Systems", tier: "GOLD" }
+  { id: "ec_v7_es1_11", pointNumber: "ES 1.11", text: "HVAC equipment is ENERGY STAR qualified; for split systems, the pairing must be qualified", category: "Energy Efficient Systems", tier: "GOLD" },
+  // ── Added 2026-08-20 from the full V7 mandatory-checklist audit (see CLAUDE.md) ──────────────
+  { id: "ec_v7_sp_sp_3_8", pointNumber: "SP 3.8", text: "Label all storm drains or storm inlets to discourage dumping of pollutants", category: "Site Planning", tier: "ALL" },
+  { id: "ec_v7_sp_sp_3_9", pointNumber: "SP 3.9", text: "Road/vehicle cleaning protocols posted and enforced", category: "Site Planning", tier: "ALL" },
+  { id: "ec_v7_re_re_1_0", pointNumber: "RE 1.0", text: "Limit framing at all windows and doors", category: "Resource Efficiency", tier: "ALL" },
+  { id: "ec_v7_du_du_1", pointNumber: "DU 1", text: "All roof valleys direct water away from walls, dormers, chimneys, etc.", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_1", pointNumber: "DU 1.1", text: "Install drainage plane per manufacturer's specifications", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_2_1", pointNumber: "DU 1.2 > 1", text: "Integrate drainage plane with: > Window and door pan flashing at sills and side flashing", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_2_2", pointNumber: "DU 1.2 > 2", text: "Integrate drainage plane with: > Window and door head/top flashing", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_3", pointNumber: "DU 1.3", text: "Double layer of building paper or house wrap behind cementitious stucco, stone veneer or synthetic stone veneer on framed walls", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_4", pointNumber: "DU 1.4", text: "Roof gutters discharge water ≥5' from foundation", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_5_1", pointNumber: "DU 1.5 > 1", text: "Flashing: > Self-sealing bituminous membrane or equivalent at valleys and roof deck penetrations", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_1_5_2", pointNumber: "DU 1.5 > 2", text: "Flashing: > Step and kick-out flashing at wall/roof and wall/porch intersections, flashing ≥4” on wall surface and integrated with wall and roof/deck/porch drainage planes", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_2", pointNumber: "DU 2", text: "Gravel bed (57's, no fines) beneath sub-grade slabs, on grade slabs, or raised slabs", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_2_1", pointNumber: "DU 2.1", text: "100% coverage of ≥6mil vapor barrier beneath all slabs, in all crawlspaces", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_du_du_2_2", pointNumber: "DU 2.2", text: "Foundation drain on top of sub-grade footing", category: "Durability & Moisture Management", tier: "ALL" },
+  { id: "ec_v7_be_be_1_1", pointNumber: "BE 1.1", text: "Seal bottom plates to subfloor or foundation for entire unit envelope", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_5_1", pointNumber: "BE 1.5 > 1", text: "Seal penetrations through: > Foundations and exterior wall assemblies", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_5_2", pointNumber: "BE 1.5 > 2", text: "Seal penetrations through: > Top and bottom plates", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_5_5", pointNumber: "BE 1.5 > 5", text: "Seal penetrations through: > Sheathing", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_5_7", pointNumber: "BE 1.5 > 7", text: "Seal penetrations through: > All ceilings", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_1", pointNumber: "BE 1.6 > 1", text: "Seal penetrations around: > Shower, sinks, toilets and tub drains", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_2", pointNumber: "BE 1.6 > 2", text: "Seal penetrations around: > HVAC supply and return boots sealed to subfloor or drywall (floor, walls, or ceilings)", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_3", pointNumber: "BE 1.6 > 3", text: "Seal penetrations around: > Window and door rough openings", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_4", pointNumber: "BE 1.6 > 4", text: "Seal penetrations around: > All drywall penetrations (common walls between attached units included)", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_5", pointNumber: "BE 1.6 > 5", text: "Seal penetrations around: > Exhaust fans to drywall", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_6", pointNumber: "BE 1.6 > 6", text: "Seal penetrations around: > Attic pull-down stairs, scuttle holes and kneewall doors", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_6_7", pointNumber: "BE 1.6 > 7", text: "Seal penetrations around: > Chases", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_7_1", pointNumber: "BE 1.7 > 1", text: "Seal seams and gaps in: > Band joist sheathing", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_7_2", pointNumber: "BE 1.7 > 2", text: "Seal seams and gaps in: > Exterior wall sheathing", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_8_1", pointNumber: "BE 1.8 > 1", text: "Install rigid air barriers: > Behind tubs and showers on insulated walls", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_9_1", pointNumber: "BE 1.9 > 1", text: "Install weather-stripping at: > All exterior doors (if not included in door assembly)", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_10", pointNumber: "BE 1.10", text: "All recessed can lights must be air tight, gasketed at all floors and also IC-rated in insulated ceilings;  in Climate Zone 4, insulate exterior surface of fixture to ≥R-10", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_12", pointNumber: "BE 1.12", text: "Units adjacent to CMU walls: framing and sub-floor at unit envelope, including interstitial space, must be sealed to CMU", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_1_13", pointNumber: "BE 1.13", text: "Seal top plate to drywall at the attic level", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_1", pointNumber: "BE 3 > 1", text: "Floors: > Framed ≥ R-19", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_2", pointNumber: "BE 3 > 2", text: "Floors: > Cantilevered ≥ R-30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_3", pointNumber: "BE 3 > 3", text: "Floors: > Podium/Elevated Slab ≥ R-19", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_1_1", pointNumber: "BE 3.1 > 1", text: "Walls: > Exterior walls and band joists ≥ R-15", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_1_2", pointNumber: "BE 3.1 > 2", text: "Walls: > Elevator walls adjacent to dwelling units ≥ R-13", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_1_3", pointNumber: "BE 3.1 > 3", text: "Walls: > Foundation walls ≥ R-10 continuous or ≥ R-13 cavity; Climate Zone 2/3 ≥ R-5 continuous or ≥ R-13 cavity; Climate Zone 4 ≥ R-10 continuous or ≥ R-13 cavity", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_2_1", pointNumber: "BE 3.2 > 1", text: "Ceilings/Roof: > Vented: Climate Zone 4 ≥ R-49", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_2_2", pointNumber: "BE 3.2 > 2", text: "Ceilings/Roof: > Continuous Roof Deck: Climate Zone 4 ≥ R-30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_2_3", pointNumber: "BE 3.2 > 3", text: "Ceilings/Roof: > Cathedral: Climate Zone 4 ≥ R-38", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_3_1", pointNumber: "BE 3.3 > 1", text: "Attic/Roof: > Install wind baffles at eaves in every vented bay, or equivalent air barrier at edge of ceiling", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_3_2", pointNumber: "BE 3.3 > 2", text: "Attic/Roof: > Energy heel trusses or raised top plate", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_3_3", pointNumber: "BE 3.3 > 3", text: "Attic/Roof: > Attic platforms allow for full-depth insulation below", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_5", pointNumber: "BE 3.5", text: "Attic pull-down/scuttle hole ≥ R-49", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_3_7", pointNumber: "BE 3.7", text: "Steel framed buildings require thermal break ≥ R-7.5", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_1", pointNumber: "BE 4 > 1", text: "Door U-factors and SHGC: > U-factor ≤0.35", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_2", pointNumber: "BE 4 > 2", text: "Door U-factors and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_1_1", pointNumber: "BE 4.1 > 1", text: "Window U-factor and SHGC: > U-factor ≤0.30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_1_2", pointNumber: "BE 4.1 > 2", text: "Window U-factor and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_2_1", pointNumber: "BE 4.2 > 1", text: "Skylight U-factor and SHGC: > U-factor ≤0.55", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_be_be_4_2_2", pointNumber: "BE 4.2 > 2", text: "Skylight U-factor and SHGC: > SHGC ≤ 0.30", category: "High Performance Building Envelope", tier: "ALL" },
+  { id: "ec_v7_es_es_1_1", pointNumber: "ES 1.1", text: "If programmable thermostat installed for heat pump, include adaptive recovery technology", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2", pointNumber: "ES 2", text: "Seal air handlers and duct systems with mastic", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_2", pointNumber: "ES 2.2", text: "Fully duct all supply and return ducts", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_3_1", pointNumber: "ES 2.3 > 1", text: "Duct insulation: > ≥ R-6: Ducts in conditioned and interstitial spaces (between floors)", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_3_2", pointNumber: "ES 2.3 > 2", text: "Duct insulation: > ≥ R-8: Ducts in unconditioned space", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_4", pointNumber: "ES 2.4", text: "No ducts in exterior walls or vaulted ceilings and no plenum within 2' of roofline.", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_5", pointNumber: "ES 2.5", text: "Locate all air handlers within conditioned space", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_6", pointNumber: "ES 2.6", text: "Indoor coil protected until finished floor installed", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_8", pointNumber: "ES 2.8", text: "No duct take-offs within 6\" of supply plenum or supply trunk cap", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_2_9", pointNumber: "ES 2.9", text: "Design and construct mechanical closets accessible for service and maintenance requirements", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4", pointNumber: "ES 4", text: "Install exhaust fans in all bathrooms and duct to outside", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_1", pointNumber: "ES 4.1", text: "Gas kitchen range vented to exterior  ≥100 cfm fan", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_2", pointNumber: "ES 4.3 > 2", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > ≥ 2' above grade", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_4", pointNumber: "ES 4.3 > 4", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > Fresh air duct may not be run to the roof", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_5", pointNumber: "ES 4.3 > 5", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > Fresh air shutoff may not be controlled by humidistat", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_6", pointNumber: "ES 4.3 > 6", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > Install rigid duct with insulation", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_3_7", pointNumber: "ES 4.3 > 7", text: "When installed to achieve ES 4.2, design and install fresh air intakes: > All intakes must be ducted to exterior of building", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_4", pointNumber: "ES 4.4", text: "Seal seams of all intake and exhaust ducts with mastic", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_5", pointNumber: "ES 4.5", text: "Duct clothes dryers to outside", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_4_7", pointNumber: "ES 4.7", text: "Back-draft dampers for kitchen and bathroom exhaust", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_5_0", pointNumber: "ES 5.0", text: "Water Heater must be installed in conditioned space. If gas, direct vent", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_5_1", pointNumber: "ES 5.1", text: "Heat trap on all storage water heaters", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_5_3", pointNumber: "ES 5.3", text: "Pipe insulation on first 2'", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_6", pointNumber: "ES 6", text: "High-efficacy lighting in 100% of all permanent fixtures", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_6_1", pointNumber: "ES 6.1", text: "If installed, ENERGY STAR dishwasher", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_6_2", pointNumber: "ES 6.2", text: "If installed, ENERGY STAR refrigerator", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_es_es_7", pointNumber: "ES 7", text: "100% LED bulbs in all corridor/breezeway and all common spaces", category: "Energy Efficient Systems", tier: "ALL" },
+  { id: "ec_v7_we_we_2", pointNumber: "WE 2", text: "Cover all exposed soil with 2\"-3\" mulch layer", category: "Water Efficiency", tier: "ALL" },
+  { id: "ec_v7_we_we_2_1_1", pointNumber: "WE 2.1 > 1", text: "Irrigation system: > Must have rain sensor shutoff switch", category: "Water Efficiency", tier: "ALL" },
+  { id: "ec_v7_be_be_4_4_1", pointNumber: "BE 4.4 > 1", text: "Door U-factor: > Opaque door:  U factor≤ 0.17", category: "High Performance Building Envelope", tier: "GOLD" },
+  { id: "ec_v7_be_be_4_4_2", pointNumber: "BE 4.4 > 2", text: "Door U-factor: > Door with ≤ 50% glass:  U-factor ≤ 0.23", category: "High Performance Building Envelope", tier: "GOLD" },
+  { id: "ec_v7_be_be_4_4_3", pointNumber: "BE 4.4 > 3", text: "Door U-factor: > Door with > 50% glass:  U-factor ≤ 0.26", category: "High Performance Building Envelope", tier: "GOLD" },
+  { id: "ec_v7_be_be_4_5_1", pointNumber: "BE 4.5 > 1", text: "Window U-factor and SHGC: > U-factor ≤0.25 or ENERGY STAR labeled window", category: "High Performance Building Envelope", tier: "GOLD" },
+  { id: "ec_v7_be_be_4_5_2", pointNumber: "BE 4.5 > 2", text: "Window U-factor and SHGC: > SHGC ≤0.27", category: "High Performance Building Envelope", tier: "GOLD" },
+  { id: "ec_v7_be_be_4_6_1", pointNumber: "BE 4.6 > 1", text: "Skylight U-factor and SHGC: > U-factor ≤0.50", category: "High Performance Building Envelope", tier: "GOLD" },
+  { id: "ec_v7_be_be_4_6_2", pointNumber: "BE 4.6 > 2", text: "Skylight U-factor and SHGC: > SHGC ≤0.25", category: "High Performance Building Envelope", tier: "GOLD" },
+  { id: "ec_v7_es_es_2_11_1", pointNumber: "ES 2.11 > 1", text: "Minimize pressure imbalance within units: > Install fully ducted jumper ducts, transfer grills, or dedicated return for each bedroom", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_2_12", pointNumber: "ES 2.12", text: "Install rigid duct work or pull all flex ducts with no pinches and support at intervals ≤ 5’", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_2_15", pointNumber: "ES 2.15", text: "HVAC system and ductwork is dry and clean", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_4_9", pointNumber: "ES 4.9", text: "If installed, ceiling fans must be ENERGY STAR qualified (1/bedroom and 1 in living room)", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_4_12", pointNumber: "ES 4.12", text: "Install and label accessible ventilation controls, with override controls for continuously operating ventilation fans", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_4_13", pointNumber: "ES 4.13", text: "Supply/exhaust fans rated at ≤3 sones (intermittent) and ≤1 sone (continuous)", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_6_3", pointNumber: "ES 6.3", text: "If installed, ENERGY STAR qualified clothes washer", category: "Energy Efficient Systems", tier: "GOLD" },
+  { id: "ec_v7_es_es_6_4", pointNumber: "ES 6.4", text: "If installed, high efficiency clothes dryer with moisture sensor (not applicable to commercial dryers)", category: "Energy Efficient Systems", tier: "GOLD" }
 ];
 
 // ─── EARTHCRAFT OPTIONAL POINTS — WORKBOOK IMPORT ─────────────────────────────
@@ -903,7 +1085,9 @@ const EARTHCRAFT_CERTIFIED_V6 = [
 const EARTHCRAFT_GOLD_V6 = [
   ...EARTHCRAFT_CERTIFIED_V6,
   // ── RESOURCE EFFICIENCY: GOLD ───────────────────────────────────────────────
-  { id: "ec_v7_re1_2",   pointNumber: "RE 1.2",  tier: "GOLD", text: "Advanced framing: 2-stud corners where structurally feasible; ladder T-walls; headers sized for actual loads", category: "Resource Efficiency" },
+  { id: "ec_v7_re1_2_1", pointNumber: "RE 1.2 > 1", tier: "GOLD", text: "2-stud corners where structurally feasible", category: "Resource Efficiency", points: 3 },
+  { id: "ec_v7_re1_2_2", pointNumber: "RE 1.2 > 2", tier: "GOLD", text: "Ladder T-walls where structurally feasible", category: "Resource Efficiency", points: 2 },
+  { id: "ec_v7_re1_2_3", pointNumber: "RE 1.2 > 3", tier: "GOLD", text: "Size headers for loads (non-structural headers in non-load bearing walls)", category: "Resource Efficiency", points: 1 },
   // ── DURABILITY & MOISTURE: GOLD ─────────────────────────────────────────────
   { id: "ec_v7_du2_9",   pointNumber: "DU 2.9",  tier: "GOLD", text: "Additional dehumidification system installed: basement or sealed crawlspace system", category: "Durability & Moisture Management" },
   { id: "ec_du2_7",      pointNumber: "DU 2.10", tier: "GOLD", text: "Foundation drain at outside perimeter edge of footing surrounded with 6\" clean gravel and filter fabric", category: "Durability & Moisture Management" },
@@ -985,7 +1169,9 @@ const EARTHCRAFT_SF2024_CERTIFIED = [
 const EARTHCRAFT_SF2024_GOLD = [
   ...EARTHCRAFT_SF2024_CERTIFIED,
   // ── RESOURCE EFFICIENCY: GOLD ────────────────────────────────────────────────
-  { id: "ec_v7_re1_2",    pointNumber: "RE 1.2",  tier: "GOLD", text: "Advanced framing: 2-stud corners where structurally feasible; ladder T-walls; headers sized for actual loads", category: "Resource Efficiency" },
+  { id: "ec_v7_re1_2_1",  pointNumber: "RE 1.2 > 1", tier: "GOLD", text: "2-stud corners where structurally feasible", category: "Resource Efficiency", points: 3 },
+  { id: "ec_v7_re1_2_2",  pointNumber: "RE 1.2 > 2", tier: "GOLD", text: "Ladder T-walls where structurally feasible", category: "Resource Efficiency", points: 2 },
+  { id: "ec_v7_re1_2_3",  pointNumber: "RE 1.2 > 3", tier: "GOLD", text: "Size headers for loads (non-structural headers in non-load bearing walls)", category: "Resource Efficiency", points: 1 },
   // ── DURABILITY & MOISTURE MANAGEMENT: GOLD ──────────────────────────────────
   { id: "ec_du2_7",       pointNumber: "DU 2.10", tier: "GOLD", text: "Foundation drain at outside perimeter edge of footing surrounded with 6\" clean gravel and fabric filter", category: "Durability & Moisture Management" },
   { id: "ec_sf_du2_11",   pointNumber: "DU 2.11", tier: "GOLD", text: "Dedicated dehumidification system in basement and/or closed crawlspace areas", category: "Durability & Moisture Management" },
@@ -1339,7 +1525,6 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   const [earthcraftRawItems, setEarthcraftRawItems] = useState(initialProject?.earthcraftOptionalItems || null);
   const [earthcraftWorkbookFileName, setEarthcraftWorkbookFileName] = useState(initialProject?.earthcraftWorkbookFileName || "");
   const [earthcraftWorkbookUploadedAt, setEarthcraftWorkbookUploadedAt] = useState(initialProject?.earthcraftWorkbookUploadedAt || null);
-  const [earthcraftUnmatched, setEarthcraftUnmatched] = useState([]);
   const [earthcraftError, setEarthcraftError] = useState("");
   const ecFileRef = useRef();
 
@@ -1381,9 +1566,8 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const { items, unmatched } = parseEarthCraftWorkbook(ev.target.result);
+        const { items } = parseEarthCraftWorkbook(ev.target.result);
         setEarthcraftRawItems(items);
-        setEarthcraftUnmatched(unmatched);
         setEarthcraftWorkbookFileName(file.name);
         setEarthcraftWorkbookUploadedAt(new Date().toISOString());
       } catch (err) {
@@ -1396,7 +1580,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
 
   const removeEarthcraftWorkbook = () => {
     setEarthcraftRawItems(null); setEarthcraftWorkbookFileName(""); setEarthcraftWorkbookUploadedAt(null);
-    setEarthcraftUnmatched([]); setEarthcraftError("");
+    setEarthcraftError("");
   };
 
   const confirmVersionRevision = (programId, version, revision) => {
@@ -1519,13 +1703,6 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
             <p style={{ margin: "4px 0 0", fontSize: 11, color: "#1D4ED8", lineHeight: 1.5 }}>These are required for EarthCraft Gold, so they're already on this project's checklist as pass/fail — not added again as separate optional points.</p>
           </div>
         )}
-        {earthcraftUnmatched.length > 0 && (
-          <div style={{ marginTop: 8, padding: "10px 12px", background: "#FFFBEB", border: "1.5px solid #FDE68A", borderRadius: 10 }}>
-            <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: "#92400E" }}>{earthcraftUnmatched.length} planned item{earthcraftUnmatched.length===1?"":"s"} not currently tracked</p>
-            <p style={{ margin: "4px 0 0", fontSize: 11, color: "#92400E", lineHeight: 1.5 }}>These have a Planned value in the workbook but aren't in our reviewed optional-points list, so they weren't added. Let us know if one should be.</p>
-          </div>
-        )}
-
         {/* TEMP TEST-ONLY: SharePoint folder requirement dropped below so this preview branch is
             usable without OAuth (the app's redirect URI isn't authorized for preview domains).
             REVERT before merging to main — see git history on this branch. */}
