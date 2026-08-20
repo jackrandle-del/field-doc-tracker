@@ -813,12 +813,6 @@ function ecCleanCode(catCode, rawCode) {
   return s;
 }
 
-function ecIsRealPoints(v) {
-  const s = ecCellStr(v);
-  if (s === "" || s === "-") return false;
-  return /^\d+(\.\d+)?$/.test(s);
-}
-
 // The workbook's "Planned" column defaults some unselected rows to 0 (formula result)
 // rather than leaving them blank — only a truthy non-zero value means the project
 // actually intends to pursue the item.
