@@ -190,7 +190,7 @@ const createOrGetSubfolder = async (siteId, token, parentId, name) => {
   });
   if (createRes.ok) return (await createRes.json()).id;
   if (createRes.status === 409) {
-    const getRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${parentId}:/${encodeURIComponent(name)}`, {
+    const getRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${parentId}:/${encodeURIComponent(name)}:`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (getRes.ok) return (await getRes.json()).id;
