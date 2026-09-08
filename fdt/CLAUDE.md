@@ -16,8 +16,23 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
 - Single-file React app: `src/App.js` (Create React App, no bundler config needed)
 - Checklist items defined as arrays (e.g. EARTHCRAFT_CERTIFIED_V7), registered 
   in CHECKLIST_REGISTRY keyed by `programId||version||revision`
-- Photos stored in IndexedDB (not localStorage — size limits)
-- Records/projects stored in localStorage
+- Photos stored in IndexedDB (not localStorage — size limits), synced on demand to a
+  per-project SharePoint folder (Microsoft OAuth — see `getValidToken`/`SP_SITE`)
+- Projects/records stored in Firestore (`src/firebase.js`), shared across the whole team —
+  every team member sees every project and can update any checklist item. `App()` subscribes
+  via `onSnapshot`; writes happen at four call sites (`updateRecord`, `deleteProject`, the two
+  `ProjectForm` `onSave` handlers) rather than one blanket save. Offline persistence is on, so
+  the app keeps working with no signal (e.g. a TA in the field) and syncs once reconnected — no
+  custom conflict handling, since simultaneous multi-device editing of the same project isn't
+  a requirement.
+- Access is gated by one shared team login (Firebase Authentication, email/password — not
+  per-person accounts), fully separate from the per-user Microsoft/SharePoint OAuth used for
+  photo uploads. Local naming: `auth`/`setAuth` is the SharePoint token; `fbAuth` (aliased
+  import) and `teamUser`/`setTeamUser` are the Firebase/team-login state — don't confuse them.
+- EarthCraft Multifamily support includes uploading a populated workbook (`.xlsx`, parsed via
+  SheetJS) to auto-populate a project's optional/bonus checklist items and auto-pass mandatory
+  items the workbook already confirms — see [[project_earthcraft_optional_points]] and
+  [[project_earthcraft_workbook_structure]] in memory for the full design/parsing details.
 
 ## Deployment
 - GitHub: jackrandle-del/field-doc-tracker (this code is in the `fdt` subfolder)
@@ -25,6 +40,15 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
 - IMPORTANT: Vercel requires env var CI=false (CRA fails builds on ESLint 
   warnings otherwise, e.g. unused vars). Any new unused variable/import will 
   break production builds — check for lint warnings before pushing.
+- Requires six `REACT_APP_FIREBASE_*` env vars (API key, auth domain, project ID, storage
+  bucket, messaging sender ID, app ID) set in Vercel for Production, Preview, and Development —
+  CRA bakes these in at build time, so a build that ran before they were saved needs a fresh
+  deploy, not just the vars added. Firestore itself needs security rules requiring
+  `request.auth != null` on the `projects` and `records` collections (Firebase console →
+  Firestore Database → Rules).
+- Vercel's own Deployment Protection (a login wall Vercel puts in front of deployments,
+  separate from this app's TeamLogin) must stay OFF — our own team login already gates access,
+  and technical advisors don't have Vercel accounts to get past a second one.
 
 ## Known cleanup needed (not urgent)
 - `programLabel`, `programColor`, `pickVersion` (unused dead code) and the 

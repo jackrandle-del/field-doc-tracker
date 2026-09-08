@@ -1944,11 +1944,8 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
             <p style={{ margin: "4px 0 0", fontSize: 11, color: "#1D4ED8", lineHeight: 1.5 }}>These are required for EarthCraft Gold, so they're already on this project's checklist as pass/fail — not added again as separate optional points.</p>
           </div>
         )}
-        {/* TEMP TEST-ONLY: SharePoint folder requirement dropped below so this preview branch is
-            usable without OAuth (the app's redirect URI isn't authorized for preview domains).
-            REVERT before merging to main — see git history on this branch. */}
-        <button onClick={() => name.trim() && setStep("programs")} disabled={!name.trim()}
-          style={{ marginTop: 24, width: "100%", padding: 14, background: !name.trim()?"#E5E7EB":"#1B4332", color: !name.trim()?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: !name.trim()?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
+        <button onClick={() => name.trim() && folderStatus==="ok" && setStep("programs")} disabled={!name.trim() || folderStatus!=="ok"}
+          style={{ marginTop: 24, width: "100%", padding: 14, background: (!name.trim()||folderStatus!=="ok")?"#E5E7EB":"#1B4332", color: (!name.trim()||folderStatus!=="ok")?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: (!name.trim()||folderStatus!=="ok")?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
           Next
         </button>
       </div>
