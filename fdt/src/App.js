@@ -162,7 +162,12 @@ const sanitizeSpName = (name) => name.replace(/[\\/:*?"<>|]/g, "-").trim();
 // Resolves a folder path (relative to the site's default drive root, e.g. a project's
 // "Site Visits" folder) to its Graph item id. Throws if the folder doesn't exist.
 const getSharePointFolderId = async (siteId, token, path) => {
-  const cleanPath = path.replace(/^\/+|\/+$/g, "");
+  // A path pasted from Windows File Explorer uses backslashes and, if copied via "Copy as
+  // path", is wrapped in literal quote marks — normalize both before treating it as a sequence
+  // of Graph API path segments, which must be forward-slash-separated. Without this, a pasted
+  // Windows path 400s or 404s no matter how it's formatted (confirmed against a real failure:
+  // Graph rejected "Folder\Sub Folder"-style segments outright).
+  const cleanPath = path.replace(/^["']+|["']+$/g, "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
   const encodedPath = cleanPath.split("/").map(encodeURIComponent).join("/");
   const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodedPath}`, {
     headers: { Authorization: `Bearer ${token}` },
