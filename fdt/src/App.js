@@ -1596,7 +1596,7 @@ function calcCatProgress(items, records, projectId, categoryId) {
 }
 
 function calcProjectProgress(project, records) {
-  let total = 0, verified = 0, fail = 0, mismatches = 0;
+  let total = 0, verified = 0, fail = 0;
   CATEGORIES.forEach(cat => {
     const items = getItemsForSelection(project.programs || [], cat.id, project.earthcraftOptionalItems);
     items.forEach(item => {
@@ -1604,10 +1604,9 @@ function calcProjectProgress(project, records) {
       const r = records[`${project.id}__${cat.id}__${item.id}`];
       if (r?.status === "pass" || r?.status === "na") verified++;
       if (r?.status === "fail") fail++;
-      if (r?.modelMismatch) mismatches++;
     });
   });
-  return { pct: total ? Math.round((verified / total) * 100) : 0, fail, total, verified, mismatches };
+  return { pct: total ? Math.round((verified / total) * 100) : 0, fail, total, verified };
 }
 
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
@@ -2087,7 +2086,6 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
               <span style={{ fontSize: 10, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "1px 6px", borderRadius: 20 }}>📷 missing</span>
             )}
             {rec.note && <span style={{ fontSize: 11, color: "#6B7280" }}>📝</span>}
-            {rec.modelMismatch && <span style={{ fontSize: 10, fontWeight: 600, color: "#991B1B", background: "#FEF2F2", padding: "1px 6px", borderRadius: 20 }}>⚡ model mismatch</span>}
             {rec.fromWorkbook && <span style={{ fontSize: 10, fontWeight: 600, color: "#1D4ED8", background: "#EFF6FF", padding: "1px 6px", borderRadius: 20 }}>📄 from workbook</span>}
           </div>
         </div>
@@ -2254,7 +2252,6 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
               <p style={{ margin: "3px 0 0", fontSize: 12, color: "#A7F3D0" }}>{pg.verified}/{pg.total} items verified</p>
               {project.advisor && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#6EE7B7" }}>TA: {project.advisor}</p>}
               {pg.fail>0 && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
-              {pg.mismatches>0 && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚡ {pg.mismatches} model mismatch{pg.mismatches>1?"es":""}</p>}
             </div>
           </div>
           <button onClick={onEdit} title="Edit project"
@@ -2486,14 +2483,10 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const noteRef = useRef(note);
   const photosRef = useRef(photos);
   const entriesRef = useRef(entries);
-  const mismatchRef = useRef(!!record?.modelMismatch);
-  const mismatchNoteRef = useRef(record?.modelMismatchNote || "");
 
   // Energy-model reference lines for this item, if one was uploaded and this item has a
   // known comparison point (see MRF_MODEL_FIELDS) — null otherwise, incl. non-MRF items.
   const modelRefLines = project.energyModel ? MRF_MODEL_FIELDS[item.id]?.(project.energyModel) : null;
-  const [mismatch, setMismatch] = useState(!!record?.modelMismatch);
-  const [mismatchNote, setMismatchNote] = useState(record?.modelMismatchNote || "");
 
   // Derive stable key for IndexedDB lookup — each photo gets its own suffixed slot
   const photoKey = `${project.id}__${category.id}__${item.id}`;
@@ -2522,8 +2515,6 @@ function ItemDetail({ project, category, item, record, onSave }) {
       note: noteRef.current,
       photos: photosRef.current.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt: syncedAt||null, spFileName: spFileName||null })),
       entries: entriesRef.current,
-      modelMismatch: mismatchRef.current,
-      modelMismatchNote: mismatchNoteRef.current,
       updatedAt: new Date().toISOString(),
       ...visibleOverrides,
     };
@@ -2547,7 +2538,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
     statusRef.current = val;
     // A status change is a discrete, deliberate action — archive it every time, unlike note autosaves
     const archive = (record?.status && val !== record.status)
-      ? { status: record.status, note: record.note||"", mismatch: !!record.modelMismatch, mismatchNote: record.modelMismatchNote||"", updatedAt: record.updatedAt }
+      ? { status: record.status, note: record.note||"", updatedAt: record.updatedAt }
       : undefined;
     save({ status: val, archive });
   };
@@ -2597,23 +2588,6 @@ function ItemDetail({ project, category, item, record, onSave }) {
     save({ photos: next.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt, spFileName })) });
   };
 
-  const handleMismatchToggle = () => {
-    const next = !mismatch;
-    // Log every flag/unflag with a timestamp — lets you tell whether a mismatch was marked
-    // before or after the model was last updated (see the model's upload date above).
-    const archive = { status: record?.status||"", note: record?.note||"", mismatch: !!record?.modelMismatch, mismatchNote: record?.modelMismatchNote||"", updatedAt: record?.updatedAt };
-    setMismatch(next);
-    mismatchRef.current = next;
-    save({ archive });
-  };
-
-  const handleMismatchNoteChange = (val) => {
-    setMismatchNote(val);
-    mismatchNoteRef.current = val;
-  };
-
-  const handleMismatchNoteBlur = () => save();
-
   const handleNoteFocus = () => {
     // Baseline for this edit session — used on blur to decide whether to log one history entry
     noteSnapshot.current = { note: record?.note||"", updatedAt: record?.updatedAt||null };
@@ -2632,7 +2606,7 @@ function ItemDetail({ project, category, item, record, onSave }) {
   const handleNoteBlur = () => {
     clearTimeout(noteTimer.current);
     const changed = record?.status && note !== noteSnapshot.current.note;
-    const archive = changed ? { status: statusRef.current, note: noteSnapshot.current.note, mismatch: !!record?.modelMismatch, mismatchNote: record?.modelMismatchNote||"", updatedAt: noteSnapshot.current.updatedAt || record?.updatedAt } : undefined;
+    const archive = changed ? { status: statusRef.current, note: noteSnapshot.current.note, updatedAt: noteSnapshot.current.updatedAt || record?.updatedAt } : undefined;
     save({ note, archive });
   };
 
@@ -2683,18 +2657,6 @@ function ItemDetail({ project, category, item, record, onSave }) {
           {modelRefLines.map((line, i) => (
             <p key={i} style={{ margin: i===0 ? 0 : "3px 0 0", fontSize: 13, color: "#1E3A8A", lineHeight: 1.5 }}>{line}</p>
           ))}
-          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, cursor: "pointer" }}>
-            <input type="checkbox" checked={mismatch} onChange={handleMismatchToggle}
-              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#EF4444" }}/>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: mismatch ? "#991B1B" : "#1E3A8A" }}>
-              Field doesn't match the model — flag for the energy modeler
-            </span>
-          </label>
-          {mismatch && (
-            <textarea value={mismatchNote} onChange={e => handleMismatchNoteChange(e.target.value)} onBlur={handleMismatchNoteBlur}
-              placeholder="What's different in the field?" rows={2}
-              style={{ width: "100%", marginTop: 8, padding: "8px 10px", border: "1.5px solid #FECACA", borderRadius: 8, fontSize: 13, fontFamily: "DM Sans, sans-serif", color: "#111827", resize: "none", outline: "none", boxSizing: "border-box", background: "#FFF" }}/>
-          )}
         </div>
       )}
 
