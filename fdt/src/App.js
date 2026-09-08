@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
+import { collection, doc, onSnapshot, setDoc, writeBatch } from "firebase/firestore";
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+// Aliased — this file already uses `auth`/`setAuth` for the separate Microsoft/SharePoint OAuth
+// token; `fbAuth` is the distinct Firebase Authentication instance for the shared team login.
+import { auth as fbAuth, db } from "./firebase";
 
 // ── INDEXEDDB PHOTO STORAGE ───────────────────────────────────────────────────
 // Photos are stored here instead of localStorage — handles large binary data
@@ -1489,12 +1494,12 @@ function getItemsForSelection(programSelections, categoryId, extraItems) {
 }
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
-const STORAGE_KEY = "greencert_v2";
-function loadData() {
-  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : { projects: [], records: {} }; }
-  catch { return { projects: [], records: {} }; }
-}
-function saveData(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
+// Projects/records live in Firestore (collections "projects" and "records", the latter keyed by
+// the same composite `${projectId}__${categoryId}__${itemId}` string used locally) so every team
+// member sees the same data — see src/firebase.js. Reads happen via onSnapshot in App(); writes
+// happen at the four call sites there (updateRecord, deleteProject, the two ProjectForm onSave
+// handlers) rather than a blanket save-on-every-change effect, since Firestore writes are
+// per-document, not "save this whole blob."
 
 // A workbook "y" status means the TA already reviewed and approved the item with backup
 // documentation on file — not just planned. Auto-marks those as passing so the field TA
@@ -2822,10 +2827,73 @@ function ItemDetail({ project, category, item, record, onSave }) {
 }
 
 
+// ─── TEAM LOGIN ───────────────────────────────────────────────────────────────
+// One shared login for the whole team (not per-person accounts) gates access to the shared
+// Firestore data — separate from, and unrelated to, the per-user Microsoft/SharePoint connection
+// used later for photo uploads.
+function TeamLogin() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(""); setBusy(true);
+    try {
+      await signInWithEmailAndPassword(fbAuth, email.trim(), password);
+    } catch (err) {
+      setError("Incorrect email or password.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "DM Sans, sans-serif", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px", boxSizing: "border-box" }}>
+      <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#111827" }}>Field Documentation Tracker</h1>
+      <p style={{ margin: "0 0 28px", fontSize: 13, color: "#6B7280" }}>Sign in with the team login to continue.</p>
+      <form onSubmit={handleSubmit}>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Email</label>
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoFocus
+          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 16, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif" }}/>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Password</label>
+        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required
+          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 16, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif" }}/>
+        {error && <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "#EF4444" }}>{error}</p>}
+        <button type="submit" disabled={busy}
+          style={{ width: "100%", padding: 14, background: busy?"#9CA3AF":"#1B4332", color: "#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: busy?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
+          {busy ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [data, setData] = useState(() => loadData());
+  const [data, setData] = useState({ projects: [], records: {} });
   const [auth, setAuth] = useState(() => loadAuth());
+
+  // undefined = still checking for a persisted session, null = signed out, object = signed in.
+  // Firebase persists the session in the browser by default, so a TA isn't re-prompted every visit.
+  const [teamUser, setTeamUser] = useState(undefined);
+  useEffect(() => onAuthStateChanged(fbAuth, setTeamUser), []);
+
+  // Live subscription to the shared data, once signed in — replaces a one-shot load, since every
+  // team member needs to see everyone else's changes, not just their own.
+  useEffect(() => {
+    if (!teamUser) return;
+    const unsubProjects = onSnapshot(collection(db, "projects"), snap => {
+      setData(d => ({ ...d, projects: snap.docs.map(docSnap => docSnap.data()) }));
+    });
+    const unsubRecords = onSnapshot(collection(db, "records"), snap => {
+      const records = {};
+      snap.docs.forEach(docSnap => { records[docSnap.id] = docSnap.data(); });
+      setData(d => ({ ...d, records }));
+    });
+    return () => { unsubProjects(); unsubRecords(); };
+  }, [teamUser]);
 
   // Handle OAuth redirect callback — fires when Microsoft redirects back with ?code=
   useEffect(() => {
@@ -2855,19 +2923,30 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [activeItem, setActiveItem] = useState(null);
 
-  useEffect(() => { saveData(data); }, [data]);
-
   const updateRecord = (projectId, categoryId, itemId, value) => {
     const key = `${projectId}__${categoryId}__${itemId}`;
-    setData(d => ({ ...d, records: { ...d.records, [key]: value } }));
+    setDoc(doc(db, "records", key), value);
   };
 
-  const deleteProject = (projectId) => {
-    setData(d => {
-      const newRecords = { ...d.records };
-      Object.keys(newRecords).forEach(k => { if (k.startsWith(projectId + "__")) delete newRecords[k]; });
-      return { ...d, projects: d.projects.filter(p => p.id !== projectId), records: newRecords };
-    });
+  const deleteProject = async (projectId) => {
+    const batch = writeBatch(db);
+    batch.delete(doc(db, "projects", projectId));
+    Object.keys(data.records).forEach(k => { if (k.startsWith(projectId + "__")) batch.delete(doc(db, "records", k)); });
+    await batch.commit();
+  };
+
+  // Shared by create/edit: writes the project doc plus any records the EarthCraft workbook
+  // auto-pass functions decide to update, in one batch.
+  const saveProject = async (proj) => {
+    const batch = writeBatch(db);
+    batch.set(doc(db, "projects", proj.id), proj);
+    const updates = {
+      ...applyEarthCraftAutoPass(proj, data.records),
+      ...applyEarthCraftGoldOverlapAutoPass(proj, data.records),
+      ...applyEarthCraftMandatoryStatusAutoPass(proj, data.records),
+    };
+    Object.entries(updates).forEach(([key, value]) => batch.set(doc(db, "records", key), value));
+    await batch.commit();
   };
 
   const navBack = () => {
@@ -2880,6 +2959,13 @@ export default function App() {
 
   const titles = { projects: "Field Documentation Tracker", create: "New project", edit: "Edit project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", item: "Document item" };
 
+  if (teamUser === undefined) {
+    return <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "DM Sans, sans-serif", color: "#9CA3AF", fontSize: 13 }}>Loading…</div>;
+  }
+  if (teamUser === null) {
+    return <TeamLogin />;
+  }
+
   return (
     <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "DM Sans, sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -2891,14 +2977,15 @@ export default function App() {
           {screen === "projects" && <span style={{ fontSize: 20 }}>☑️</span>}
           <h1 style={{ margin: 0, fontSize: screen==="projects"?20:17, fontWeight: 700, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titles[screen]}</h1>
         </div>
+        <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "DM Sans, sans-serif", padding: "4px 0" }}>Sign out</button>
       </div>
 
       {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();setAuth(null);}}/>}
-      {screen === "create" && <ProjectForm onSave={proj=>{setData(d=>({...d,projects:[...d.projects,proj],records:{...d.records,...applyEarthCraftAutoPass(proj,d.records),...applyEarthCraftGoldOverlapAutoPass(proj,d.records),...applyEarthCraftMandatoryStatusAutoPass(proj,d.records)}}));setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
+      {screen === "create" && <ProjectForm onSave={async proj=>{await saveProject(proj);setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
       {screen === "edit" && activeProject && (
         <ProjectForm
           initialProject={activeProject}
-          onSave={proj=>{setData(d=>({...d,projects:d.projects.map(p=>p.id===proj.id?proj:p),records:{...d.records,...applyEarthCraftAutoPass(proj,d.records),...applyEarthCraftGoldOverlapAutoPass(proj,d.records),...applyEarthCraftMandatoryStatusAutoPass(proj,d.records)}}));setActiveProject(proj);setScreen("dashboard");}}
+          onSave={async proj=>{await saveProject(proj);setActiveProject(proj);setScreen("dashboard");}}
           onBack={navBack}
           auth={auth}
           setAuth={setAuth}
