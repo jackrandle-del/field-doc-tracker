@@ -1509,6 +1509,97 @@ function getItemsForSelection(programSelections, categoryId, extraItems) {
   return result;
 }
 
+// One piece of MRF field evidence (a nameplate photo, a flow-rate label, a wall assembly entry)
+// often also documents an EarthCraft or Energy Star item — confirmed item-by-item by the user via
+// a dedicated review tool, never guessed. Some MRF items track multiple sub-assemblies with their
+// own type (Wall Insulation: wallType + grade; Ceiling Insulation: location; Hot Water
+// Recirculation: controlType) — a grouped item only counts as documented if at least one recorded
+// entry matches every constrained field together, not just "this MRF item has any record at all."
+// This ONLY means documentation already exists — never auto-pass. The grouped item's own
+// status stays untouched and still needs a manual pass/fail/N-A, exactly like any other item.
+const MRF_OVERLAP_MAP = {
+  mrf_1_0: [
+    { id: "ec_v7_es1_11" }, { id: "ec_opt_es_es_1_10" }, { id: "ec_opt_es_es_1_15" }, { id: "ec_opt_es_es_1_16" },
+  ],
+  mrf_1_1: [{ id: "ec_v7_es_es_1_1" }],
+  mrf_1_2: [{ id: "ec_opt_es_4_18" }],
+  mrf_1_3: [{ id: "ec_du2_8" }, { id: "ec_opt_du_du_2_11" }],
+  mrf_2_0: [
+    { id: "ec_v7_be_be_3_1_1", wallType: ["exterior","breezeway"] },
+    { id: "ec_v7_be3_10", wallType: ["exterior","breezeway"], grade: ["GI","GII"] },
+    { id: "ec_v7_be3_7", wallType: ["exterior","breezeway"] },
+    { id: "ec_opt_be_be_3_10_a", wallType: ["exterior","breezeway"], grade: ["GI"] },
+    { id: "ec_opt_be_be_3_10_b", wallType: ["exterior","breezeway"], grade: ["GII"] },
+    { id: "ec_opt_be_be_3_16_1", wallType: ["exterior","breezeway"] },
+    { id: "ec_opt_be_be_3_16_2", wallType: ["exterior","breezeway"] },
+    { id: "ec_opt_be_be_3_14_1", wallType: ["exterior","breezeway"] },
+    { id: "ec_opt_be_be_3_15_4", wallType: ["exterior","breezeway"] },
+    { id: "ec_opt_be_be_3_15_6", wallType: ["exterior","breezeway"] },
+    { id: "es_3_7_1", wallType: ["exterior","breezeway"] },
+  ],
+  mrf_2_1: [
+    { id: "ec_v7_be_be_3_2_1", location: ["unconditioned_vented_attic"] },
+    { id: "ec_opt_be_be_3_17_1", location: ["unconditioned_vented_attic"] },
+    { id: "ec_v7_be_be_3_2_2", location: ["sealed_attic"] },
+    { id: "ec_opt_be_be_3_17_2", location: ["sealed_attic"] },
+  ],
+  mrf_2_2: [
+    { id: "ec_v7_be_be_3_1_3" }, { id: "ec_opt_be_be_3_15_1" }, { id: "ec_opt_be_be_3_15_2" },
+    { id: "ec_opt_be_be_3_15_3" }, { id: "es_3_4" },
+  ],
+  mrf_2_3: [
+    { id: "ec_v7_be_be_3_1_1" }, { id: "ec_opt_be_be_3_15_6" }, { id: "ec_opt_be_be_3_15_4" }, { id: "es_3_7_1" },
+  ],
+  mrf_2_4: [
+    { id: "ec_v7_es_es_2_3_1" }, { id: "ec_v7_es_es_2_3_2" }, { id: "ec_opt_es_es_2_18" }, { id: "es_6_3" },
+  ],
+  mrf_2_5: [
+    { id: "ec_v7_be_be_4_1_1" }, { id: "ec_v7_be_be_4_1_2" }, { id: "ec_v7_be_be_4_5_1" }, { id: "ec_v7_be_be_4_5_2" },
+    { id: "ec_opt_be_4_5_1" }, { id: "ec_opt_be_4_5_2" }, { id: "ec_opt_be_4_7_1" }, { id: "ec_opt_be_4_7_2" },
+  ],
+  mrf_2_6: [
+    { id: "ec_v7_be_be_4_1" }, { id: "ec_v7_be_be_4_2" }, { id: "ec_v7_be_be_4_4_1" }, { id: "ec_v7_be_be_4_4_2" },
+    { id: "ec_v7_be_be_4_4_3" }, { id: "ec_opt_be_4_4_1" }, { id: "ec_opt_be_4_4_2" }, { id: "ec_opt_be_4_4_3" },
+  ],
+  mrf_3_0: [
+    { id: "ec_v7_es_es_5_0" }, { id: "ec_v7_es_es_5_1" }, { id: "ec_opt_es_es_5_6_a" },
+    { id: "ec_opt_es_es_5_6_b" }, { id: "es_11_3" }, { id: "es_10_1" },
+  ],
+  mrf_3_3: [{ id: "ec_v7_we1_3", controlType: ["manual_demand","presence_sensor"] }],
+  mrf_3_1: [{ id: "ec_v7_es_es_5_3" }, { id: "ec_opt_es_es_5_7" }],
+  mrf_3_2: [
+    { id: "ec_we1_0" }, { id: "ec_we1_1" }, { id: "ec_we1_2" }, { id: "ec_opt_we_we_1_6" },
+    { id: "ec_opt_we_we_1_7" }, { id: "es_13_2" },
+  ],
+  mrf_4_0: [
+    { id: "ec_v7_es_es_4_13" }, { id: "ec_opt_es_4_9" }, { id: "ec_opt_es_4_13" }, { id: "es_7_6" }, { id: "es_7_8" },
+  ],
+  mrf_4_1: [{ id: "ec_v7_es_es_4_1" }, { id: "ec_opt_es_4_1" }],
+  mrf_5_0: [{ id: "ec_v7_es_es_6_2" }],
+  mrf_5_1: [{ id: "ec_v7_es_es_6_1" }],
+  mrf_5_3: [{ id: "ec_v7_es_es_4_5" }, { id: "ec_v7_es_es_6_4" }, { id: "ec_opt_es_6_4" }],
+  mrf_5_4: [{ id: "ec_v7_es_es_6_3" }, { id: "ec_opt_es_6_3" }],
+  mrf_5_5: [{ id: "ec_v7_es_es_4_9" }, { id: "ec_opt_es_4_8" }],
+  mrf_6_0: [{ id: "ec_v7_es_es_6" }],
+};
+
+const MRF_OVERLAP_REVERSE = {};
+Object.entries(MRF_OVERLAP_MAP).forEach(([mrfId, rules]) => {
+  rules.forEach(rule => { MRF_OVERLAP_REVERSE[rule.id] = { mrfId, rule }; });
+});
+
+function getMrfDocumentation(project, records, itemId) {
+  const entry = MRF_OVERLAP_REVERSE[itemId];
+  if (!entry) return null;
+  const { mrfId, rule } = entry;
+  const rec = records[`${project.id}__Minimum Rated Features__${mrfId}`];
+  if (!rec) return null;
+  const subKeys = Object.keys(rule).filter(k => k !== "id");
+  if (!subKeys.length) return (rec.status || rec.entries?.length) ? { mrfId } : null;
+  const matched = (rec.entries || []).some(e => subKeys.every(k => (rule[k] || []).includes(e[k])));
+  return matched ? { mrfId } : null;
+}
+
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
 // Projects/records live in Firestore (collections "projects" and "records", the latter keyed by
 // the same composite `${projectId}__${categoryId}__${itemId}` string used locally) so every team
@@ -2061,6 +2152,7 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
   const itemCat = item._cat;
   const recKey = `${project.id}__${itemCat}__${item.id}`;
   const rec = records[recKey]||{};
+  const mrfDoc = getMrfDocumentation(project, records, item.id);
   const itemPrograms = (project.programs||[]).filter(s => {
     const k = `${s.programId}||${s.version}||${s.revision}`;
     return (CHECKLIST_REGISTRY[k]||[]).some(i => i.id === item.id);
@@ -2098,6 +2190,7 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
             )}
             {rec.note && <span style={{ fontSize: 11, color: "#6B7280" }}>📝</span>}
             {rec.fromWorkbook && <span style={{ fontSize: 10, fontWeight: 600, color: "#1D4ED8", background: "#EFF6FF", padding: "1px 6px", borderRadius: 20 }}>📄 from workbook</span>}
+            {mrfDoc && <span style={{ fontSize: 10, fontWeight: 600, color: "#166534", background: "#F0FDF4", padding: "1px 6px", borderRadius: 20 }}>📎 documented via MRF</span>}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
@@ -2467,7 +2560,7 @@ function SingleEntryFields({ config, entry, onFieldChange }) {
 
 // ─── SCREEN: ITEM DETAIL ──────────────────────────────────────────────────────
 // Autosaves on status tap and on photo add/remove. Note saves on blur.
-function ItemDetail({ project, category, item, record, onSave }) {
+function ItemDetail({ project, category, item, record, records, onSave }) {
   const [status, setStatus] = useState(record?.status||"");
   const [note, setNote] = useState(record?.note||"");
   const [photos, setPhotos] = useState([]);   // [{id, dataUrl}] — dataUrls live in IndexedDB
@@ -2625,6 +2718,8 @@ function ItemDetail({ project, category, item, record, onSave }) {
     const k = `${s.programId}||${s.version}||${s.revision}`;
     return (CHECKLIST_REGISTRY[k]||[]).some(i => i.id === item.id);
   }).map(s => PROGRAM_CATALOG.find(x => x.id === s.programId)).filter(Boolean);
+  const mrfDoc = records ? getMrfDocumentation(project, records, item.id) : null;
+  const mrfDocItem = mrfDoc ? MRF_ITEMS.find(m => m.id === mrfDoc.mrfId) : null;
 
   return (
     <div style={{ padding: "20px 20px 40px" }}>
@@ -2653,7 +2748,13 @@ function ItemDetail({ project, category, item, record, onSave }) {
               return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: bg, color, fontWeight: 600 }}>{label}</span>;
             })}
           {record?.fromWorkbook && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 600 }}>📄 from workbook</span>}
+          {mrfDoc && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: "#F0FDF4", color: "#166534", fontWeight: 600 }}>📎 documented via MRF</span>}
         </div>
+        {mrfDocItem && (
+          <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "#166534" }}>
+            Documented via MRF: <strong>{mrfDocItem.pointNumber}</strong> — still needs its own pass/fail below.
+          </p>
+        )}
       </div>
 
       {/* Energy model reference — what the Ekotrope model assumes for this item */}
@@ -2992,6 +3093,7 @@ export default function App() {
           category={{ id: activeItem._cat || activeCategory?.id }}
           item={activeItem}
           record={data.records[`${activeProject.id}__${activeItem._cat||activeCategory?.id}__${activeItem.id}`]}
+          records={data.records}
           onSave={val=>{updateRecord(activeProject.id, activeItem._cat||activeCategory?.id, activeItem.id, val);}}
         />
       )}
