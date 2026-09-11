@@ -217,6 +217,48 @@ const uploadPhotoToFolder = async (siteId, token, folderId, fileName, dataUrl) =
   return res.json();
 };
 
+// Resolves a live thumbnail URL for an already-uploaded SharePoint photo. Graph's thumbnail
+// URLs are themselves pre-authenticated — usable directly as an <img src>, no auth header needed
+// on the image request itself.
+const getPhotoThumbnailUrl = async (siteId, token, itemId) => {
+  const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${itemId}/thumbnails`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const { value } = await res.json();
+  return value?.[0]?.large?.url || value?.[0]?.medium?.url || null;
+};
+
+// Caches resolved live-preview URLs for the rest of this session — a thumbnail lookup is a
+// network round-trip per photo, no reason to repeat it on every re-render/navigation.
+const _thumbCache = new Map();
+
+// Resolves how to actually display one photo: local bytes if this device has them (works
+// offline, no network call — the common case for whoever just took the photo), otherwise a live
+// SharePoint thumbnail if it's been synced from another device, otherwise an explanation of why
+// there's nothing to show yet. This is the one mechanism both an item's own photo grid and the
+// cross-linked MRF overlap gallery use — same problem either way ("is the byte data on THIS
+// device"), just a different source item.
+async function resolvePhotoDisplay(photoKey, meta, auth, setAuth) {
+  const dataUrl = await idbGetPhoto(`${photoKey}__${meta.id}`);
+  if (dataUrl) return { status: "local", src: dataUrl };
+  if (!meta.spItemId) {
+    return meta.syncedAt ? { status: "no-preview", webUrl: meta.spWebUrl || null } : { status: "unsynced" };
+  }
+  if (_thumbCache.has(meta.spItemId)) return { status: "remote", src: _thumbCache.get(meta.spItemId) };
+  const token = await getValidToken(auth, setAuth);
+  if (!token) return { status: "need-auth" };
+  try {
+    const siteId = await getSharePointSiteId(token);
+    const url = await getPhotoThumbnailUrl(siteId, token, meta.spItemId);
+    if (!url) return { status: "no-preview", webUrl: meta.spWebUrl || null };
+    _thumbCache.set(meta.spItemId, url);
+    return { status: "remote", src: url };
+  } catch {
+    return { status: "no-preview", webUrl: meta.spWebUrl || null };
+  }
+}
+
 // ── EKOTROPE ENERGY MODEL (.xml) PARSING ──────────────────────────────────────
 // Parses the fields we've confirmed the schema for. Sections we haven't seen a
 // real populated example of (e.g. foundation walls for basement/crawlspace units)
@@ -1588,6 +1630,28 @@ Object.entries(MRF_OVERLAP_MAP).forEach(([mrfId, rules]) => {
   rules.forEach(rule => { MRF_OVERLAP_REVERSE[rule.id] = { mrfId, rule }; });
 });
 
+// Flat id -> item lookup across every checklist array, built once at module load — used to
+// resolve a linked item's own category/label when rendering the cross-linked photo gallery below.
+const ITEM_INDEX = {};
+[MRF_ITEMS, EARTHCRAFT_OPTIONAL_LIBRARY, ENERGY_STAR_MFNC_V1_REV03, ENERGY_STAR_MFNC_V1_1_REV05,
+ EARTHCRAFT_CERTIFIED_V6, EARTHCRAFT_GOLD_V6, EARTHCRAFT_CERTIFIED_V7, EARTHCRAFT_GOLD_V7,
+ EARTHCRAFT_SF2024_CERTIFIED, EARTHCRAFT_SF2024_GOLD].forEach(arr => {
+  arr.forEach(it => { if (!ITEM_INDEX[it.id]) ITEM_INDEX[it.id] = it; });
+});
+
+// The MRF <-> EarthCraft/Energy Star relationship, for DISPLAY purposes, symmetric: an MRF item
+// lists its overlap children, and a child looks up its one MRF parent. Deliberately not gated on
+// the same sub-type match (wallType/grade/location/controlType) getMrfDocumentation uses for the
+// pass/fail-relevant badge — MRF photos are stored one shared array per item, not per wall
+// assembly/grade entry, so there's no way to isolate "the GI photo" from "the GII photo" if a TA
+// shot several. Showing all of that item's photos when linked is the same honesty level the
+// existing badge already accepts, not a new approximation.
+function getLinkedItemIds(itemId) {
+  if (MRF_OVERLAP_MAP[itemId]) return MRF_OVERLAP_MAP[itemId].map(r => r.id);
+  const entry = MRF_OVERLAP_REVERSE[itemId];
+  return entry ? [entry.mrfId] : [];
+}
+
 function getMrfDocumentation(project, records, itemId) {
   const entry = MRF_OVERLAP_REVERSE[itemId];
   if (!entry) return null;
@@ -2287,11 +2351,11 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         const nextNum = base.nextPhotoNum || 1;
         const label = sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
         const fileName = `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
-        await uploadPhotoToFolder(siteId, token, dateFolderId, fileName, dataUrl);
+        const uploaded = await uploadPhotoToFolder(siteId, token, dateFolderId, fileName, dataUrl);
         const updatedPhotos = (base.photos||[]).map(p => {
           const pid = typeof p === "string" ? p : p.id;
           if (pid !== job.photoId) return typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p;
-          return { id: pid, syncedAt: new Date().toISOString(), spFileName: fileName };
+          return { id: pid, syncedAt: new Date().toISOString(), spFileName: fileName, spItemId: uploaded.id, spWebUrl: uploaded.webUrl };
         });
         const updatedRec = { ...base, photos: updatedPhotos, nextPhotoNum: nextNum + 1 };
         workingRecords[job.key] = updatedRec;
@@ -2560,13 +2624,69 @@ function SingleEntryFields({ config, entry, onFieldChange }) {
   );
 }
 
+// Renders one photo, resolving its own display source independently (local IndexedDB, a live
+// SharePoint thumbnail, or an explanation of why neither is available yet) via
+// resolvePhotoDisplay — so a gallery of several photos loads progressively instead of blocking
+// on the slowest one. `onRemove` is omitted entirely for a read-only gallery (the cross-linked
+// MRF overlap section below) — deleting a photo only makes sense from the item that owns it.
+function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 84 }) {
+  const [display, setDisplay] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    setDisplay(null);
+    resolvePhotoDisplay(photoKey, meta, auth, setAuth).then(d => { if (!cancelled) setDisplay(d); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoKey, meta.id, meta.spItemId, meta.syncedAt]);
+
+  const showImage = display?.status === "local" || display?.status === "remote";
+  return (
+    <div style={{ position: "relative", width: size, height: size }}>
+      {showImage ? (
+        <img src={display.src} alt="" style={{ width: size, height: size, borderRadius: 10, display: "block", objectFit: "cover" }}/>
+      ) : (
+        <div style={{ width: size, height: size, borderRadius: 10, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", padding: 4, textAlign: "center" }}>
+          <span style={{ fontSize: 9, color: "#9CA3AF", lineHeight: 1.3 }}>
+            {!display && "…"}
+            {display?.status === "unsynced" && "not yet synced"}
+            {display?.status === "need-auth" && "connect SharePoint"}
+            {display?.status === "no-preview" && "no live preview"}
+          </span>
+        </div>
+      )}
+      {onRemove && display?.status === "local" && (
+        <button onClick={() => onRemove(meta.id)}
+          style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 13, cursor: "pointer" }}>×</button>
+      )}
+      {meta.syncedAt && (
+        <span title={`Uploaded to SharePoint as ${meta.spFileName}`}
+          style={{ position: "absolute", bottom: 4, left: 4, fontSize: 11, background: "rgba(16,185,129,.9)", color: "#FFF", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>☁</span>
+      )}
+      {display?.status === "no-preview" && display.webUrl && (
+        <a href={display.webUrl} target="_blank" rel="noreferrer" title="Open in SharePoint"
+          style={{ position: "absolute", bottom: 4, right: 4, fontSize: 9, background: "rgba(29,78,216,.9)", color: "#FFF", borderRadius: 6, padding: "1px 4px", textDecoration: "none" }}>open</a>
+      )}
+      {display?.status === "need-auth" && (
+        <button onClick={() => startLogin()} title="Connect SharePoint"
+          style={{ position: "absolute", bottom: 4, right: 4, fontSize: 9, background: "rgba(29,78,216,.9)", color: "#FFF", border: "none", borderRadius: 6, padding: "1px 4px", cursor: "pointer" }}>connect</button>
+      )}
+    </div>
+  );
+}
+
 // ─── SCREEN: ITEM DETAIL ──────────────────────────────────────────────────────
 // Autosaves on status tap and on photo add/remove. Note saves on blur.
-function ItemDetail({ project, category, item, record, records, onSave }) {
+function ItemDetail({ project, category, item, record, records, onSave, auth, setAuth }) {
   const [status, setStatus] = useState(record?.status||"");
   const [note, setNote] = useState(record?.note||"");
-  const [photos, setPhotos] = useState([]);   // [{id, dataUrl}] — dataUrls live in IndexedDB
-  const [photosLoading, setPhotosLoading] = useState(!!record?.photos?.length);
+  // Photo metadata only — image bytes live in IndexedDB and/or SharePoint, never in this state.
+  // Entries may be plain id strings (pre-sync-tracking records) or {id, syncedAt, spFileName,
+  // spItemId, spWebUrl} objects — normalize either way. Each PhotoThumb resolves its own display
+  // source independently, so there's no bulk async load (and no loading spinner) here anymore.
+  const [photos, setPhotos] = useState(() =>
+    (record?.photos || []).map(p => typeof p === "string"
+      ? { id: p, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null } : p)
+  );
   const [saved, setSaved] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const entryConfig = MULTI_ENTRY_CONFIG[item.id];
@@ -2601,17 +2721,6 @@ function ItemDetail({ project, category, item, record, records, onSave }) {
   const isMRF = category.id === "Minimum Rated Features";
   const photoRequired = (val) => isMRF && val !== "na" && photos.length === 0;
 
-  // Load photos from IndexedDB on mount. Entries may be plain id strings (pre-sync-tracking
-  // records) or {id, syncedAt, spFileName} objects — normalize either way.
-  useEffect(() => {
-    const meta = (record?.photos || []).map(p => typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p);
-    if (!meta.length) { setPhotosLoading(false); return; }
-    Promise.all(meta.map(m => idbGetPhoto(`${photoKey}__${m.id}`).then(dataUrl => ({ ...m, dataUrl }))))
-      .then(results => { setPhotos(results.filter(r => r.dataUrl)); setPhotosLoading(false); })
-      .catch(() => setPhotosLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photoKey]);
-
   const save = (overrides = {}) => {
     // photos field in record holds sync metadata only — the image data lives in IndexedDB.
     // Base values come from the refs (always current), not the state closures (can be stale).
@@ -2619,7 +2728,8 @@ function ItemDetail({ project, category, item, record, records, onSave }) {
     const rec = {
       status: statusRef.current,
       note: noteRef.current,
-      photos: photosRef.current.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt: syncedAt||null, spFileName: spFileName||null })),
+      photos: photosRef.current.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) =>
+        ({ id, syncedAt: syncedAt||null, spFileName: spFileName||null, spItemId: spItemId||null, spWebUrl: spWebUrl||null })),
       entries: entriesRef.current,
       updatedAt: new Date().toISOString(),
       ...visibleOverrides,
@@ -2678,10 +2788,10 @@ function ItemDetail({ project, category, item, record, records, onSave }) {
       const dataUrl = ev.target.result;
       const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
-      const next = [...photosRef.current, { id, dataUrl, syncedAt: null, spFileName: null }];
+      const next = [...photosRef.current, { id, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null }];
       setPhotos(next);
       photosRef.current = next;
-      save({ photos: next.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt, spFileName })) });
+      save({ photos: next.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) => ({ id, syncedAt, spFileName, spItemId, spWebUrl })) });
     };
     reader.readAsDataURL(file);
   };
@@ -2691,7 +2801,7 @@ function ItemDetail({ project, category, item, record, records, onSave }) {
     const next = photosRef.current.filter(p => p.id !== id);
     setPhotos(next);
     photosRef.current = next;
-    save({ photos: next.map(({ id, syncedAt, spFileName }) => ({ id, syncedAt, spFileName })) });
+    save({ photos: next.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) => ({ id, syncedAt, spFileName, spItemId, spWebUrl })) });
   };
 
   const handleNoteFocus = () => {
@@ -2722,6 +2832,20 @@ function ItemDetail({ project, category, item, record, records, onSave }) {
   }).map(s => PROGRAM_CATALOG.find(x => x.id === s.programId)).filter(Boolean);
   const mrfDoc = records ? getMrfDocumentation(project, records, item.id) : null;
   const mrfDocItem = mrfDoc ? MRF_ITEMS.find(m => m.id === mrfDoc.mrfId) : null;
+
+  // Photos genuinely belong to whichever item they were taken on — never duplicated — but a
+  // linked item (MRF <-> EarthCraft/Energy Star, either direction) shows them here too, read-only,
+  // so a PM reviewing this item doesn't have to separately open every linked item to see the
+  // evidence. See getLinkedItemIds for why this isn't gated on the same sub-type match the
+  // "documented via MRF" badge above uses.
+  const linkedPhotoGroups = records ? getLinkedItemIds(item.id).map(linkedId => {
+    const linkedItem = ITEM_INDEX[linkedId];
+    if (!linkedItem) return null;
+    const linkedKey = `${project.id}__${linkedItem.category}__${linkedId}`;
+    const linkedPhotos = (records[linkedKey]?.photos || []).map(p => typeof p === "string"
+      ? { id: p, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null } : p);
+    return linkedPhotos.length ? { item: linkedItem, photoKey: linkedKey, photos: linkedPhotos } : null;
+  }).filter(Boolean) : [];
 
   return (
     <div style={{ padding: "20px 20px 40px" }}>
@@ -2800,31 +2924,17 @@ function ItemDetail({ project, category, item, record, records, onSave }) {
             <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981", background: "#F0FDF4", padding: "2px 8px", borderRadius: 20 }}>✓ {photos.length} photo{photos.length>1?"s":""} uploaded</span>
           )}
         </div>
-        {photosLoading ? (
-          <div style={{ width: "100%", height: 80, borderRadius: 12, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: 12, color: "#9CA3AF" }}>Loading photos…</span>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {photos.map(p => (
-              <div key={p.id} style={{ position: "relative", width: 84, height: 84 }}>
-                <img src={p.dataUrl} alt="" style={{ width: 84, height: 84, borderRadius: 10, display: "block", objectFit: "cover" }}/>
-                <button onClick={() => handleRemovePhoto(p.id)}
-                  style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 13, cursor: "pointer" }}>×</button>
-                {p.syncedAt && (
-                  <span title={`Uploaded to SharePoint as ${p.spFileName}`}
-                    style={{ position: "absolute", bottom: 4, left: 4, fontSize: 11, background: "rgba(16,185,129,.9)", color: "#FFF", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>☁</span>
-                )}
-              </div>
-            ))}
-            {photos.length < MAX_PHOTOS && (
-              <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 ? "Upload a photo to enable confirmation" : "Add a photo"}
-                style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 10, background: isMRF && photos.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
-                +
-              </button>
-            )}
-          </div>
-        )}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {photos.map(p => (
+            <PhotoThumb key={p.id} photoKey={photoKey} meta={p} auth={auth} setAuth={setAuth} onRemove={handleRemovePhoto}/>
+          ))}
+          {photos.length < MAX_PHOTOS && (
+            <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 ? "Upload a photo to enable confirmation" : "Add a photo"}
+              style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 10, background: isMRF && photos.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+              +
+            </button>
+          )}
+        </div>
         {photos.length===0 && (
           <p style={{ margin: "8px 0 0", fontSize: 12, color: isMRF ? "#EF4444" : "#9CA3AF" }}>
             {isMRF ? "Upload a photo to enable confirmation" : "Take or upload a photo"}
@@ -2833,6 +2943,29 @@ function ItemDetail({ project, category, item, record, records, onSave }) {
         {photos.length>0 && <p style={{ margin: "8px 0 0", fontSize: 11, color: "#9CA3AF" }}>{photos.length}/{MAX_PHOTOS} photos</p>}
         <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleAddPhoto} style={{ display: "none" }}/>
       </div>
+
+      {/* Linked documentation — read-only photos from the other side of an MRF <-> EarthCraft/
+          Energy Star overlap, whichever item the TA actually uploaded to. Never editable here. */}
+      {linkedPhotoGroups.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            📎 Linked documentation
+          </p>
+          {linkedPhotoGroups.map(group => (
+            <div key={group.item.id} style={{ marginBottom: 12 }}>
+              <p style={{ margin: "0 0 6px", fontSize: 12, color: "#166534" }}>
+                {group.item.pointNumber || group.item.text}
+                <span style={{ color: "#9CA3AF" }}> · {group.item.category}</span>
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {group.photos.map(p => (
+                  <PhotoThumb key={p.id} photoKey={group.photoKey} meta={p} auth={auth} setAuth={setAuth} size={64}/>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Status */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -3099,6 +3232,8 @@ export default function App() {
           record={data.records[`${activeProject.id}__${activeItem._cat||activeCategory?.id}__${activeItem.id}`]}
           records={data.records}
           onSave={val=>{updateRecord(activeProject.id, activeItem._cat||activeCategory?.id, activeItem.id, val);}}
+          auth={auth}
+          setAuth={setAuth}
         />
       )}
     </div>
