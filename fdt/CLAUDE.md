@@ -36,10 +36,18 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
 
 ## Deployment
 - GitHub: jackrandle-del/field-doc-tracker (this code is in the `fdt` subfolder)
-- Vercel: auto-deploys from `main` branch to field-doc-tracker-6n.vercel.app
+- Vercel: auto-deploys from `main` branch, live at **https://www.doctracker.org** (the link to
+  hand TAs — the bare `doctracker.org` redirects to the `www` version, so use `www` directly to
+  avoid the extra hop). `field-doc-tracker-6n.vercel.app` still works as a fallback alias.
 - IMPORTANT: Vercel requires env var CI=false (CRA fails builds on ESLint 
   warnings otherwise, e.g. unused vars). Any new unused variable/import will 
   break production builds — check for lint warnings before pushing.
+- The Microsoft OAuth app (`50108c90-8844-4fbc-96af-d4fb7e7fa4ca`, registered as a
+  **Single-page application** platform — PKCE public client, no server/secret) must have
+  whichever domain the app is actually served from listed as an authorized redirect URI, or
+  SharePoint connect fails with AADSTS50011. `getRedirectUri()` in `src/App.js` builds this from
+  `window.location.origin` at runtime, so moving domains again needs a matching Azure AD update
+  but no code change.
 - Requires six `REACT_APP_FIREBASE_*` env vars (API key, auth domain, project ID, storage
   bucket, messaging sender ID, app ID) set in Vercel for Production, Preview, and Development —
   CRA bakes these in at build time, so a build that ran before they were saved needs a fresh
