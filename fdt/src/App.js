@@ -1595,7 +1595,9 @@ function getMrfDocumentation(project, records, itemId) {
   const rec = records[`${project.id}__Minimum Rated Features__${mrfId}`];
   if (!rec) return null;
   const subKeys = Object.keys(rule).filter(k => k !== "id");
-  if (!subKeys.length) return (rec.status || rec.entries?.length) ? { mrfId } : null;
+  // Most simple MRF items (dishwasher, refrigerator, ...) have no MULTI_ENTRY_CONFIG at all —
+  // a nameplate photo with no separate status/entries set is still real documentation.
+  if (!subKeys.length) return (rec.status || rec.entries?.length || rec.photos?.length) ? { mrfId } : null;
   const matched = (rec.entries || []).some(e => subKeys.every(k => (rule[k] || []).includes(e[k])));
   return matched ? { mrfId } : null;
 }
@@ -2838,14 +2840,16 @@ function ItemDetail({ project, category, item, record, records, onSave }) {
         {saved && <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>✓ Saved</span>}
       </div>
 
-      {/* Status buttons — Pass and Fail blocked on MRF without photo */}
+      {/* Status buttons — Pass and Fail blocked on MRF without photo. MRF isn't a compliance
+          pass/fail check, it's "is this fully documented" — relabeled accordingly, same
+          underlying pass/fail/na values so nothing else about how records are stored changes. */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
-        {[["pass","#D1FAE5","#065F46","#10B981","Pass"],["fail","#FEE2E2","#991B1B","#EF4444","Fail"],["na","#F3F4F6","#4B5563","#9CA3AF","N/A"]].map(([id,bg,col,brd,label]) => {
+        {[["pass","#D1FAE5","#065F46","#10B981",isMRF?"All Features Documented":"Pass"],["fail","#FEE2E2","#991B1B","#EF4444",isMRF?"Additional Photos Needed":"Fail"],["na","#F3F4F6","#4B5563","#9CA3AF","N/A"]].map(([id,bg,col,brd,label]) => {
           const blocked = photoRequired(id);
           return (
             <button key={id} onClick={() => handleStatus(id)} disabled={blocked}
               title={blocked ? "Upload a photo first" : ""}
-              style={{ padding: "12px 8px", border: `2px solid ${status===id ? brd : blocked ? "#F3F4F6" : "#E5E7EB"}`, borderRadius: 10, background: status===id ? bg : blocked ? "#F9FAFB" : "#FFF", color: status===id ? col : blocked ? "#D1D5DB" : "#6B7280", fontSize: 14, fontWeight: 700, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "DM Sans, sans-serif", position: "relative" }}>
+              style={{ padding: "12px 8px", border: `2px solid ${status===id ? brd : blocked ? "#F3F4F6" : "#E5E7EB"}`, borderRadius: 10, background: status===id ? bg : blocked ? "#F9FAFB" : "#FFF", color: status===id ? col : blocked ? "#D1D5DB" : "#6B7280", fontSize: 13, fontWeight: 700, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "DM Sans, sans-serif", position: "relative" }}>
               {label}
               {blocked && <span style={{ display: "block", fontSize: 9, fontWeight: 400, marginTop: 2, color: "#FCA5A5" }}>photo first</span>}
             </button>
