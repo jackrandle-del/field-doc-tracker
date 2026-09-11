@@ -1388,7 +1388,9 @@ const MRF_ITEMS = [
 
   // ── WATER HEATING & PLUMBING ─────────────────────────────────────────────────
   { id: "mrf_3_0", pointNumber: "Water Heater", tier: "ALL", category: "Minimum Rated Features",
-    text: "Nameplate showing brand, model number, and location. If recirc system present, note pump wattage and control type." },
+    text: "Nameplate showing brand, model number, and location." },
+  { id: "mrf_3_3", pointNumber: "Hot Water Recirculation", tier: "ALL", category: "Minimum Rated Features",
+    text: "If a recirculation system is installed, photograph the pump nameplate. Capture pump wattage and control type." },
   { id: "mrf_3_1", pointNumber: "Hot Water Pipe Insulation", tier: "ALL", category: "Minimum Rated Features",
     text: "Supply pipes at water heater and throughout distribution. Confirm R-3 or better insulation on all hot water pipes." },
   { id: "mrf_3_2", pointNumber: "Water Fixtures", tier: "ALL", category: "Minimum Rated Features",
@@ -1451,6 +1453,15 @@ const MULTI_ENTRY_CONFIG = {
   mrf_4_0: { label: "Bath fans", entryLabel: "bath fan", repeatable: true, fields: [
     { key: "modelNumber", type: "text", label: "Model number" },
     { key: "soneRating", type: "decimal", label: "Sone rating" },
+  ]},
+  mrf_3_3: { label: "Recirculation pumps", entryLabel: "recirculation pump", repeatable: true, fields: [
+    { key: "wattage", type: "decimal", label: "Pump wattage (W)" },
+    { key: "controlType", type: "select", label: "Control type", options: [
+      ["manual_demand", "Manual Demand Control"],
+      ["none_timer", "None or Timer Control"],
+      ["temperature", "Temperature Control"],
+      ["presence_sensor", "Presence Sensor Demand Control"],
+    ] },
   ]},
 };
 
