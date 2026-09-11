@@ -2629,7 +2629,7 @@ function SingleEntryFields({ config, entry, onFieldChange }) {
 // resolvePhotoDisplay — so a gallery of several photos loads progressively instead of blocking
 // on the slowest one. `onRemove` is omitted entirely for a read-only gallery (the cross-linked
 // MRF overlap section below) — deleting a photo only makes sense from the item that owns it.
-function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 84 }) {
+function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
   const [display, setDisplay] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -2640,35 +2640,39 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 84 }) {
   }, [photoKey, meta.id, meta.spItemId, meta.syncedAt]);
 
   const showImage = display?.status === "local" || display?.status === "remote";
+  // Thumbnails are deliberately small/compressed by Graph — this link opens the real full-size
+  // file straight from SharePoint (no extra auth needed beyond whatever the browser already has
+  // for that SharePoint tenant), so it's always available whenever a photo has been synced, not
+  // just as a fallback when the thumbnail itself fails to load.
+  const webUrl = meta.spWebUrl;
   return (
     <div style={{ position: "relative", width: size, height: size }}>
       {showImage ? (
         <img src={display.src} alt="" style={{ width: size, height: size, borderRadius: 10, display: "block", objectFit: "cover" }}/>
       ) : (
-        <div style={{ width: size, height: size, borderRadius: 10, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", padding: 4, textAlign: "center" }}>
-          <span style={{ fontSize: 9, color: "#9CA3AF", lineHeight: 1.3 }}>
+        <div style={{ width: size, height: size, borderRadius: 10, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center" }}>
+          <span style={{ fontSize: 11, color: "#9CA3AF", lineHeight: 1.3 }}>
             {!display && "…"}
             {display?.status === "unsynced" && "not yet synced"}
-            {display?.status === "need-auth" && "connect SharePoint"}
+            {display?.status === "need-auth" && !webUrl && "connect SharePoint"}
             {display?.status === "no-preview" && "no live preview"}
           </span>
         </div>
       )}
       {onRemove && display?.status === "local" && (
         <button onClick={() => onRemove(meta.id)}
-          style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 13, cursor: "pointer" }}>×</button>
+          style={{ position: "absolute", top: 4, right: 4, width: 24, height: 24, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 14, cursor: "pointer" }}>×</button>
       )}
       {meta.syncedAt && (
         <span title={`Uploaded to SharePoint as ${meta.spFileName}`}
-          style={{ position: "absolute", bottom: 4, left: 4, fontSize: 11, background: "rgba(16,185,129,.9)", color: "#FFF", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>☁</span>
+          style={{ position: "absolute", bottom: 4, left: 4, fontSize: 12, background: "rgba(16,185,129,.9)", color: "#FFF", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>☁</span>
       )}
-      {display?.status === "no-preview" && display.webUrl && (
-        <a href={display.webUrl} target="_blank" rel="noreferrer" title="Open in SharePoint"
-          style={{ position: "absolute", bottom: 4, right: 4, fontSize: 9, background: "rgba(29,78,216,.9)", color: "#FFF", borderRadius: 6, padding: "1px 4px", textDecoration: "none" }}>open</a>
-      )}
-      {display?.status === "need-auth" && (
+      {webUrl ? (
+        <a href={webUrl} target="_blank" rel="noreferrer" title="Open full-size in SharePoint"
+          style={{ position: "absolute", bottom: 4, right: 4, fontSize: 10.5, fontWeight: 700, background: "rgba(29,78,216,.92)", color: "#FFF", borderRadius: 6, padding: "2px 7px", textDecoration: "none" }}>⤢ open</a>
+      ) : display?.status === "need-auth" && (
         <button onClick={() => startLogin()} title="Connect SharePoint"
-          style={{ position: "absolute", bottom: 4, right: 4, fontSize: 9, background: "rgba(29,78,216,.9)", color: "#FFF", border: "none", borderRadius: 6, padding: "1px 4px", cursor: "pointer" }}>connect</button>
+          style={{ position: "absolute", bottom: 4, right: 4, fontSize: 10.5, background: "rgba(29,78,216,.92)", color: "#FFF", border: "none", borderRadius: 6, padding: "2px 7px", cursor: "pointer" }}>connect</button>
       )}
     </div>
   );
@@ -2954,12 +2958,15 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
           {linkedPhotoGroups.map(group => (
             <div key={group.item.id} style={{ marginBottom: 12 }}>
               <p style={{ margin: "0 0 6px", fontSize: 12, color: "#166534" }}>
-                {group.item.pointNumber || group.item.text}
+                {/* The MRF item itself has no equivalent of the "Documented via MRF: ..." sentence
+                    on the item card above (that only fires for the child looking at its MRF
+                    parent) — say it here instead, same phrasing, so this direction isn't silent. */}
+                {isMRF && "Documented via "}<strong>{group.item.pointNumber || group.item.text}</strong>
                 <span style={{ color: "#9CA3AF" }}> · {group.item.category}</span>
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {group.photos.map(p => (
-                  <PhotoThumb key={p.id} photoKey={group.photoKey} meta={p} auth={auth} setAuth={setAuth} size={64}/>
+                  <PhotoThumb key={p.id} photoKey={group.photoKey} meta={p} auth={auth} setAuth={setAuth} size={128}/>
                 ))}
               </div>
             </div>
