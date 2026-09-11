@@ -2723,7 +2723,12 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
   const MAX_PHOTOS = 5;
 
   const isMRF = category.id === "Minimum Rated Features";
-  const photoRequired = (val) => isMRF && val !== "na" && photos.length === 0;
+  // A photo linked from another item (the reverse MRF<->EarthCraft/Energy Star direction —
+  // e.g. a TA shot the dishwasher nameplate on EC 6.1 directly, never touching this MRF item)
+  // counts as documentation too. linkedPhotoGroups is computed below, just before the return —
+  // safe to reference here since this function only runs when a status button is clicked,
+  // well after that const has its value for this render.
+  const photoRequired = (val) => isMRF && val !== "na" && photos.length === 0 && linkedPhotoGroups.length === 0;
 
   const save = (overrides = {}) => {
     // photos field in record holds sync metadata only — the image data lives in IndexedDB.
@@ -2921,11 +2926,14 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
           <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Photos{isMRF && <span style={{ color: "#EF4444" }}> *</span>}
           </p>
-          {isMRF && photos.length===0 && (
+          {isMRF && photos.length===0 && linkedPhotoGroups.length===0 && (
             <span style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "2px 8px", borderRadius: 20 }}>Required to confirm</span>
           )}
           {isMRF && photos.length>0 && (
             <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981", background: "#F0FDF4", padding: "2px 8px", borderRadius: 20 }}>✓ {photos.length} photo{photos.length>1?"s":""} uploaded</span>
+          )}
+          {isMRF && photos.length===0 && linkedPhotoGroups.length>0 && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981", background: "#F0FDF4", padding: "2px 8px", borderRadius: 20 }}>✓ documented via linked item</span>
           )}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -2933,15 +2941,20 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
             <PhotoThumb key={p.id} photoKey={photoKey} meta={p} auth={auth} setAuth={setAuth} onRemove={handleRemovePhoto}/>
           ))}
           {photos.length < MAX_PHOTOS && (
-            <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 ? "Upload a photo to enable confirmation" : "Add a photo"}
-              style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 10, background: isMRF && photos.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+            <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "Upload a photo to enable confirmation" : "Add a photo"}
+              style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 10, background: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
               +
             </button>
           )}
         </div>
-        {photos.length===0 && (
+        {photos.length===0 && linkedPhotoGroups.length===0 && (
           <p style={{ margin: "8px 0 0", fontSize: 12, color: isMRF ? "#EF4444" : "#9CA3AF" }}>
             {isMRF ? "Upload a photo to enable confirmation" : "Take or upload a photo"}
+          </p>
+        )}
+        {photos.length===0 && linkedPhotoGroups.length>0 && (
+          <p style={{ margin: "8px 0 0", fontSize: 12, color: "#166534" }}>
+            Documented via a linked item below — you can still add your own photo.
           </p>
         )}
         {photos.length>0 && <p style={{ margin: "8px 0 0", fontSize: 11, color: "#9CA3AF" }}>{photos.length}/{MAX_PHOTOS} photos</p>}
