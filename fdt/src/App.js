@@ -1789,7 +1789,7 @@ function ProgressRing({ pct, size = 56, stroke = 5, fail = 0 }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
-  const color = fail > 0 ? "#EF4444" : pct === 100 ? "#10B981" : "#3B82F6";
+  const color = fail > 0 ? "#EF4444" : pct === 100 ? "#7CB83F" : "#009ACB";
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E5E7EB" strokeWidth={stroke}/>
@@ -1801,7 +1801,7 @@ function ProgressRing({ pct, size = 56, stroke = 5, fail = 0 }) {
 }
 
 function ProgressBar({ pct, fail }) {
-  const color = fail > 0 ? "#EF4444" : pct === 100 ? "#10B981" : "#3B82F6";
+  const color = fail > 0 ? "#EF4444" : pct === 100 ? "#7CB83F" : "#009ACB";
   return (
     <div style={{ background: "#F3F4F6", borderRadius: 4, height: 6 }}>
       <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 4, transition: "width 0.4s ease" }}/>
@@ -1810,9 +1810,9 @@ function ProgressBar({ pct, fail }) {
 }
 
 function StatusBadge({ status }) {
-  const m = { pass: ["#D1FAE5","#065F46","Pass"], fail: ["#FEE2E2","#991B1B","Fail"], na: ["#F3F4F6","#4B5563","N/A"] };
+  const m = { pass: ["#F0F8E6","#4B7A22","Pass"], fail: ["#FEE2E2","#991B1B","Fail"], na: ["#F3F4F6","#4B5563","N/A"] };
   const s = m[status]; if (!s) return null;
-  return <span style={{ background: s[0], color: s[1], fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>{s[2]}</span>;
+  return <span style={{ background: s[0], color: s[1], fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>{s[2]}</span>;
 }
 
 // ─── SCREEN: PROJECT LIST ─────────────────────────────────────────────────────
@@ -1824,15 +1824,15 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
     <div style={{ paddingBottom: 80 }}>
 
       {/* SharePoint connection bar */}
-      <div style={{ padding: "12px 20px", background: auth ? "#F0FDF4" : "#F9FAFB", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <div style={{ padding: "12px 20px", background: auth ? "#E3F9F4" : "#F9FAFB", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         {auth ? (
           <>
             <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#059669" }}>☁ Connected to SharePoint</p>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#0F7A66" }}>☁ Connected to SharePoint</p>
               <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6B7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auth.user?.name || auth.user?.email}</p>
             </div>
             <button onClick={onLogout}
-              style={{ fontSize: 11, color: "#9CA3AF", background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+              style={{ fontSize: 11, color: "#9CA3AF", background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
               Disconnect
             </button>
           </>
@@ -1840,7 +1840,7 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
           <>
             <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF" }}>SharePoint not connected</p>
             <button onClick={startLogin}
-              style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: "#0078D4", border: "none", borderRadius: 6, padding: "6px 14px", cursor: "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+              style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: "#0078D4", border: "none", borderRadius: 6, padding: "6px 14px", cursor: "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
               Connect
             </button>
           </>
@@ -1863,10 +1863,10 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
             style={{ padding: "14px 20px", borderBottom: "1px solid #F9FAFB", display: "flex", alignItems: "center", gap: 14, background: "#FFF" }}>
             <div onClick={() => onSelect(proj)} style={{ position: "relative", flexShrink: 0, cursor: "pointer" }}>
               <ProgressRing pct={pg.pct} fail={pg.fail}/>
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: pg.fail>0?"#EF4444":pg.pct===100?"#10B981":"#3B82F6" }}>{pg.pct}%</div>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: pg.fail>0?"#EF4444":pg.pct===100?"#7CB83F":"#009ACB" }}>{pg.pct}%</div>
             </div>
             <div onClick={() => onSelect(proj)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
-              <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</p>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</p>
               <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
                 {(proj.programs||[]).length} program{proj.programs?.length!==1?"s":""} · {pg.verified}/{pg.total} items
                 {pg.fail>0 && <span style={{ color: "#EF4444", fontWeight: 600 }}> · {pg.fail} fail{pg.fail>1?"s":""}</span>}
@@ -1885,14 +1885,14 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
           onClick={() => setConfirmId(null)}>
           <div onClick={e => e.stopPropagation()}
             style={{ width: "100%", maxWidth: 430, margin: "0 auto", background: "#FFF", borderRadius: "16px 16px 0 0", padding: "24px 20px 36px" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "#111827" }}>Delete "{confirmProj.name}"?</p>
+            <p style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "#08182E" }}>Delete "{confirmProj.name}"?</p>
             <p style={{ margin: "0 0 24px", fontSize: 13, color: "#6B7280" }}>This will permanently delete the project and all its inspection records. This can't be undone.</p>
             <button onClick={() => { onDelete(confirmId); setConfirmId(null); }}
-              style={{ width: "100%", padding: 14, background: "#EF4444", border: "none", borderRadius: 12, color: "#FFF", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "DM Sans, sans-serif", marginBottom: 10 }}>
+              style={{ width: "100%", padding: 14, background: "#EF4444", border: "none", borderRadius: 6, color: "#FFF", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif", marginBottom: 10 }}>
               Delete project
             </button>
             <button onClick={() => setConfirmId(null)}
-              style={{ width: "100%", padding: 14, background: "none", border: "1.5px solid #E5E7EB", borderRadius: 12, color: "#374151", fontSize: 15, fontWeight: 500, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+              style={{ width: "100%", padding: 14, background: "none", border: "1.5px solid #E5E7EB", borderRadius: 6, color: "#374151", fontSize: 15, fontWeight: 500, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
               Cancel
             </button>
           </div>
@@ -1900,7 +1900,7 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
       )}
 
       <button onClick={onCreate}
-        style={{ position: "fixed", bottom: 28, right: 24, width: 56, height: 56, borderRadius: "50%", background: "#1B4332", border: "none", color: "#FFF", fontSize: 28, cursor: "pointer", boxShadow: "0 4px 16px rgba(27,67,50,.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>+</button>
+        style={{ position: "fixed", bottom: 28, right: 24, width: 56, height: 56, borderRadius: "50%", background: "#08182E", border: "none", color: "#FFF", fontSize: 28, cursor: "pointer", boxShadow: "0 4px 16px rgba(8,24,46,.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>+</button>
     </div>
   );
 }
@@ -2029,22 +2029,22 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   if (step === "name") {
     return (
       <div style={{ padding: "24px 20px" }}>
-        <h2 style={{ margin: "0 0 24px", fontSize: 20, fontWeight: 700, color: "#111827" }}>{isEdit ? "Edit project" : "New project"}</h2>
+        <h2 style={{ margin: "0 0 24px", fontSize: 20, fontWeight: 700, color: "#08182E" }}>{isEdit ? "Edit project" : "New project"}</h2>
         <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Project name</label>
         <input value={name} onChange={e => setName(e.target.value)}
           placeholder="e.g. Green Park"
-          style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif" }}/>
+          style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 6, outline: "none", boxSizing: "border-box", fontFamily: "Poppins, sans-serif" }}/>
         <label style={{ display: "block", marginTop: 20, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Technical Advisor</label>
         <input value={advisor} onChange={e => setAdvisor(e.target.value)}
           placeholder="Full name"
-          style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif" }}/>
+          style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 6, outline: "none", boxSizing: "border-box", fontFamily: "Poppins, sans-serif" }}/>
 
         <label style={{ display: "block", marginTop: 20, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>SharePoint Site Visits folder</label>
         {!auth && (
-          <div style={{ marginTop: 8, padding: "10px 12px", background: "#F9FAFB", border: "1.5px solid #E5E7EB", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ marginTop: 8, padding: "10px 12px", background: "#F9FAFB", border: "1.5px solid #E5E7EB", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF" }}>Connect to SharePoint to link a folder</p>
             <button onClick={startLogin}
-              style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: "#0078D4", border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+              style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: "#0078D4", border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
               Connect
             </button>
           </div>
@@ -2053,28 +2053,28 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
           onChange={e => { setFolderPath(e.target.value); setFolderStatus(null); setFolderMsg(""); }}
           onBlur={verifyFolder}
           placeholder="e.g. Projects/123 Main St/Site Visits"
-          style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: `1.5px solid ${folderStatus==="error"?"#EF4444":folderStatus==="ok"?"#10B981":"#E5E7EB"}`, borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif", background: !auth ? "#F9FAFB" : "#FFF" }}/>
+          style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: `1.5px solid ${folderStatus==="error"?"#EF4444":folderStatus==="ok"?"#7CB83F":"#E5E7EB"}`, borderRadius: 6, outline: "none", boxSizing: "border-box", fontFamily: "Poppins, sans-serif", background: !auth ? "#F9FAFB" : "#FFF" }}/>
         {folderStatus === "checking" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#9CA3AF" }}>Checking…</p>}
-        {folderStatus === "ok" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#10B981" }}>✓ {folderMsg}</p>}
+        {folderStatus === "ok" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7CB83F" }}>✓ {folderMsg}</p>}
         {folderStatus === "error" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#EF4444" }}>{folderMsg}</p>}
 
         <label style={{ display: "block", marginTop: 20, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>
           Energy model <span style={{ fontWeight: 400, color: "#9CA3AF", textTransform: "none" }}>(optional — Ekotrope .xml export)</span>
         </label>
         {energyModelFileName ? (
-          <div style={{ marginTop: 8, padding: "10px 12px", background: "#F0FDF4", border: "1.5px solid #10B981", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ marginTop: 8, padding: "10px 12px", background: "#F0F8E6", border: "1.5px solid #7CB83F", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 12.5, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>✓ {energyModelFileName}</p>
-              {energyModelUploadedAt && <p style={{ margin: "2px 0 0", fontSize: 11, color: "#059669" }}>Uploaded {fmtDate(energyModelUploadedAt)}</p>}
+              <p style={{ margin: 0, fontSize: 12.5, color: "#4B7A22", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>✓ {energyModelFileName}</p>
+              {energyModelUploadedAt && <p style={{ margin: "2px 0 0", fontSize: 11, color: "#7CB83F" }}>Uploaded {fmtDate(energyModelUploadedAt)}</p>}
             </div>
             <button onClick={removeEnergyModel}
-              style={{ fontSize: 11, color: "#065F46", background: "none", border: "1px solid #A7F3D0", borderRadius: 6, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+              style={{ fontSize: 11, color: "#4B7A22", background: "none", border: "1px solid #7CB83F", borderRadius: 6, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
               Remove
             </button>
           </div>
         ) : (
           <button onClick={() => emFileRef.current.click()}
-            style={{ marginTop: 8, width: "100%", padding: "12px", border: "1.5px dashed #D1D5DB", borderRadius: 10, background: "#F9FAFB", color: "#6B7280", fontSize: 13, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+            style={{ marginTop: 8, width: "100%", padding: "12px", border: "1.5px dashed #D1D5DB", borderRadius: 6, background: "#F9FAFB", color: "#6B7280", fontSize: 13, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
             + Upload energy model
           </button>
         )}
@@ -2086,10 +2086,10 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
           EarthCraft optional points <span style={{ fontWeight: 400, color: "#9CA3AF", textTransform: "none" }}>(optional — populated EarthCraft workbook .xlsx)</span>
         </label>
         {earthcraftWorkbookFileName ? (
-          <div style={{ marginTop: 8, padding: "10px 12px", background: "#F0FDF4", border: "1.5px solid #10B981", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ marginTop: 8, padding: "10px 12px", background: "#F0F8E6", border: "1.5px solid #7CB83F", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 12.5, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>✓ {earthcraftWorkbookFileName}</p>
-              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#059669" }}>
+              <p style={{ margin: 0, fontSize: 12.5, color: "#4B7A22", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>✓ {earthcraftWorkbookFileName}</p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#7CB83F" }}>
                 {(earthcraftOptionalItems||[]).length} planned point{(earthcraftOptionalItems||[]).length===1?"":"s"} added
                 {(earthcraftOptionalItems||[]).filter(i => (i.workbookStatus||"").toLowerCase()==="y").length > 0 &&
                   <> ({(earthcraftOptionalItems||[]).filter(i => (i.workbookStatus||"").toLowerCase()==="y").length} already marked passing from workbook)</>}
@@ -2097,13 +2097,13 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
               </p>
             </div>
             <button onClick={removeEarthcraftWorkbook}
-              style={{ fontSize: 11, color: "#065F46", background: "none", border: "1px solid #A7F3D0", borderRadius: 6, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+              style={{ fontSize: 11, color: "#4B7A22", background: "none", border: "1px solid #7CB83F", borderRadius: 6, padding: "4px 10px", cursor: "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
               Remove
             </button>
           </div>
         ) : (
           <button onClick={() => ecFileRef.current.click()}
-            style={{ marginTop: 8, width: "100%", padding: "12px", border: "1.5px dashed #D1D5DB", borderRadius: 10, background: "#F9FAFB", color: "#6B7280", fontSize: 13, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+            style={{ marginTop: 8, width: "100%", padding: "12px", border: "1.5px dashed #D1D5DB", borderRadius: 6, background: "#F9FAFB", color: "#6B7280", fontSize: 13, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
             + Upload EarthCraft workbook
           </button>
         )}
@@ -2111,13 +2111,13 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
         <input ref={ecFileRef} type="file" accept=".xlsx" onChange={handleEarthCraftFile} style={{ display: "none" }}/>
         <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "#9CA3AF" }}>Adds this project's planned optional points as trackable checklist items, matched against our reviewed field-verifiable list.</p>
         {earthcraftAlreadyMandatoryCount > 0 && (
-          <div style={{ marginTop: 8, padding: "10px 12px", background: "#EFF6FF", border: "1.5px solid #BFDBFE", borderRadius: 10 }}>
-            <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: "#1D4ED8" }}>{earthcraftAlreadyMandatoryCount} item{earthcraftAlreadyMandatoryCount===1?"":"s"} already tracked as mandatory</p>
-            <p style={{ margin: "4px 0 0", fontSize: 11, color: "#1D4ED8", lineHeight: 1.5 }}>These are required for EarthCraft Gold, so they're already on this project's checklist as pass/fail — not added again as separate optional points.</p>
+          <div style={{ marginTop: 8, padding: "10px 12px", background: "#E3F5FA", border: "1.5px solid #B8E4F0", borderRadius: 6 }}>
+            <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: "#026581" }}>{earthcraftAlreadyMandatoryCount} item{earthcraftAlreadyMandatoryCount===1?"":"s"} already tracked as mandatory</p>
+            <p style={{ margin: "4px 0 0", fontSize: 11, color: "#026581", lineHeight: 1.5 }}>These are required for EarthCraft Gold, so they're already on this project's checklist as pass/fail — not added again as separate optional points.</p>
           </div>
         )}
         <button onClick={() => name.trim() && folderStatus==="ok" && setStep("programs")} disabled={!name.trim() || folderStatus!=="ok"}
-          style={{ marginTop: 24, width: "100%", padding: 14, background: (!name.trim()||folderStatus!=="ok")?"#E5E7EB":"#1B4332", color: (!name.trim()||folderStatus!=="ok")?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: (!name.trim()||folderStatus!=="ok")?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
+          style={{ marginTop: 24, width: "100%", padding: 14, background: (!name.trim()||folderStatus!=="ok")?"#E5E7EB":"#08182E", color: (!name.trim()||folderStatus!=="ok")?"#9CA3AF":"#FFF", border: "none", borderRadius: 6, fontSize: 15, fontWeight: 600, cursor: (!name.trim()||folderStatus!=="ok")?"not-allowed":"pointer", fontFamily: "Poppins, sans-serif" }}>
           Next
         </button>
       </div>
@@ -2129,17 +2129,17 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
     const already = new Set(selections.map(s => s.programId));
     return (
       <div style={{ padding: "24px 20px" }}>
-        <h3 style={{ margin: "0 0 20px", fontSize: 17, fontWeight: 700, color: "#111827" }}>Select program</h3>
+        <h3 style={{ margin: "0 0 20px", fontSize: 17, fontWeight: 700, color: "#08182E" }}>Select program</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {PROGRAM_CATALOG.filter(p => !already.has(p.id)).map(p => (
             <div key={p.id} onClick={() => setPickingProgram(p.id)}
-              style={{ padding: "14px 16px", border: "1.5px solid #E5E7EB", borderRadius: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+              style={{ padding: "14px 16px", border: "1.5px solid #E5E7EB", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: p.color, flexShrink: 0 }}/>
-              <span style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>{p.label}</span>
+              <span style={{ fontSize: 14, fontWeight: 500, color: "#08182E" }}>{p.label}</span>
             </div>
           ))}
         </div>
-        <button onClick={() => setPickingProgram(null)} style={{ marginTop: 20, width: "100%", padding: 12, background: "none", border: "1.5px solid #E5E7EB", borderRadius: 10, fontSize: 14, cursor: "pointer", fontFamily: "DM Sans, sans-serif", color: "#6B7280" }}>Cancel</button>
+        <button onClick={() => setPickingProgram(null)} style={{ marginTop: 20, width: "100%", padding: 12, background: "none", border: "1.5px solid #E5E7EB", borderRadius: 6, fontSize: 14, cursor: "pointer", fontFamily: "Poppins, sans-serif", color: "#6B7280" }}>Cancel</button>
       </div>
     );
   }
@@ -2148,21 +2148,21 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
     const prog = PROGRAM_CATALOG.find(p => p.id === pickingProgram);
     return (
       <div style={{ padding: "24px 20px" }}>
-        <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 700, color: "#111827" }}>{prog.label}</h3>
+        <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 700, color: "#08182E" }}>{prog.label}</h3>
         <p style={{ margin: "0 0 20px", fontSize: 13, color: "#9CA3AF" }}>Select version and revision</p>
         {prog.versions.map(v => (
           <div key={v.version} style={{ marginBottom: 16 }}>
             <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 600, color: "#374151" }}>Version {v.version}</p>
             {v.revisions.map(rev => (
               <div key={rev} onClick={() => confirmVersionRevision(prog.id, v.version, rev)}
-                style={{ padding: "12px 16px", border: "1.5px solid #E5E7EB", borderRadius: 10, cursor: "pointer", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 14, color: "#111827" }}>{rev}</span>
+                style={{ padding: "12px 16px", border: "1.5px solid #E5E7EB", borderRadius: 6, cursor: "pointer", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 14, color: "#08182E" }}>{rev}</span>
                 <span style={{ fontSize: 12, color: prog.color, fontWeight: 600 }}>Select →</span>
               </div>
             ))}
           </div>
         ))}
-        <button onClick={() => setPickingProgram(null)} style={{ marginTop: 8, width: "100%", padding: 12, background: "none", border: "1.5px solid #E5E7EB", borderRadius: 10, fontSize: 14, cursor: "pointer", fontFamily: "DM Sans, sans-serif", color: "#6B7280" }}>Back</button>
+        <button onClick={() => setPickingProgram(null)} style={{ marginTop: 8, width: "100%", padding: 12, background: "none", border: "1.5px solid #E5E7EB", borderRadius: 6, fontSize: 14, cursor: "pointer", fontFamily: "Poppins, sans-serif", color: "#6B7280" }}>Back</button>
       </div>
     );
   }
@@ -2170,7 +2170,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   // Programs step
   return (
     <div style={{ padding: "24px 20px" }}>
-      <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 700, color: "#111827" }}>{name}</h2>
+      <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 700, color: "#08182E" }}>{name}</h2>
       <p style={{ margin: "0 0 20px", fontSize: 13, color: "#9CA3AF" }}>Add the programs being pursued</p>
 
       {selections.length > 0 && (
@@ -2178,7 +2178,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
           {selections.map((sel, i) => {
             const p = PROGRAM_CATALOG.find(x => x.id === sel.programId);
             return (
-              <div key={i} style={{ padding: "10px 14px", background: p.color+"12", border: `1.5px solid ${p.color}`, borderRadius: 10, marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div key={i} style={{ padding: "10px 14px", background: p.color+"12", border: `1.5px solid ${p.color}`, borderRadius: 6, marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: p.color }}>{p.label}</p>
                   <p style={{ margin: "2px 0 0", fontSize: 11, color: p.color+"BB" }}>{sel.version} · {sel.revision}</p>
@@ -2192,7 +2192,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
       )}
 
       <button onClick={startAddProgram}
-        style={{ width: "100%", padding: "12px", border: "2px dashed #D1D5DB", borderRadius: 10, background: "#F9FAFB", color: "#6B7280", fontSize: 14, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+        style={{ width: "100%", padding: "12px", border: "2px dashed #D1D5DB", borderRadius: 6, background: "#F9FAFB", color: "#6B7280", fontSize: 14, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
         + Add program
       </button>
 
@@ -2205,7 +2205,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
           createdAt: initialProject?.createdAt || new Date().toISOString(),
         })}
         disabled={!selections.length}
-        style={{ marginTop: 20, width: "100%", padding: 14, background: !selections.length?"#E5E7EB":"#1B4332", color: !selections.length?"#9CA3AF":"#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: !selections.length?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
+        style={{ marginTop: 20, width: "100%", padding: 14, background: !selections.length?"#E5E7EB":"#08182E", color: !selections.length?"#9CA3AF":"#FFF", border: "none", borderRadius: 6, fontSize: 15, fontWeight: 600, cursor: !selections.length?"not-allowed":"pointer", fontFamily: "Poppins, sans-serif" }}>
         {isEdit ? "Save changes" : "Create project"}
       </button>
     </div>
@@ -2231,38 +2231,38 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 3 }}>
             {item.pointNumber && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#1565C0", background: "#EFF6FF", padding: "1px 6px", borderRadius: 5, letterSpacing: "0.02em", flexShrink: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#026581", background: "#E3F5FA", padding: "1px 6px", borderRadius: 5, letterSpacing: "0.02em", flexShrink: 0 }}>
                 {item.pointNumber}
               </span>
             )}
-            <p style={{ margin: 0, fontSize: 13, color: "#111827", lineHeight: 1.55 }}>{item.text}</p>
+            <p style={{ margin: 0, fontSize: 13, color: "#08182E", lineHeight: 1.55 }}>{item.text}</p>
           </div>
           <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {tierBadge}
             {item.points != null && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#92400E", background: "#FEF3C7", padding: "1px 7px", borderRadius: 20 }}>★ {item.points} pt{item.points===1?"":"s"}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "1px 7px", borderRadius: 8 }}>★ {item.points} pt{item.points===1?"":"s"}</span>
             )}
             {itemPrograms.map(prog => {
               const isEC = prog.id === "earthcraft_certified" || prog.id === "earthcraft_gold" || prog.id === "earthcraft_sf2024_certified" || prog.id === "earthcraft_sf2024_gold";
               const isGoldItem = isEC && item.tier === "GOLD";
               const label = isEC ? (isGoldItem ? "EarthCraft Gold" : "EarthCraft Certified") : prog.label;
-              const bg = isGoldItem ? "#FEF9C3" : prog.color+"18";
-              const color = isGoldItem ? "#A16207" : prog.color;
-              return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: bg, color, fontWeight: 600 }}>{label}</span>;
+              const bg = isGoldItem ? "#FBF6DC" : prog.color+"18";
+              const color = isGoldItem ? "#8A6D14" : prog.color;
+              return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: bg, color, fontWeight: 600 }}>{label}</span>;
             })}
-            {rec.photos?.length>0 && <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>📷</span>}
+            {rec.photos?.length>0 && <span style={{ fontSize: 11, color: "#7CB83F", fontWeight: 600 }}>📷</span>}
             {!rec.photos?.length && item._cat === "Minimum Rated Features" && rec.status && rec.status !== "na" && (
-              <span style={{ fontSize: 10, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "1px 6px", borderRadius: 20 }}>📷 missing</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "1px 6px", borderRadius: 8 }}>📷 missing</span>
             )}
             {rec.note && <span style={{ fontSize: 11, color: "#6B7280" }}>📝</span>}
-            {rec.fromWorkbook && <span style={{ fontSize: 10, fontWeight: 600, color: "#1D4ED8", background: "#EFF6FF", padding: "1px 6px", borderRadius: 20 }}>📄 from workbook</span>}
-            {mrfDoc && <span style={{ fontSize: 10, fontWeight: 600, color: "#166534", background: "#F0FDF4", padding: "1px 6px", borderRadius: 20 }}>📎 documented via MRF</span>}
+            {rec.fromWorkbook && <span style={{ fontSize: 10, fontWeight: 600, color: "#026581", background: "#E3F5FA", padding: "1px 6px", borderRadius: 8 }}>📄 from workbook</span>}
+            {mrfDoc && <span style={{ fontSize: 10, fontWeight: 600, color: "#0F7A66", background: "#E3F9F4", padding: "1px 6px", borderRadius: 8 }}>📎 documented via MRF</span>}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
           {rec.status && <StatusBadge status={rec.status}/>}
           <button onClick={() => onSelectItem(item)}
-            style={{ fontSize: 11, padding: "5px 11px", border: "1.5px solid #E5E7EB", borderRadius: 8, background: "#FFF", color: "#374151", cursor: "pointer", fontFamily: "DM Sans, sans-serif", fontWeight: 500 }}>
+            style={{ fontSize: 11, padding: "5px 11px", border: "1.5px solid #E5E7EB", borderRadius: 8, background: "#FFF", color: "#374151", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontWeight: 500 }}>
             {rec.status ? "Update" : "Document"}
           </button>
         </div>
@@ -2283,7 +2283,7 @@ function SearchBar({ query, onChange, placeholder }) {
         value={query}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{ width: "100%", padding: "9px 32px 9px 32px", fontSize: 13, border: "1.5px solid #E5E7EB", borderRadius: 8, outline: "none", background: "#FFF", fontFamily: "DM Sans, sans-serif", color: "#111827", boxSizing: "border-box" }}
+        style={{ width: "100%", padding: "9px 32px 9px 32px", fontSize: 13, border: "1.5px solid #E5E7EB", borderRadius: 8, outline: "none", background: "#FFF", fontFamily: "Poppins, sans-serif", color: "#08182E", boxSizing: "border-box" }}
       />
       {query && (
         <button onClick={() => onChange("")}
@@ -2381,7 +2381,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
     const mrf = cat.id === "Minimum Rated Features";
     const p = calcCatProgress(items, records, project.id, cat.id);
     if (!items.length && !mrf) return null;
-    const accentColor = mrf ? "#059669" : (p.fail>0?"#EF4444":p.pct===100?"#10B981":"#3B82F6");
+    const accentColor = mrf ? "#1ABC9C" : (p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB");
     return (
       <div onClick={() => onSelectCategory(cat)}
         style={{ padding: "14px 20px", borderBottom: "1px solid #F9FAFB", cursor: "pointer" }}
@@ -2389,18 +2389,18 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         onTouchEnd={e => e.currentTarget.style.background="#FFF"}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: mrf?"#059669":"#6B7280", background: mrf?"#D1FAE5":"#F3F4F6", padding: "2px 6px", borderRadius: 4, flexShrink: 0 }}>{cat.code}</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: mrf?"#059669":"#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat.id}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: mrf?"#0F7A66":"#6B7280", background: mrf?"#E3F9F4":"#F3F4F6", padding: "2px 6px", borderRadius: 4, flexShrink: 0 }}>{cat.code}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: mrf?"#0F7A66":"#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat.id}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 20 }}>{p.fail} fail</span>}
+            {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} fail</span>}
             {!mrf && <span style={{ fontSize: 13, fontWeight: 700, color: accentColor }}>{p.pct}%</span>}
             {mrf && items.length === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Coming soon</span>}
             <span style={{ color: "#D1D5DB" }}>›</span>
           </div>
         </div>
         {!mrf && <ProgressBar pct={p.pct} fail={p.fail}/>}
-        <p style={{ margin: "4px 0 0", fontSize: 11, color: mrf?"#059669":"#9CA3AF" }}>
+        <p style={{ margin: "4px 0 0", fontSize: 11, color: mrf?"#0F7A66":"#9CA3AF" }}>
           {mrf ? "Energy modeling documentation" : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} failing`:""}`}
         </p>
       </div>
@@ -2410,17 +2410,17 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
   return (
     <div style={{ paddingBottom: 40 }}>
       {/* Hero */}
-      <div style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", padding: "24px 20px 20px" }}>
+      <div style={{ background: "linear-gradient(135deg,#08182E,#17325A)", padding: "24px 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
               <ProgressRing pct={pg.pct} size={72} stroke={6} fail={pg.fail}/>
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: pg.fail>0?"#EF4444":pg.pct===100?"#10B981":"#60A5FA" }}>{pg.pct}%</div>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: pg.fail>0?"#EF4444":pg.pct===100?"#7CB83F":"#6FD4EE" }}>{pg.pct}%</div>
             </div>
             <div style={{ minWidth: 0 }}>
               <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#FFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.name}</h2>
-              <p style={{ margin: "3px 0 0", fontSize: 12, color: "#A7F3D0" }}>{pg.verified}/{pg.total} items verified</p>
-              {project.advisor && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#6EE7B7" }}>TA: {project.advisor}</p>}
+              <p style={{ margin: "3px 0 0", fontSize: 12, color: "#B9E6A0" }}>{pg.verified}/{pg.total} items verified</p>
+              {project.advisor && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#9FC3E0" }}>TA: {project.advisor}</p>}
               {pg.fail>0 && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
             </div>
           </div>
@@ -2433,7 +2433,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           {(project.programs||[]).map((sel, i) => {
             const p = PROGRAM_CATALOG.find(x => x.id === sel.programId);
             return (
-              <span key={i} style={{ fontSize: 10, padding: "3px 9px", borderRadius: 20, background: "rgba(255,255,255,0.15)", color: "#FFF", fontWeight: 500 }}>
+              <span key={i} style={{ fontSize: 10, padding: "3px 9px", borderRadius: 8, background: "rgba(255,255,255,0.15)", color: "#FFF", fontWeight: 500 }}>
                 {p?.label} {sel.version} {sel.revision}
               </span>
             );
@@ -2460,7 +2460,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           )}
         </div>
         <button onClick={handleUploadToSharePoint} disabled={!project.sharePointFolder || syncState.running || (auth && pendingCount===0)}
-          style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: !project.sharePointFolder ? "#D1D5DB" : !auth ? "#0078D4" : (pendingCount===0 ? "#D1D5DB" : "#059669"), border: "none", borderRadius: 6, padding: "6px 14px", cursor: (!project.sharePointFolder || syncState.running) ? "not-allowed" : "pointer", flexShrink: 0, fontFamily: "DM Sans, sans-serif" }}>
+          style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: !project.sharePointFolder ? "#D1D5DB" : !auth ? "#0078D4" : (pendingCount===0 ? "#D1D5DB" : "#1ABC9C"), border: "none", borderRadius: 6, padding: "6px 14px", cursor: (!project.sharePointFolder || syncState.running) ? "not-allowed" : "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
           {!project.sharePointFolder ? "Not linked" : !auth ? "Connect" : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
         </button>
       </div>
@@ -2515,13 +2515,13 @@ function ChecklistView({ project, category, records, onSelectItem }) {
       <div style={{ padding: "14px 20px 12px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111827" }}>{category.id}</h3>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#08182E" }}>{category.id}</h3>
             <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
               {p.pass+p.na}/{p.total} verified
               {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} failing</span>}
             </p>
           </div>
-          <span style={{ fontSize: 22, fontWeight: 700, color: p.fail>0?"#EF4444":p.pct===100?"#10B981":"#3B82F6" }}>{p.pct}%</span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB" }}>{p.pct}%</span>
         </div>
         <div style={{ marginTop: 10 }}><ProgressBar pct={p.pct} fail={p.fail}/></div>
         <div style={{ marginTop: 12 }}>
@@ -2530,14 +2530,14 @@ function ChecklistView({ project, category, records, onSelectItem }) {
         {q && <p style={{ margin: "6px 0 0", fontSize: 11, color: "#9CA3AF" }}>{displayItems.length} of {allItems.length} items</p>}
       </div>
       {modelNotes && (
-        <div style={{ padding: "10px 20px", borderBottom: "1px solid #F3F4F6", background: "#EFF6FF" }}>
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid #F3F4F6", background: "#E3F5FA" }}>
           <button onClick={() => setModelNotesOpen(o => !o)}
-            style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.06em" }}>⚡ Energy model notes</span>
-            <span style={{ fontSize: 10, color: "#1D4ED8", transform: modelNotesOpen ? "rotate(180deg)" : "none" }}>▾</span>
+            style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#026581", textTransform: "uppercase", letterSpacing: "0.06em" }}>⚡ Energy model notes</span>
+            <span style={{ fontSize: 10, color: "#026581", transform: modelNotesOpen ? "rotate(180deg)" : "none" }}>▾</span>
           </button>
           {modelNotesOpen && (
-            <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "#1E3A8A", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{modelNotes}</p>
+            <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "#026581", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{modelNotes}</p>
           )}
         </div>
       )}
@@ -2565,7 +2565,7 @@ function sanitizeDecimal2(raw) {
 
 // Renders just the field inputs for one entry — shared by the repeatable list and single-entry views
 function EntryFieldInputs({ fields, entry, onFieldChange }) {
-  const inputStyle = { width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", boxSizing: "border-box" };
+  const inputStyle = { width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "Poppins, sans-serif", color: "#08182E", boxSizing: "border-box" };
   return fields.map(f => (
     <div key={f.key}>
       <label style={{ display: "block", marginBottom: 4, fontSize: 11, color: "#9CA3AF" }}>{f.label}</label>
@@ -2595,7 +2595,7 @@ function MultiEntryList({ config, entries, onAdd, onRemove, onFieldChange }) {
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {entries.map((entry, idx) => (
-          <div key={idx} style={{ position: "relative", padding: 14, border: "1.5px solid #E5E7EB", borderRadius: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div key={idx} style={{ position: "relative", padding: 14, border: "1.5px solid #E5E7EB", borderRadius: 6, display: "flex", flexDirection: "column", gap: 10 }}>
             <button onClick={() => onRemove(idx)} title={`Remove this ${config.entryLabel}`}
               style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: "50%", background: "#F3F4F6", border: "none", color: "#6B7280", fontSize: 13, cursor: "pointer", lineHeight: "22px" }}>×</button>
             <EntryFieldInputs fields={config.fields} entry={entry} onFieldChange={(key, val) => onFieldChange(idx, key, val)}/>
@@ -2603,7 +2603,7 @@ function MultiEntryList({ config, entries, onAdd, onRemove, onFieldChange }) {
         ))}
       </div>
       <button onClick={onAdd}
-        style={{ marginTop: 10, width: "100%", padding: "10px", border: "1.5px dashed #D1D5DB", borderRadius: 10, background: "#F9FAFB", color: "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+        style={{ marginTop: 10, width: "100%", padding: "10px", border: "1.5px dashed #D1D5DB", borderRadius: 6, background: "#F9FAFB", color: "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
         + Add {config.entryLabel}
       </button>
     </div>
@@ -2617,7 +2617,7 @@ function SingleEntryFields({ config, entry, onFieldChange }) {
       <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {config.label}
       </p>
-      <div style={{ padding: 14, border: "1.5px solid #E5E7EB", borderRadius: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ padding: 14, border: "1.5px solid #E5E7EB", borderRadius: 6, display: "flex", flexDirection: "column", gap: 10 }}>
         <EntryFieldInputs fields={config.fields} entry={entry} onFieldChange={onFieldChange}/>
       </div>
     </div>
@@ -2648,9 +2648,9 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
   return (
     <div style={{ position: "relative", width: size, height: size }}>
       {showImage ? (
-        <img src={display.src} alt="" style={{ width: size, height: size, borderRadius: 10, display: "block", objectFit: "cover" }}/>
+        <img src={display.src} alt="" style={{ width: size, height: size, borderRadius: 6, display: "block", objectFit: "cover" }}/>
       ) : (
-        <div style={{ width: size, height: size, borderRadius: 10, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center" }}>
+        <div style={{ width: size, height: size, borderRadius: 6, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center" }}>
           <span style={{ fontSize: 11, color: "#9CA3AF", lineHeight: 1.3 }}>
             {!display && "…"}
             {display?.status === "unsynced" && "not yet synced"}
@@ -2859,34 +2859,34 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
   return (
     <div style={{ padding: "20px 20px 40px" }}>
       {/* Item card */}
-      <div style={{ background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 12, padding: "14px 16px", marginBottom: 24 }}>
+      <div style={{ background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 6, padding: "14px 16px", marginBottom: 24 }}>
         {item.pointNumber && (
-          <span style={{ display: "inline-block", marginBottom: 8, fontSize: 12, fontWeight: 700, color: "#1565C0", background: "#EFF6FF", padding: "2px 8px", borderRadius: 6, letterSpacing: "0.02em" }}>
+          <span style={{ display: "inline-block", marginBottom: 8, fontSize: 12, fontWeight: 700, color: "#026581", background: "#E3F5FA", padding: "2px 8px", borderRadius: 6, letterSpacing: "0.02em" }}>
             {item.pointNumber}
           </span>
         )}
         {item.points != null && (
-          <span style={{ display: "inline-block", marginBottom: 8, marginLeft: 6, fontSize: 12, fontWeight: 700, color: "#92400E", background: "#FEF3C7", padding: "2px 8px", borderRadius: 6 }}>
+          <span style={{ display: "inline-block", marginBottom: 8, marginLeft: 6, fontSize: 12, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "2px 8px", borderRadius: 6 }}>
             ★ {item.points} pt{item.points===1?"":"s"}
           </span>
         )}
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827", lineHeight: 1.55 }}>{item.text}</p>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#08182E", lineHeight: 1.55 }}>{item.text}</p>
         <p style={{ margin: "6px 0 0", fontSize: 11, color: "#9CA3AF" }}>{category.id} · {project.name}</p>
         <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {item.mergedWith && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: "#F0FDF4", color: "#166534", fontWeight: 600 }}>Multi-program</span>}
+          {item.mergedWith && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "#E3F9F4", color: "#0F7A66", fontWeight: 600 }}>Multi-program</span>}
           {itemPrograms.map(prog => {
               const isEC = prog.id === "earthcraft_certified" || prog.id === "earthcraft_gold" || prog.id === "earthcraft_sf2024_certified" || prog.id === "earthcraft_sf2024_gold";
               const isGoldItem = isEC && item.tier === "GOLD";
               const label = isEC ? (isGoldItem ? "EarthCraft Gold" : "EarthCraft Certified") : prog.label;
-              const bg = isGoldItem ? "#FEF9C3" : prog.color+"18";
-              const color = isGoldItem ? "#A16207" : prog.color;
-              return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: bg, color, fontWeight: 600 }}>{label}</span>;
+              const bg = isGoldItem ? "#FBF6DC" : prog.color+"18";
+              const color = isGoldItem ? "#8A6D14" : prog.color;
+              return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: bg, color, fontWeight: 600 }}>{label}</span>;
             })}
-          {record?.fromWorkbook && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 600 }}>📄 from workbook</span>}
-          {mrfDoc && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 20, background: "#F0FDF4", color: "#166534", fontWeight: 600 }}>📎 documented via MRF</span>}
+          {record?.fromWorkbook && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "#E3F5FA", color: "#026581", fontWeight: 600 }}>📄 from workbook</span>}
+          {mrfDoc && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "#E3F9F4", color: "#0F7A66", fontWeight: 600 }}>📎 documented via MRF</span>}
         </div>
         {mrfDocItem && (
-          <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "#166534" }}>
+          <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "#0F7A66" }}>
             Documented via MRF: <strong>{mrfDocItem.pointNumber}</strong> — still needs its own pass/fail below.
           </p>
         )}
@@ -2894,15 +2894,15 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
 
       {/* Energy model reference — what the Ekotrope model assumes for this item */}
       {modelRefLines && modelRefLines.length > 0 && (
-        <div style={{ marginBottom: 24, padding: "12px 14px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10 }}>
+        <div style={{ marginBottom: 24, padding: "12px 14px", background: "#E3F5FA", border: "1px solid #B8E4F0", borderRadius: 6 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-            <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#026581", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               ⚡ Energy model says
             </p>
-            {project.energyModelUploadedAt && <span style={{ fontSize: 10.5, color: "#60A5FA" }}>as of {fmtDate(project.energyModelUploadedAt)}</span>}
+            {project.energyModelUploadedAt && <span style={{ fontSize: 10.5, color: "#009ACB" }}>as of {fmtDate(project.energyModelUploadedAt)}</span>}
           </div>
           {modelRefLines.map((line, i) => (
-            <p key={i} style={{ margin: i===0 ? 0 : "3px 0 0", fontSize: 13, color: "#1E3A8A", lineHeight: 1.5 }}>{line}</p>
+            <p key={i} style={{ margin: i===0 ? 0 : "3px 0 0", fontSize: 13, color: "#026581", lineHeight: 1.5 }}>{line}</p>
           ))}
         </div>
       )}
@@ -2917,7 +2917,7 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
       {/* Autosave indicator */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Status</p>
-        {saved && <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>✓ Saved</span>}
+        {saved && <span style={{ fontSize: 11, color: "#7CB83F", fontWeight: 600 }}>✓ Saved</span>}
       </div>
 
       {/* Photos — up to 5 per item, shown FIRST for MRF items so the requirement is front and center */}
@@ -2927,13 +2927,13 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
             Photos{isMRF && <span style={{ color: "#EF4444" }}> *</span>}
           </p>
           {isMRF && photos.length===0 && linkedPhotoGroups.length===0 && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "2px 8px", borderRadius: 20 }}>Required to confirm</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "2px 8px", borderRadius: 8 }}>Required to confirm</span>
           )}
           {isMRF && photos.length>0 && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981", background: "#F0FDF4", padding: "2px 8px", borderRadius: 20 }}>✓ {photos.length} photo{photos.length>1?"s":""} uploaded</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#7CB83F", background: "#F0F8E6", padding: "2px 8px", borderRadius: 8 }}>✓ {photos.length} photo{photos.length>1?"s":""} uploaded</span>
           )}
           {isMRF && photos.length===0 && linkedPhotoGroups.length>0 && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#10B981", background: "#F0FDF4", padding: "2px 8px", borderRadius: 20 }}>✓ documented via linked item</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#1ABC9C", background: "#E3F9F4", padding: "2px 8px", borderRadius: 8 }}>✓ documented via linked item</span>
           )}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -2942,7 +2942,7 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
           ))}
           {photos.length < MAX_PHOTOS && (
             <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "Upload a photo to enable confirmation" : "Add a photo"}
-              style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 10, background: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+              style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 6, background: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
               +
             </button>
           )}
@@ -2953,7 +2953,7 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
           </p>
         )}
         {photos.length===0 && linkedPhotoGroups.length>0 && (
-          <p style={{ margin: "8px 0 0", fontSize: 12, color: "#166534" }}>
+          <p style={{ margin: "8px 0 0", fontSize: 12, color: "#0F7A66" }}>
             Documented via a linked item below — you can still add your own photo.
           </p>
         )}
@@ -2970,7 +2970,7 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
           </p>
           {linkedPhotoGroups.map(group => (
             <div key={group.item.id} style={{ marginBottom: 12 }}>
-              <p style={{ margin: "0 0 6px", fontSize: 12, color: "#166534" }}>
+              <p style={{ margin: "0 0 6px", fontSize: 12, color: "#0F7A66" }}>
                 {/* The MRF item itself has no equivalent of the "Documented via MRF: ..." sentence
                     on the item card above (that only fires for the child looking at its MRF
                     parent) — say it here instead, same phrasing, so this direction isn't silent. */}
@@ -2990,19 +2990,19 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
       {/* Status */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Status</p>
-        {saved && <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>✓ Saved</span>}
+        {saved && <span style={{ fontSize: 11, color: "#7CB83F", fontWeight: 600 }}>✓ Saved</span>}
       </div>
 
       {/* Status buttons — Pass and Fail blocked on MRF without photo. MRF isn't a compliance
           pass/fail check, it's "is this fully documented" — relabeled accordingly, same
           underlying pass/fail/na values so nothing else about how records are stored changes. */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
-        {[["pass","#D1FAE5","#065F46","#10B981",isMRF?"All Features Documented":"Pass"],["fail","#FEE2E2","#991B1B","#EF4444",isMRF?"Additional Photos Needed":"Fail"],["na","#F3F4F6","#4B5563","#9CA3AF","N/A"]].map(([id,bg,col,brd,label]) => {
+        {[["pass","#F0F8E6","#4B7A22","#7CB83F",isMRF?"All Features Documented":"Pass"],["fail","#FEE2E2","#991B1B","#EF4444",isMRF?"Additional Photos Needed":"Fail"],["na","#F3F4F6","#4B5563","#9CA3AF","N/A"]].map(([id,bg,col,brd,label]) => {
           const blocked = photoRequired(id);
           return (
             <button key={id} onClick={() => handleStatus(id)} disabled={blocked}
               title={blocked ? "Upload a photo first" : ""}
-              style={{ padding: "12px 8px", border: `2px solid ${status===id ? brd : blocked ? "#F3F4F6" : "#E5E7EB"}`, borderRadius: 10, background: status===id ? bg : blocked ? "#F9FAFB" : "#FFF", color: status===id ? col : blocked ? "#D1D5DB" : "#6B7280", fontSize: 13, fontWeight: 700, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "DM Sans, sans-serif", position: "relative" }}>
+              style={{ padding: "12px 8px", border: `2px solid ${status===id ? brd : blocked ? "#F3F4F6" : "#E5E7EB"}`, borderRadius: 6, background: status===id ? bg : blocked ? "#F9FAFB" : "#FFF", color: status===id ? col : blocked ? "#D1D5DB" : "#6B7280", fontSize: 13, fontWeight: 700, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif", position: "relative" }}>
               {label}
               {blocked && <span style={{ display: "block", fontSize: 9, fontWeight: 400, marginTop: 2, color: "#FCA5A5" }}>photo first</span>}
             </button>
@@ -3024,13 +3024,13 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
       <textarea value={note} onChange={e => handleNoteChange(e.target.value)}
         onFocus={handleNoteFocus} onBlur={handleNoteBlur}
         placeholder="Add a note..." rows={3}
-        style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #E5E7EB", borderRadius: 10, fontSize: 14, fontFamily: "DM Sans, sans-serif", color: "#111827", resize: "none", outline: "none", boxSizing: "border-box" }}/>
+        style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #E5E7EB", borderRadius: 6, fontSize: 14, fontFamily: "Poppins, sans-serif", color: "#08182E", resize: "none", outline: "none", boxSizing: "border-box" }}/>
 
       {/* History — prior status changes, most recent first */}
       {record?.history?.length > 0 && (
         <div style={{ marginTop: 24 }}>
           <button onClick={() => setHistoryOpen(o => !o)}
-            style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "DM Sans, sans-serif" }}>
+            style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               History ({record.history.length} prior {record.history.length === 1 ? "entry" : "entries"})
             </span>
@@ -3039,11 +3039,11 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
           {historyOpen && (
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
               {[...record.history].reverse().map((h, i) => (
-                <div key={i} style={{ padding: "10px 12px", background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 10 }}>
+                <div key={i} style={{ padding: "10px 12px", background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: (h.note || h.mismatch) ? 6 : 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <StatusBadge status={h.status}/>
-                      {h.mismatch && <span style={{ fontSize: 10, fontWeight: 600, color: "#991B1B", background: "#FEF2F2", padding: "1px 6px", borderRadius: 20 }}>⚡ flagged</span>}
+                      {h.mismatch && <span style={{ fontSize: 10, fontWeight: 600, color: "#991B1B", background: "#FEF2F2", padding: "1px 6px", borderRadius: 8 }}>⚡ flagged</span>}
                     </div>
                     <span style={{ fontSize: 11, color: "#9CA3AF" }}>{fmtDate(h.updatedAt)}</span>
                   </div>
@@ -3083,23 +3083,24 @@ function TeamLogin() {
   };
 
   return (
-    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "DM Sans, sans-serif", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px", boxSizing: "border-box" }}>
+    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "Poppins, sans-serif", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px", boxSizing: "border-box" }}>
       <img src="/logo192.png" alt="" style={{ width: 56, height: 56, marginBottom: 16 }}/>
-      <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#111827" }}>Doc Tracker</h1>
+      <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#08182E" }}>Doc Tracker</h1>
       <p style={{ margin: "0 0 28px", fontSize: 13, color: "#6B7280" }}>Sign in with the team login to continue.</p>
       <form onSubmit={handleSubmit}>
         <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Email</label>
         <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoFocus
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 16, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif" }}/>
+          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 16, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 6, outline: "none", boxSizing: "border-box", fontFamily: "Poppins, sans-serif" }}/>
         <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Password</label>
         <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 16, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 10, outline: "none", boxSizing: "border-box", fontFamily: "DM Sans, sans-serif" }}/>
+          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 16, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 6, outline: "none", boxSizing: "border-box", fontFamily: "Poppins, sans-serif" }}/>
         {error && <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "#EF4444" }}>{error}</p>}
         <button type="submit" disabled={busy}
-          style={{ width: "100%", padding: 14, background: busy?"#9CA3AF":"#1B4332", color: "#FFF", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: busy?"not-allowed":"pointer", fontFamily: "DM Sans, sans-serif" }}>
+          style={{ width: "100%", padding: 14, background: busy?"#9CA3AF":"#08182E", color: "#FFF", border: "none", borderRadius: 6, fontSize: 15, fontWeight: 600, cursor: busy?"not-allowed":"pointer", fontFamily: "Poppins, sans-serif" }}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
+      <p style={{ margin: "28px 0 0", fontSize: 11, color: "#9CA3AF", textAlign: "center" }}>A Viridiant tool</p>
     </div>
   );
 }
@@ -3194,23 +3195,23 @@ export default function App() {
   const titles = { projects: "Doc Tracker", create: "New project", edit: "Edit project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", item: "Document item" };
 
   if (teamUser === undefined) {
-    return <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "DM Sans, sans-serif", color: "#9CA3AF", fontSize: 13 }}>Loading…</div>;
+    return <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Poppins, sans-serif", color: "#9CA3AF", fontSize: 13 }}>Loading…</div>;
   }
   if (teamUser === null) {
     return <TeamLogin />;
   }
 
   return (
-    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "DM Sans, sans-serif" }}>
+    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "Poppins, sans-serif" }}>
       <div style={{ position: "sticky", top: 0, zIndex: 40, background: "#FFF", borderBottom: "1px solid #F3F4F6", padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
         {screen !== "projects" && (
           <button onClick={navBack} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "#374151", padding: 0, flexShrink: 0 }}>‹</button>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
           {screen === "projects" && <img src="/logo192.png" alt="" style={{ width: 24, height: 24, flexShrink: 0 }}/>}
-          <h1 style={{ margin: 0, fontSize: screen==="projects"?20:17, fontWeight: 700, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titles[screen]}</h1>
+          <h1 style={{ margin: 0, fontSize: screen==="projects"?20:17, fontWeight: 700, color: "#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titles[screen]}</h1>
         </div>
-        <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "DM Sans, sans-serif", padding: "4px 0" }}>Sign out</button>
+        <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 0" }}>Sign out</button>
       </div>
 
       {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();setAuth(null);}}/>}
