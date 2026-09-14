@@ -381,6 +381,9 @@ const MRF_MODEL_FIELDS = {
 const EARTHCRAFT_CERTIFIED_V7 = [
   // SP 2.7 removed 2026-08-20: mandatory-mislabeled -- genuinely optional in the real V7
   // workbook, already correctly tracked as ec_opt_sp_sp_2_7 in EARTHCRAFT_OPTIONAL_LIBRARY.
+  // ── CONSTRUCTION WASTE MANAGEMENT ────────────────────────────────────────────
+  // Added 2026-09-14: was missing entirely -- flagged during Colbrook 1 setup.
+  { id: "ec_cw1_0", pointNumber: "CW 1.0", tier: "ALL", text: "No construction materials burned or buried on site", category: "Construction Waste Management" },
   // ── SITE PLANNING ──────────────────────────────────────────────────────────
   { id: "ec_du1_5",  pointNumber: "DU 1.7",  tier: "ALL",  text: "Maintain 2\" clearance between wall siding and roof surface", category: "Durability & Moisture Management" },
   { id: "ec_du1_6",  pointNumber: "DU 1.8",  tier: "ALL",  text: "Install level air conditioner condensing unit pad", category: "Durability & Moisture Management" },
@@ -394,7 +397,6 @@ const EARTHCRAFT_CERTIFIED_V7 = [
   { id: "ec_iaq2_5", pointNumber: "IAQ 2.5", tier: "ALL",  text: "No carpet in below-grade units", category: "Indoor Air Quality" },
   { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Energy Efficient Systems", mergedWith: ["es_11_3"] },
   { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Energy Efficient Systems" },
-  { id: "ec_we1_0",  pointNumber: "WE 1.0",  tier: "ALL",  text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
   { id: "ec_we1_1",  pointNumber: "WE 1.1",  tier: "ALL",  text: "Detect no leaks at any water-using fixture, appliance or equipment", category: "Water Efficiency" },
   { id: "ec_we1_2",  pointNumber: "WE 1.2",  tier: "ALL",  text: "Low-flow fixtures throughout: WaterSense toilet ≤1.28 gpf; WaterSense urinal ≤0.5 gpf; WaterSense lavatory faucet ≤1.5 gpm; WaterSense showerhead ≤2.0 gpm (EarthCraft WE 1.2 / Energy Star 13.2)", category: "Water Efficiency", mergedWith: ["es_13_2"] },
   { id: "ec_du2_6",  pointNumber: "WE 2.3",  tier: "ALL",  text: "Newly installed and existing plants maintain distance ≥2' from building at maturity", category: "Water Efficiency" },
@@ -496,6 +498,8 @@ const EARTHCRAFT_CERTIFIED_V7 = [
 ];
 
 const EARTHCRAFT_GOLD_V7 = [
+  // Added 2026-09-14: was missing entirely -- flagged during Colbrook 1 setup.
+  { id: "ec_cw1_0", pointNumber: "CW 1.0", tier: "ALL", text: "No construction materials burned or buried on site", category: "Construction Waste Management" },
   { id: "ec_du1_5",  pointNumber: "DU 1.7",  tier: "ALL",  text: "Maintain 2\" clearance between wall siding and roof surface", category: "Durability & Moisture Management" },
   { id: "ec_du1_6",  pointNumber: "DU 1.8",  tier: "ALL",  text: "Install level air conditioner condensing unit pad", category: "Durability & Moisture Management" },
   { id: "ec_nc_du2_5", pointNumber: "DU 2.5",  tier: "ALL",  text: "Do not install wet or water-damaged building materials", category: "Durability & Moisture Management" },
@@ -508,7 +512,6 @@ const EARTHCRAFT_GOLD_V7 = [
   { id: "ec_iaq2_5", pointNumber: "IAQ 2.5", tier: "ALL",  text: "No carpet in below-grade units", category: "Indoor Air Quality" },
   { id: "ec_es5_1",  pointNumber: "ES 5.1",  tier: "ALL",  text: "Heat trap on all storage water heaters; confirm presence by visual inspection or AHRI certificate (EarthCraft ES 5.1 / Energy Star 11.3)", category: "Energy Efficient Systems", mergedWith: ["es_11_3"] },
   { id: "ec_es5_3",  pointNumber: "ES 5.3",  tier: "ALL",  text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Energy Efficient Systems" },
-  { id: "ec_we1_0",  pointNumber: "WE 1.0",  tier: "ALL",  text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
   { id: "ec_we1_1",  pointNumber: "WE 1.1",  tier: "ALL",  text: "Detect no leaks at any water-using fixture, appliance or equipment", category: "Water Efficiency" },
   { id: "ec_we1_2",  pointNumber: "WE 1.2",  tier: "ALL",  text: "Low-flow fixtures throughout: WaterSense toilet ≤1.28 gpf; WaterSense urinal ≤0.5 gpf; WaterSense lavatory faucet ≤1.5 gpm; WaterSense showerhead ≤2.0 gpm (EarthCraft WE 1.2 / Energy Star 13.2)", category: "Water Efficiency", mergedWith: ["es_13_2"] },
   { id: "ec_du2_6",  pointNumber: "WE 2.3",  tier: "ALL",  text: "Newly installed and existing plants maintain distance ≥2' from building at maturity", category: "Water Efficiency" },
@@ -667,12 +670,6 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_sp_sp_4_2", pointNumber: "SP 4.2", text: "Tenant access to business center", category: "Site Planning", points: 1, matchKey: "SP|tenantaccesstobusinesscenter" },
   { id: "ec_opt_sp_sp_4_3", pointNumber: "SP 4.3", text: "Covered bus stop", category: "Site Planning", points: 2, matchKey: "SP|coveredbusstop" },
   { id: "ec_opt_sp_sp_4_4", pointNumber: "SP 4.4", text: "Electric vehicle charging facility", category: "Site Planning", points: 2, matchKey: "SP|electricvehiclechargingfacility" },
-  { id: "ec_opt_cw_cw_1_2_1", pointNumber: "CW 1.2 > 1", text: "Post waste management plan and divert 75% from landfill of: > Wood", category: "Construction Waste Management", points: 2, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofwood" },
-  { id: "ec_opt_cw_cw_1_2_2", pointNumber: "CW 1.2 > 2", text: "Post waste management plan and divert 75% from landfill of: > Cardboard", category: "Construction Waste Management", points: 1, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofcardboard" },
-  { id: "ec_opt_cw_cw_1_2_3", pointNumber: "CW 1.2 > 3", text: "Post waste management plan and divert 75% from landfill of: > Metal (including beverage containers)", category: "Construction Waste Management", points: 1, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofmetalincludingbeveragecontainers" },
-  { id: "ec_opt_cw_cw_1_2_4", pointNumber: "CW 1.2 > 4", text: "Post waste management plan and divert 75% from landfill of: > Drywall (recycle or grind and spread on site)", category: "Construction Waste Management", points: 2, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofdrywallrecycleorgrindandspreadonsite" },
-  { id: "ec_opt_cw_cw_1_2_5", pointNumber: "CW 1.2 > 5", text: "Post waste management plan and divert 75% from landfill of: > Plastic (including beverage containers)", category: "Construction Waste Management", points: 1, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofplasticincludingbeveragecontainers" },
-  { id: "ec_opt_cw_cw_1_2_6", pointNumber: "CW 1.2 > 6", text: "Post waste management plan and divert 75% from landfill of: > Shingles", category: "Construction Waste Management", points: 2, matchKey: "CW|postwastemanagementplananddivert75fromlandfillofshingles" },
   { id: "ec_opt_cw_cw_1_3", pointNumber: "CW 1.3", text: "Central Cut Area", category: "Construction Waste Management", points: 2, matchKey: "CW|centralcutarea" },
   { id: "ec_opt_re_re_1_2_1", pointNumber: "RE 1.2 > 1", text: "Advanced Framing: > 2-stud corners where structurally feasible", category: "Resource Efficiency", points: 3, matchKey: "RE|advancedframing2studcornerswherestructurallyfeasible", goldMandatoryOverlap: true },
   { id: "ec_opt_re_re_1_2_2", pointNumber: "RE 1.2 > 2", text: "Advanced Framing: > Ladder T-walls where structurally feasible", category: "Resource Efficiency", points: 2, matchKey: "RE|advancedframingladdertwallswherestructurallyfeasible", goldMandatoryOverlap: true },
@@ -692,7 +689,6 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_re_3_3", pointNumber: "3.3", text: "Use building materials extracted, processed and manufactured ≤500 miles from site (1 point per product, maximum 5 points)", category: "Resource Efficiency", points: 5, matchKey: "RE|usebuildingmaterialsextractedprocessedandmanufactured500milesfromsite1pointperproductmaximum5points" },
   { id: "ec_opt_re_3_4_1", pointNumber: "RE 3.4 > 1", text: "Reused, recycled, MDF with no added urea-formaldehyde, local species or FSC certified wood in all: > Cabinet faces", category: "Resource Efficiency", points: 2, matchKey: "RE|reusedrecycledmdfwithnoaddedureaformaldehydelocalspeciesorfsccertifiedwoodinallcabinetfaces" },
   { id: "ec_opt_re_3_4_2", pointNumber: "RE 3.4 > 2", text: "Reused, recycled, MDF with no added urea-formaldehyde, local species or FSC certified wood in all: > Countertops", category: "Resource Efficiency", points: 2, matchKey: "RE|reusedrecycledmdfwithnoaddedureaformaldehydelocalspeciesorfsccertifiedwoodinallcountertops" },
-  { id: "ec_opt_re_3_6", pointNumber: "RE 3.6", text: "Insulation (≥25% recycled content material)", category: "Resource Efficiency", points: 1, matchKey: "RE|insulation25recycledcontentmaterial" },
   { id: "ec_opt_re_3_8_1", pointNumber: "3.8 > 1", text: "Engineered trim: > Interior (≥80%)", category: "Resource Efficiency", points: 1, matchKey: "RE|engineeredtriminterior80" },
   { id: "ec_opt_re_3_8_2", pointNumber: "3.8 > 2", text: "Engineered trim: > Exterior, including soffit, fascia and trim (≥75%)", category: "Resource Efficiency", points: 1, matchKey: "RE|engineeredtrimexteriorincludingsoffitfasciaandtrim75" },
   { id: "ec_opt_re_re_4_0", pointNumber: "RE 4.0", text: "Gut Rehab (project exposing wall cavities or removing exterior cladding) or Adaptive Reuse (for adaptive reuse see addendum to worksheet)", category: "Resource Efficiency", points: 8, matchKey: "RE|gutrehabprojectexposingwallcavitiesorremovingexteriorcladdingoradaptivereuseforadaptivereuseseeaddendumtoworksheet" },
@@ -815,7 +811,6 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_we_we_1_12", pointNumber: "WE 1.12", text: "Hot water demand ≤0.13 gal of water between loop and fixture and ≤2 gal of water in loop between water heater and furthest fixture (not applicable to central systems)", category: "Water Efficiency", points: 2, matchKey: "WE|hotwaterdemand013galofwaterbetweenloopandfixtureand2galofwaterinloopbetweenwaterheaterandfurthestfixturenotapplicabletocentralsystems" },
   { id: "ec_opt_we_we_2_4_a", pointNumber: "WE 2.4 > A.", text: "Landscape design: > Turf ≤ 40% of landscaped area", category: "Water Efficiency", points: 2, matchKey: "WE|landscapedesignturf40oflandscapedarea" },
   { id: "ec_opt_we_we_2_5", pointNumber: "WE 2.5", text: "Vegetate slopes exceeding 4:1", category: "Water Efficiency", points: 1, matchKey: "WE|vegetateslopesexceeding41" },
-  { id: "ec_opt_we_we_2_7", pointNumber: "WE 2.7", text: "Drought-tolerant/native landscaping turf and plants", category: "Water Efficiency", points: 1, matchKey: "WE|droughttolerantnativelandscapingturfandplants" },
   { id: "ec_opt_we_we_2_6_1", pointNumber: "WE 2.6 > 1", text: "If installed, irrigation system is: (Max 4 points) > Design, install, and audit irrigation system by WaterSense Irrigation Partner with no leaks", category: "Water Efficiency", points: 2, matchKey: "WE|ifinstalledirrigationsystemismax4pointsdesigninstallandauditirrigationsystembywatersenseirrigationpartnerwithnoleaks" },
   { id: "ec_opt_we_we_2_6_2", pointNumber: "WE 2.6 > 2", text: "If installed, irrigation system is: (Max 4 points) > Micro-irrigation system (e.g., drip irrigation) includes pressure regulator, filter and flush end assemblies", category: "Water Efficiency", points: 2, matchKey: "WE|ifinstalledirrigationsystemismax4pointsmicroirrigationsystemegdripirrigationincludespressureregulatorfilterandflushendassemblies" },
   { id: "ec_opt_we_we_2_6_3", pointNumber: "WE 2.6 > 3", text: "If installed, irrigation system is: (Max 4 points) > Distribution uniformity ≥65% lower quarter", category: "Water Efficiency", points: 2, matchKey: "WE|ifinstalledirrigationsystemismax4pointsdistributionuniformity65lowerquarter" },
@@ -827,12 +822,9 @@ const EARTHCRAFT_OPTIONAL_LIBRARY = [
   { id: "ec_opt_we_we_2_9_4", pointNumber: "WE 2.9 > 4", text: "Irrigation: (Max 5 points) > Provide weather station or soil moisture sensor on irrigation system", category: "Water Efficiency", points: 2, matchKey: "WE|irrigationmax5pointsprovideweatherstationorsoilmoisturesensoronirrigationsystem" },
   { id: "ec_opt_we_we_2_10", pointNumber: "WE 2.10", text: "Timer on exterior water spigots", category: "Water Efficiency", points: 1, matchKey: "WE|timeronexteriorwaterspigots" },
   { id: "ec_opt_eo_1_2", pointNumber: "1.2", text: "Community Recycling Facility", category: "Education & Operations", points: 2, matchKey: "EO|communityrecyclingfacility" },
-  { id: "ec_opt_eo_eo_2_1", pointNumber: "EO 2.1", text: "Property Maintenance Staff representative attends design review and/or kick off meeting", category: "Education & Operations", points: 1, matchKey: "EO|propertymaintenancestaffrepresentativeattendsdesignreviewandorkickoffmeeting" },
   { id: "ec_opt_eo_eo_2_2", pointNumber: "EO 2.2", text: "Market EarthCraft Multifamily program", category: "Education & Operations", points: 1, matchKey: "EO|marketearthcraftmultifamilyprogram" },
   { id: "ec_opt_eo_eo_2_3", pointNumber: "EO 2.3", text: "Provide pre-occupancy briefing for tenant", category: "Education & Operations", points: 2, matchKey: "EO|providepreoccupancybriefingfortenant" },
   { id: "ec_opt_eo_eo_2_4", pointNumber: "EO 2.4", text: "Project participates in post occupancy project debriefing", category: "Education & Operations", points: 2, matchKey: "EO|projectparticipatesinpostoccupancyprojectdebriefing" },
-  { id: "ec_opt_eo_eo_2_5", pointNumber: "EO 2.5", text: "Environmental management and building maintenance guidelines for staff", category: "Education & Operations", points: 2, matchKey: "EO|environmentalmanagementandbuildingmaintenanceguidelinesforstaff" },
-  { id: "ec_opt_eo_eo_2_6", pointNumber: "EO 2.6", text: "Landscape maintenance guide for maintenance and management personnel", category: "Education & Operations", points: 2, matchKey: "EO|landscapemaintenanceguideformaintenanceandmanagementpersonnel" },
   { id: "ec_opt_eo_eo_3_0", pointNumber: "EO 3.0", text: "ENERGY STAR Multifamily New Construction", category: "Education & Operations", points: 2, matchKey: "EO|energystarmultifamilynewconstruction" },
   { id: "ec_opt_inv_1", pointNumber: "1", text: "On-site fuel cell or co-generation system", category: "Innovation", points: 4, matchKey: "INV|onsitefuelcellorcogenerationsystem" },
   { id: "ec_opt_inv_1_1", pointNumber: "1.1", text: "Solar-ready design", category: "Innovation", points: 2, matchKey: "INV|solarreadydesign" },
@@ -1158,6 +1150,10 @@ const EARTHCRAFT_CERTIFIED_V6 = [
   // SP 2.7 removed 2026-08-20: same bug as the V7 array had -- genuinely optional (already
   // correctly tracked as ec_opt_sp_sp_2_7 in EARTHCRAFT_OPTIONAL_LIBRARY, version-agnostic so
   // it matches a V6.5 or V7 workbook upload either way), not mandatory.
+  // ── CONSTRUCTION WASTE MANAGEMENT ────────────────────────────────────────────
+  // Added 2026-09-14: was missing entirely -- flagged during Colbrook 1 setup. GOLD_V6 spreads
+  // this array, so it inherits this item too without a separate copy.
+  { id: "ec_cw1_0", pointNumber: "CW 1.0", tier: "ALL", text: "No construction materials burned or buried on site", category: "Construction Waste Management" },
   // ── RESOURCE EFFICIENCY ─────────────────────────────────────────────────────
   { id: "ec_v7_re1_0",   pointNumber: "RE 1.0",  tier: "ALL", text: "Limit framing at all windows and doors", category: "Resource Efficiency" },
   { id: "ec_v7_re1_1",   pointNumber: "RE 1.1",  tier: "ALL", text: "Engineered roof framing (90%)", category: "Resource Efficiency" },
@@ -1188,7 +1184,6 @@ const EARTHCRAFT_CERTIFIED_V6 = [
   { id: "ec_es5_1",      pointNumber: "ES 5.1",  tier: "ALL", text: "Heat trap on all storage water heaters; confirm by visual inspection or AHRI certificate", category: "Energy Efficient Systems", mergedWith: ["es_11_3"] },
   { id: "ec_es5_3",      pointNumber: "ES 5.3",  tier: "ALL", text: "Pipe insulation on first 2' of hot and cold water pipes at water heater", category: "Energy Efficient Systems" },
   // ── WATER EFFICIENCY ────────────────────────────────────────────────────────
-  { id: "ec_we1_0",      pointNumber: "WE 1.0",  tier: "ALL", text: "Meet National Energy Policy Act low-flow standards for all fixtures", category: "Water Efficiency" },
   { id: "ec_we1_1",      pointNumber: "WE 1.1",  tier: "ALL", text: "Detect and repair all leaks at water-using fixtures, appliances, and equipment", category: "Water Efficiency" },
   { id: "ec_we1_2",      pointNumber: "WE 1.2",  tier: "ALL", text: "Low-flow fixtures: WaterSense toilet ≤1.28 gpf; urinal ≤0.5 gpf; lavatory faucet ≤1.5 gpm; showerhead ≤2.0 gpm", category: "Water Efficiency", mergedWith: ["es_13_2"] },
   { id: "ec_du2_6",      pointNumber: "WE 2.3",  tier: "ALL", text: "Newly installed and existing plants maintain distance ≥2' from building at maturity", category: "Water Efficiency" },
@@ -1610,7 +1605,7 @@ const MRF_OVERLAP_MAP = {
   mrf_3_3: [{ id: "ec_v7_we1_3", controlType: ["manual_demand","presence_sensor"] }],
   mrf_3_1: [{ id: "ec_v7_es_es_5_3" }, { id: "ec_opt_es_es_5_7" }],
   mrf_3_2: [
-    { id: "ec_we1_0" }, { id: "ec_we1_1" }, { id: "ec_we1_2" }, { id: "ec_opt_we_we_1_6" },
+    { id: "ec_we1_1" }, { id: "ec_we1_2" }, { id: "ec_opt_we_we_1_6" },
     { id: "ec_opt_we_we_1_7" }, { id: "es_13_2" },
   ],
   mrf_4_0: [
@@ -1751,30 +1746,40 @@ function applyEarthCraftMandatoryStatusAutoPass(project, existingRecords) {
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
+// A failed points-based/optional item (item.points != null) is a missed bonus, not a compliance
+// problem — it doesn't count toward `fail` (which drives the red alert / ring color), it counts
+// toward `pointsFail`/`pointsAtRisk` (a separate yellow "failing to meet N points" signal). Only a
+// failed required (non-points) item is a real "fail".
 function calcCatProgress(items, records, projectId, categoryId) {
-  if (!items.length) return { pct: 0, pass: 0, fail: 0, na: 0, total: 0 };
-  let pass = 0, fail = 0, na = 0;
+  if (!items.length) return { pct: 0, pass: 0, fail: 0, na: 0, total: 0, pointsFail: 0, pointsAtRisk: 0 };
+  let pass = 0, fail = 0, na = 0, pointsFail = 0, pointsAtRisk = 0;
   items.forEach(item => {
     const r = records[`${projectId}__${categoryId}__${item.id}`];
     if (r?.status === "pass") pass++;
-    else if (r?.status === "fail") fail++;
+    else if (r?.status === "fail") {
+      if (item.points != null) { pointsFail++; pointsAtRisk += item.points; }
+      else fail++;
+    }
     else if (r?.status === "na") na++;
   });
-  return { pct: Math.round(((pass + na) / items.length) * 100), pass, fail, na, total: items.length };
+  return { pct: Math.round(((pass + na) / items.length) * 100), pass, fail, na, total: items.length, pointsFail, pointsAtRisk };
 }
 
 function calcProjectProgress(project, records) {
-  let total = 0, verified = 0, fail = 0;
+  let total = 0, verified = 0, fail = 0, pointsFail = 0, pointsAtRisk = 0;
   CATEGORIES.forEach(cat => {
     const items = getItemsForSelection(project.programs || [], cat.id, project.earthcraftOptionalItems);
     items.forEach(item => {
       total++;
       const r = records[`${project.id}__${cat.id}__${item.id}`];
       if (r?.status === "pass" || r?.status === "na") verified++;
-      if (r?.status === "fail") fail++;
+      if (r?.status === "fail") {
+        if (item.points != null) { pointsFail++; pointsAtRisk += item.points; }
+        else fail++;
+      }
     });
   });
-  return { pct: total ? Math.round((verified / total) * 100) : 0, fail, total, verified };
+  return { pct: total ? Math.round((verified / total) * 100) : 0, fail, total, verified, pointsFail, pointsAtRisk };
 }
 
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
@@ -1872,6 +1877,7 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
               <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
                 {(proj.programs||[]).length} program{proj.programs?.length!==1?"s":""} · {pg.verified}/{pg.total} items
                 {pg.fail>0 && <span style={{ color: "#EF4444", fontWeight: 600 }}> · {pg.fail} fail{pg.fail>1?"s":""}</span>}
+                {pg.pointsFail>0 && <span style={{ color: "#8A6D14", fontWeight: 600 }}> · failing to meet {pg.pointsAtRisk} pt{pg.pointsAtRisk>1?"s":""}</span>}
               </p>
             </div>
             <button onClick={() => setConfirmId(proj.id)}
@@ -2399,6 +2405,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} fail</span>}
+            {p.pointsFail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "2px 7px", borderRadius: 8 }}>−{p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
             {!mrf && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
             {mrf && items.length === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Coming soon</span>}
             <span style={{ color: "#D1D5DB" }}>›</span>
@@ -2406,7 +2413,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         </div>
         {!mrf && <ProgressBar pct={p.pct} fail={p.fail}/>}
         <p style={{ margin: "4px 0 0", fontSize: 11, color: mrf?"#0F7A66":"#9CA3AF" }}>
-          {mrf ? "Energy modeling documentation" : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} failing`:""}`}
+          {mrf ? "Energy modeling documentation" : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} failing`:""}${p.pointsFail>0?` · failing to meet ${p.pointsAtRisk} pt${p.pointsAtRisk>1?"s":""}`:""}`}
         </p>
       </div>
     );
@@ -2427,6 +2434,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
               <p style={{ margin: 0, fontSize: 12, color: "#B9E6A0" }}>{pg.verified}/{pg.total} items verified</p>
               {project.advisor && <p style={{ margin: 0, fontSize: 12, color: "#9FC3E0" }}>TA: {project.advisor}</p>}
               {pg.fail>0 && <p style={{ margin: 0, fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
+              {pg.pointsFail>0 && <p style={{ margin: 0, fontSize: 12, color: "#F0D678", fontWeight: 600 }}>failing to meet {pg.pointsAtRisk} pt{pg.pointsAtRisk>1?"s":""}</p>}
             </div>
           </div>
           <button onClick={onEdit} title="Edit project"
@@ -2544,6 +2552,7 @@ function ChecklistView({ project, category, records, onSelectItem }) {
             <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
               {p.pass+p.na}/{p.total} verified
               {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} failing</span>}
+              {p.pointsFail > 0 && <span style={{ color: "#8A6D14" }}> · failing to meet {p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
             </p>
           </div>
           <span style={{ fontSize: 22, fontWeight: 600, color: p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB" }}>{p.pct}%</span>
