@@ -1027,6 +1027,7 @@ const CATEGORIES = [
   { id: "Education & Operations",           code: "EO"  },
   { id: "Innovation",                       code: "INV" },
   { id: "Minimum Rated Features",           code: "MRF" },
+  { id: "Miscellaneous",                    code: "MISC" },
 ];
 
 // ─── ENERGY STAR MFNC v1/1.1/1.2 Rev.03 — 107 items ────────────────────────
@@ -1544,12 +1545,17 @@ function isEarthCraftGoldSelected(programSelections) {
   return (programSelections || []).some(s => s.programId === "earthcraft_gold");
 }
 
-function getItemsForSelection(programSelections, categoryId, extraItems) {
+function getItemsForSelection(programSelections, categoryId, extraItems, miscItems) {
   const seen = new Set();
   const result = [];
   // MRF items are program-agnostic — always show when viewing MRF category
   if (categoryId === "Minimum Rated Features") {
     return MRF_ITEMS.map(i => ({ ...i, _cat: "Minimum Rated Features" }));
+  }
+  // Miscellaneous has no static checklist at all — it's entirely TA-authored, project-specific
+  // catch-all items (see ChecklistView's "+ Add item" form), stored directly on the project.
+  if (categoryId === "Miscellaneous") {
+    return (miscItems || []).map(i => ({ ...i, _cat: "Miscellaneous" }));
   }
   for (const sel of programSelections) {
     const key = `${sel.programId}||${sel.version}||${sel.revision}`;
@@ -1794,7 +1800,7 @@ function calcCatProgress(items, records, projectId, categoryId) {
 function calcProjectProgress(project, records) {
   let total = 0, verified = 0, fail = 0, pointsFail = 0, pointsAtRisk = 0;
   CATEGORIES.forEach(cat => {
-    const items = getItemsForSelection(project.programs || [], cat.id, project.earthcraftOptionalItems);
+    const items = getItemsForSelection(project.programs || [], cat.id, project.earthcraftOptionalItems, project.miscItems);
     items.forEach(item => {
       total++;
       const r = records[`${project.id}__${cat.id}__${item.id}`];
@@ -2347,7 +2353,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
 
   // All items across every category, tagged with their source category
   const allProjectItems = CATEGORIES.flatMap(cat =>
-    getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems).map(i => ({ ...i, _cat: cat.id }))
+    getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems, project.miscItems).map(i => ({ ...i, _cat: cat.id }))
   );
 
   // Every photo, across every item in the project, that has never been uploaded to SharePoint
@@ -2496,10 +2502,12 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
     : null;
 
   const CatRow = ({ cat }) => {
-    const items = getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems);
+    const items = getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems, project.miscItems);
     const mrf = cat.id === "Minimum Rated Features";
+    const misc = cat.id === "Miscellaneous";
+    const empty = items.length === 0;
     const p = calcCatProgress(items, records, project.id, cat.id);
-    if (!items.length && !mrf) return null;
+    if (empty && !mrf && !misc) return null;
     const accentColor = mrf ? "#1ABC9C" : (p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB");
     return (
       <div onClick={() => onSelectCategory(cat)}
@@ -2514,14 +2522,17 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} fail</span>}
             {p.pointsFail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "2px 7px", borderRadius: 8 }}>−{p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
-            {!mrf && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
-            {mrf && items.length === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Coming soon</span>}
+            {!mrf && !(misc && empty) && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
+            {mrf && empty && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Coming soon</span>}
+            {misc && empty && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Nothing logged yet</span>}
             <span style={{ color: "#D1D5DB" }}>›</span>
           </div>
         </div>
-        {!mrf && <ProgressBar pct={p.pct} fail={p.fail}/>}
+        {!mrf && !(misc && empty) && <ProgressBar pct={p.pct} fail={p.fail}/>}
         <p style={{ margin: "4px 0 0", fontSize: 11, color: mrf?"#0F7A66":"#9CA3AF" }}>
-          {mrf ? "Energy modeling documentation" : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} failing`:""}${p.pointsFail>0?` · failing to meet ${p.pointsAtRisk} pt${p.pointsAtRisk>1?"s":""}`:""}`}
+          {mrf ? "Energy modeling documentation"
+            : misc && empty ? "Tap to log something that didn't fit an existing item"
+            : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} failing`:""}${p.pointsFail>0?` · failing to meet ${p.pointsAtRisk} pt${p.pointsAtRisk>1?"s":""}`:""}`}
         </p>
       </div>
     );
@@ -2635,14 +2646,27 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
 
 // ─── SCREEN: CHECKLIST ────────────────────────────────────────────────────────
 // Search is scoped to this category only.
-function ChecklistView({ project, category, records, onSelectItem }) {
-  const allItems = getItemsForSelection(project.programs||[], category.id, project.earthcraftOptionalItems).map(i => ({ ...i, _cat: category.id }));
+function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem }) {
+  const allItems = getItemsForSelection(project.programs||[], category.id, project.earthcraftOptionalItems, project.miscItems).map(i => ({ ...i, _cat: category.id }));
   const [query, setQuery] = useState("");
   const [modelNotesOpen, setModelNotesOpen] = useState(false);
   const p = calcCatProgress(allItems, records, project.id, category.id);
   const q = query.trim().toLowerCase();
   const isMRF = category.id === "Minimum Rated Features";
+  const isMisc = category.id === "Miscellaneous";
   const modelNotes = isMRF ? project.energyModel?.notes : null;
+
+  // Miscellaneous has no static checklist — a TA adds their own brief description of whatever
+  // didn't fit an existing item (or seems to be missing one entirely), then documents it exactly
+  // like any other item (photo/status/note) once it appears in the list below.
+  const [miscDraft, setMiscDraft] = useState("");
+  const [miscAdding, setMiscAdding] = useState(false);
+  const handleAddMisc = async () => {
+    const text = miscDraft.trim();
+    if (!text || miscAdding) return;
+    setMiscAdding(true);
+    try { await onAddMiscItem(text); setMiscDraft(""); } finally { setMiscAdding(false); }
+  };
 
   const displayItems = q
     ? allItems.filter(i =>
@@ -2671,6 +2695,18 @@ function ChecklistView({ project, category, records, onSelectItem }) {
         </div>
         {q && <p style={{ margin: "6px 0 0", fontSize: 11, color: "#9CA3AF" }}>{displayItems.length} of {allItems.length} items</p>}
       </div>
+      {isMisc && (
+        <div style={{ padding: "16px 20px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
+          <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Log something new</label>
+          <textarea value={miscDraft} onChange={e => setMiscDraft(e.target.value)} rows={2}
+            placeholder="Briefly describe what this is and why it didn't fit an existing item…"
+            style={{ width: "100%", padding: "10px 12px", border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "Poppins, sans-serif", color: "#08182E", resize: "none", outline: "none", boxSizing: "border-box" }}/>
+          <button onClick={handleAddMisc} disabled={!miscDraft.trim() || miscAdding}
+            style={{ marginTop: 8, padding: "10px 16px", background: !miscDraft.trim() || miscAdding ? "#E5E7EB" : "#08182E", color: !miscDraft.trim() || miscAdding ? "#9CA3AF" : "#FFF", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: !miscDraft.trim() || miscAdding ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
+            {miscAdding ? "Adding…" : "+ Add item"}
+          </button>
+        </div>
+      )}
       {modelNotes && (
         <div style={{ padding: "10px 20px", borderBottom: "1px solid #F3F4F6", background: "#E3F5FA" }}>
           <button onClick={() => setModelNotesOpen(o => !o)}
@@ -3360,6 +3396,18 @@ export default function App() {
     await batch.commit();
   };
 
+  // A TA-authored catch-all item for the Miscellaneous category — see ChecklistView's "+ Add
+  // item" form. Stored directly on the project (like earthcraftOptionalItems), not in a static
+  // checklist array, since there's nothing to look up: the TA's own description IS the item.
+  // activeProject is plain useState, not itself live-subscribed to Firestore (unlike records), so
+  // it's updated locally right after the write — same pattern ProjectForm's onSave already uses.
+  const addMiscItem = async (description) => {
+    const item = { id: `misc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, category: "Miscellaneous", pointNumber: "Misc", text: description };
+    const updated = { ...activeProject, miscItems: [...(activeProject.miscItems || []), item] };
+    await saveProject(updated);
+    setActiveProject(updated);
+  };
+
   const navBack = () => {
     if (screen === "item") { setScreen("checklist"); setActiveItem(null); }
     else if (screen === "checklist") { setScreen("dashboard"); setActiveCategory(null); }
@@ -3419,6 +3467,7 @@ export default function App() {
           category={activeCategory}
           records={data.records}
           onSelectItem={item=>{setActiveItem(item);setScreen("item");}}
+          onAddMiscItem={addMiscItem}
         />
       )}
       {screen === "item" && activeProject && activeItem && (
