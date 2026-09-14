@@ -1874,10 +1874,11 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
             </div>
             <div onClick={() => onSelect(proj)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</p>
+              {/* Fail/points-shortfall detail is intentionally left off the active-projects list —
+                  the ring color still hints at it, but the specifics only show once you're
+                  actually inside a project (hero, category rows, checklist header). */}
               <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
                 {(proj.programs||[]).length} program{proj.programs?.length!==1?"s":""} · {pg.verified}/{pg.total} items
-                {pg.fail>0 && <span style={{ color: "#EF4444", fontWeight: 600 }}> · {pg.fail} fail{pg.fail>1?"s":""}</span>}
-                {pg.pointsFail>0 && <span style={{ color: "#8A6D14", fontWeight: 600 }}> · failing to meet {pg.pointsAtRisk} pt{pg.pointsAtRisk>1?"s":""}</span>}
               </p>
             </div>
             <button onClick={() => setConfirmId(proj.id)}
