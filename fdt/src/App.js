@@ -2333,6 +2333,10 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const [syncState, setSyncState] = useState({ running: false, done: 0, total: 0, errors: [] });
+  // Re-entrancy guard for the auto-sync timer below — a ref (not syncState.running) because it
+  // must be checked/set synchronously at call time, with no risk of two overlapping calls both
+  // reading a stale "not running" before either's setSyncState({running:true}) has landed.
+  const syncRunningRef = useRef(false);
 
   // All items across every category, tagged with their source category
   const allProjectItems = CATEGORIES.flatMap(cat =>
@@ -2354,38 +2358,67 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
   };
   const pendingCount = pendingPhotoJobs().length;
 
-  const handleUploadToSharePoint = async () => {
+  // Shared by the manual "Upload to SharePoint" button and the auto-sync timer below — identical
+  // upload logic either way. `interactive` only matters for how a missing/expired connection is
+  // handled: startLogin() navigates the whole page to Microsoft's login screen, which is fine for
+  // a deliberate tap but would be a jarring, unasked redirect if a background timer triggered it —
+  // auto-sync just silently skips until the user reconnects (the "Not connected" status text
+  // already communicates that passively, no need to also surface an alarming error for it).
+  const runSharePointSync = async ({ interactive }) => {
     // errors is a list of {item, message} — item is null for project-level failures (no
     // SharePoint folder, can't connect) that aren't about any one photo. Keeping the item
     // reference (not just a formatted string) lets the UI jump straight to the failed item
     // instead of just naming it.
-    if (!project.sharePointFolder) { setSyncState({ running: false, done: 0, total: 0, errors: [{ item: null, message: "This project isn't linked to a SharePoint folder yet." }] }); return; }
-    if (!auth) { startLogin(); return; }
-    const token = await getValidToken(auth, setAuth);
-    if (!token) { setSyncState({ running: false, done: 0, total: 0, errors: [{ item: null, message: "Could not connect to SharePoint — please reconnect and try again." }] }); return; }
-    const jobs = pendingPhotoJobs();
-    if (!jobs.length) return;
-    setSyncState({ running: true, done: 0, total: jobs.length, errors: [] });
-
-    // Resolve (or create) today's inspection-date subfolder inside this project's Site Visits
-    // folder ONCE for the whole batch — every photo in this run lands in the same folder.
-    let siteId, dateFolderId;
-    try {
-      siteId = await getSharePointSiteId(token);
-      const siteVisitsFolderId = await getSharePointFolderId(siteId, token, project.sharePointFolder);
-      dateFolderId = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, formatDateFolderName(new Date()));
-    } catch (e) {
-      setSyncState({ running: false, done: 0, total: jobs.length, errors: [{ item: null, message: e.message }] });
+    if (!project.sharePointFolder) {
+      if (interactive) setSyncState({ running: false, done: 0, total: 0, errors: [{ item: null, message: "This project isn't linked to a SharePoint folder yet." }] });
       return;
     }
+    if (!auth) { if (interactive) startLogin(); return; }
+    const token = await getValidToken(auth, setAuth);
+    if (!token) {
+      if (interactive) setSyncState({ running: false, done: 0, total: 0, errors: [{ item: null, message: "Could not connect to SharePoint — please reconnect and try again." }] });
+      return;
+    }
+    const jobs = pendingPhotoJobs();
+    if (!jobs.length) return;
+    // Guards against the auto-sync timer firing again mid-run (a slow/large batch can easily
+    // outlast the 2-minute interval) and starting a second, overlapping pass over the same
+    // still-in-flight photos — syncState.running is async React state, not safe to gate on here.
+    if (syncRunningRef.current) return;
+    syncRunningRef.current = true;
+    setSyncState({ running: true, done: 0, total: jobs.length, errors: [] });
 
-    const workingRecords = {}; // key -> latest record as we mutate it within this batch
+    try {
+      // Resolve the project's Site Visits folder once; each individual inspection-date subfolder
+      // underneath it is resolved lazily per distinct date below, not once for the whole batch —
+      // see dateFolderCache.
+      let siteId, siteVisitsFolderId;
+      try {
+        siteId = await getSharePointSiteId(token);
+        siteVisitsFolderId = await getSharePointFolderId(siteId, token, project.sharePointFolder);
+      } catch (e) {
+        setSyncState({ running: false, done: 0, total: jobs.length, errors: [{ item: null, message: e.message }] });
+        return;
+      }
+
+      const workingRecords = {}; // key -> latest record as we mutate it within this batch
+    const dateFolderCache = {}; // dateName -> folderId, resolved once per distinct date this run
     let done = 0; const errors = [];
     for (const job of jobs) {
       const base = workingRecords[job.key] || job.rec;
       try {
         const dataUrl = await idbGetPhoto(`${job.key}__${job.photoId}`);
         if (!dataUrl) throw new Error("Photo not found locally");
+        // Files by the date the photo was actually TAKEN (embedded in its own id, "<Date.now()>_
+        // <random>"), not the date it happens to sync — a photo shot in the field and synced days
+        // later (exactly what auto-sync exists to catch) still lands under the real inspection
+        // date instead of the day it happened to finally upload.
+        const takenAt = new Date(parseInt(job.photoId.split("_")[0], 10));
+        const dateName = formatDateFolderName(isNaN(takenAt) ? new Date() : takenAt);
+        if (!dateFolderCache[dateName]) {
+          dateFolderCache[dateName] = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, dateName);
+        }
+        const dateFolderId = dateFolderCache[dateName];
         const nextNum = base.nextPhotoNum || 1;
         const label = sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
         // MRF's own pointNumber is already a short descriptive phrase ("Mechanical Ventilation",
@@ -2411,7 +2444,25 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
       setSyncState({ running: true, done, total: jobs.length, errors });
     }
     setSyncState({ running: false, done, total: jobs.length, errors });
+    } finally {
+      syncRunningRef.current = false;
+    }
   };
+  const handleUploadToSharePoint = () => runSharePointSync({ interactive: true });
+
+  // Auto-sync: narrows the window where a photo exists only on one device by catching up
+  // periodically and right after connectivity returns, without needing the "Upload to SharePoint"
+  // button tapped. Scoped to while this project's dashboard is actually open — there's no service
+  // worker/background sync, so this doesn't run if the tab is closed or the user stays on the
+  // project list. runSharePointSync's own early-returns mean an idle tick (nothing pending, or not
+  // connected yet) costs zero network calls.
+  useEffect(() => {
+    const attempt = () => { runSharePointSync({ interactive: false }); };
+    const interval = setInterval(attempt, 2 * 60 * 1000);
+    window.addEventListener("online", attempt);
+    return () => { clearInterval(interval); window.removeEventListener("online", attempt); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, auth]);
 
   const searchResults = q
     ? allProjectItems.filter(i =>
@@ -2494,14 +2545,14 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#374151" }}>☁ SharePoint photo sync</p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF", wordBreak: "break-word" }}>
-            📁 {project.sharePointFolder ? `${project.sharePointFolder}/${formatDateFolderName(new Date())}` : "Not linked to a SharePoint folder"}
+            📁 {project.sharePointFolder ? `${project.sharePointFolder} — filed by the date each photo was taken` : "Not linked to a SharePoint folder"}
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>
             {!project.sharePointFolder ? "Set up by your Project Manager when the project is created"
               : syncState.running ? `Uploading ${syncState.done}/${syncState.total}…`
               : !auth ? "Not connected"
               : pendingCount === 0 ? "All photos synced"
-              : `${pendingCount} photo${pendingCount>1?"s":""} pending`}
+              : `${pendingCount} photo${pendingCount>1?"s":""} pending — syncs automatically`}
           </p>
           {!syncState.running && syncState.errors.length>0 && (
             <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 600, color: "#EF4444" }}>{syncState.errors.length} failed to upload — tap "Upload to SharePoint" again to retry</p>
