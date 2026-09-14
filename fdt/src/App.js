@@ -1785,14 +1785,14 @@ function fmtDate(iso) {
     " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-function ProgressRing({ pct, size = 56, stroke = 5, fail = 0 }) {
+function ProgressRing({ pct, size = 56, stroke = 4, fail = 0 }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
   const color = fail > 0 ? "#EF4444" : pct === 100 ? "#7CB83F" : "#009ACB";
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E5E7EB" strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#EEF0F1" strokeWidth={stroke}/>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
         style={{ transition: "stroke-dashoffset 0.5s ease" }}/>
@@ -1823,8 +1823,10 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
   return (
     <div style={{ paddingBottom: 80 }}>
 
-      {/* SharePoint connection bar */}
-      <div style={{ padding: "12px 20px", background: auth ? "#E3F9F4" : "#F9FAFB", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      {/* SharePoint connection bar — a passive status report, not an action, so it stays quiet:
+          no colored background wash, state conveyed through the small icon/text color only.
+          Strong color is reserved for the actionable Connect/Disconnect buttons alongside it. */}
+      <div style={{ padding: "12px 20px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         {auth ? (
           <>
             <div style={{ minWidth: 0 }}>
@@ -1863,7 +1865,7 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
             style={{ padding: "14px 20px", borderBottom: "1px solid #F9FAFB", display: "flex", alignItems: "center", gap: 14, background: "#FFF" }}>
             <div onClick={() => onSelect(proj)} style={{ position: "relative", flexShrink: 0, cursor: "pointer" }}>
               <ProgressRing pct={pg.pct} fail={pg.fail}/>
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: pg.fail>0?"#EF4444":pg.pct===100?"#7CB83F":"#009ACB" }}>{pg.pct}%</div>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, color: pg.fail>0?"#EF4444":pg.pct===100?"#7CB83F":"#009ACB" }}>{pg.pct}%</div>
             </div>
             <div onClick={() => onSelect(proj)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</p>
@@ -2240,23 +2242,22 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
           <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {tierBadge}
             {item.points != null && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "1px 7px", borderRadius: 8 }}>★ {item.points} pt{item.points===1?"":"s"}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#8A6D14", background: "transparent", border: "1px solid #DFC82266", padding: "1px 7px", borderRadius: 8 }}>★ {item.points} pt{item.points===1?"":"s"}</span>
             )}
             {itemPrograms.map(prog => {
               const isEC = prog.id === "earthcraft_certified" || prog.id === "earthcraft_gold" || prog.id === "earthcraft_sf2024_certified" || prog.id === "earthcraft_sf2024_gold";
               const isGoldItem = isEC && item.tier === "GOLD";
               const label = isEC ? (isGoldItem ? "EarthCraft Gold" : "EarthCraft Certified") : prog.label;
-              const bg = isGoldItem ? "#FBF6DC" : prog.color+"18";
               const color = isGoldItem ? "#8A6D14" : prog.color;
-              return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: bg, color, fontWeight: 600 }}>{label}</span>;
+              return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "transparent", border: `1px solid ${color}66`, color, fontWeight: 600 }}>{label}</span>;
             })}
             {rec.photos?.length>0 && <span style={{ fontSize: 11, color: "#7CB83F", fontWeight: 600 }}>📷</span>}
             {!rec.photos?.length && item._cat === "Minimum Rated Features" && rec.status && rec.status !== "na" && (
               <span style={{ fontSize: 10, fontWeight: 600, color: "#EF4444", background: "#FEF2F2", padding: "1px 6px", borderRadius: 8 }}>📷 missing</span>
             )}
             {rec.note && <span style={{ fontSize: 11, color: "#6B7280" }}>📝</span>}
-            {rec.fromWorkbook && <span style={{ fontSize: 10, fontWeight: 600, color: "#026581", background: "#E3F5FA", padding: "1px 6px", borderRadius: 8 }}>📄 from workbook</span>}
-            {mrfDoc && <span style={{ fontSize: 10, fontWeight: 600, color: "#0F7A66", background: "#E3F9F4", padding: "1px 6px", borderRadius: 8 }}>📎 documented via MRF</span>}
+            {rec.fromWorkbook && <span style={{ fontSize: 10, fontWeight: 600, color: "#026581", background: "transparent", border: "1px solid #009ACB55", padding: "1px 6px", borderRadius: 8 }}>📄 from workbook</span>}
+            {mrfDoc && <span style={{ fontSize: 10, fontWeight: 600, color: "#0F7A66", background: "transparent", border: "1px solid #1ABC9C55", padding: "1px 6px", borderRadius: 8 }}>📎 documented via MRF</span>}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
@@ -2275,7 +2276,7 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
 function SearchBar({ query, onChange, placeholder }) {
   return (
     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-      <svg style={{ position: "absolute", left: 10, zIndex: 1, pointerEvents: "none" }} width="14" height="14" viewBox="0 0 20 20" fill="none">
+      <svg style={{ position: "absolute", left: 12, zIndex: 1, pointerEvents: "none" }} width="14" height="14" viewBox="0 0 20 20" fill="none">
         <circle cx="8.5" cy="8.5" r="5.5" stroke="#9CA3AF" strokeWidth="2"/>
         <path d="M13 13L17 17" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"/>
       </svg>
@@ -2283,7 +2284,7 @@ function SearchBar({ query, onChange, placeholder }) {
         value={query}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{ width: "100%", padding: "9px 32px 9px 32px", fontSize: 13, border: "1.5px solid #E5E7EB", borderRadius: 8, outline: "none", background: "#FFF", fontFamily: "Poppins, sans-serif", color: "#08182E", boxSizing: "border-box" }}
+        style={{ width: "100%", padding: "11px 34px 11px 34px", fontSize: 14, border: "1px solid #E5E7EB", borderRadius: 8, outline: "none", background: "#FFF", fontFamily: "Poppins, sans-serif", color: "#08182E", boxSizing: "border-box" }}
       />
       {query && (
         <button onClick={() => onChange("")}
@@ -2321,10 +2322,14 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
   const pendingCount = pendingPhotoJobs().length;
 
   const handleUploadToSharePoint = async () => {
-    if (!project.sharePointFolder) { setSyncState({ running: false, done: 0, total: 0, errors: ["This project isn't linked to a SharePoint folder yet."] }); return; }
+    // errors is a list of {item, message} — item is null for project-level failures (no
+    // SharePoint folder, can't connect) that aren't about any one photo. Keeping the item
+    // reference (not just a formatted string) lets the UI jump straight to the failed item
+    // instead of just naming it.
+    if (!project.sharePointFolder) { setSyncState({ running: false, done: 0, total: 0, errors: [{ item: null, message: "This project isn't linked to a SharePoint folder yet." }] }); return; }
     if (!auth) { startLogin(); return; }
     const token = await getValidToken(auth, setAuth);
-    if (!token) { setSyncState({ running: false, done: 0, total: 0, errors: ["Could not connect to SharePoint — please reconnect and try again."] }); return; }
+    if (!token) { setSyncState({ running: false, done: 0, total: 0, errors: [{ item: null, message: "Could not connect to SharePoint — please reconnect and try again." }] }); return; }
     const jobs = pendingPhotoJobs();
     if (!jobs.length) return;
     setSyncState({ running: true, done: 0, total: jobs.length, errors: [] });
@@ -2337,7 +2342,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
       const siteVisitsFolderId = await getSharePointFolderId(siteId, token, project.sharePointFolder);
       dateFolderId = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, formatDateFolderName(new Date()));
     } catch (e) {
-      setSyncState({ running: false, done: 0, total: jobs.length, errors: [e.message] });
+      setSyncState({ running: false, done: 0, total: jobs.length, errors: [{ item: null, message: e.message }] });
       return;
     }
 
@@ -2361,7 +2366,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         workingRecords[job.key] = updatedRec;
         updateRecord(project.id, job.item._cat, job.item.id, updatedRec);
       } catch (e) {
-        errors.push(`${job.item.pointNumber || job.item.id}: ${e.message}`);
+        errors.push({ item: job.item, message: e.message });
       }
       done++;
       setSyncState({ running: true, done, total: jobs.length, errors });
@@ -2384,17 +2389,17 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
     const accentColor = mrf ? "#1ABC9C" : (p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB");
     return (
       <div onClick={() => onSelectCategory(cat)}
-        style={{ padding: "14px 20px", borderBottom: "1px solid #F9FAFB", cursor: "pointer" }}
+        style={{ padding: "16px 20px", borderBottom: "1px solid #F9FAFB", cursor: "pointer", background: "#FFF" }}
         onTouchStart={e => e.currentTarget.style.background="#F9FAFB"}
         onTouchEnd={e => e.currentTarget.style.background="#FFF"}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: mrf?"#0F7A66":"#6B7280", background: mrf?"#E3F9F4":"#F3F4F6", padding: "2px 6px", borderRadius: 4, flexShrink: 0 }}>{cat.code}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: mrf?"#0F7A66":"#6B7280", background: mrf?"transparent":"#F3F4F6", border: mrf?"1px solid #1ABC9C55":"none", padding: "2px 6px", borderRadius: 6, flexShrink: 0 }}>{cat.code}</span>
             <span style={{ fontSize: 14, fontWeight: 600, color: mrf?"#0F7A66":"#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat.id}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} fail</span>}
-            {!mrf && <span style={{ fontSize: 13, fontWeight: 700, color: accentColor }}>{p.pct}%</span>}
+            {!mrf && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
             {mrf && items.length === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Coming soon</span>}
             <span style={{ color: "#D1D5DB" }}>›</span>
           </div>
@@ -2411,17 +2416,17 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
     <div style={{ paddingBottom: 40 }}>
       {/* Hero */}
       <div style={{ background: "linear-gradient(135deg,#08182E,#17325A)", padding: "24px 20px 20px" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
-              <ProgressRing pct={pg.pct} size={72} stroke={6} fail={pg.fail}/>
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: pg.fail>0?"#EF4444":pg.pct===100?"#7CB83F":"#6FD4EE" }}>{pg.pct}%</div>
+              <ProgressRing pct={pg.pct} size={72} stroke={5} fail={pg.fail}/>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, color: pg.fail>0?"#EF4444":pg.pct===100?"#7CB83F":"#6FD4EE" }}>{pg.pct}%</div>
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#FFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.name}</h2>
-              <p style={{ margin: "3px 0 0", fontSize: 12, color: "#B9E6A0" }}>{pg.verified}/{pg.total} items verified</p>
-              {project.advisor && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#9FC3E0" }}>TA: {project.advisor}</p>}
-              {pg.fail>0 && <p style={{ margin: "2px 0 0", fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
+              <p style={{ margin: 0, fontSize: 12, color: "#B9E6A0" }}>{pg.verified}/{pg.total} items verified</p>
+              {project.advisor && <p style={{ margin: 0, fontSize: 12, color: "#9FC3E0" }}>TA: {project.advisor}</p>}
+              {pg.fail>0 && <p style={{ margin: 0, fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
             </div>
           </div>
           <button onClick={onEdit} title="Edit project"
@@ -2429,7 +2434,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
             ✎
           </button>
         </div>
-        <div style={{ marginTop: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ marginTop: 24, display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(project.programs||[]).map((sel, i) => {
             const p = PROGRAM_CATALOG.find(x => x.id === sel.programId);
             return (
@@ -2441,8 +2446,10 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         </div>
       </div>
 
-      {/* SharePoint photo sync */}
-      <div style={{ padding: "12px 20px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      {/* SharePoint photo sync — same principle as the connection bar above: passive status stays
+          quiet, strong color is reserved for the actionable Upload/Connect button on the right. */}
+      <div style={{ padding: "12px 20px", borderBottom: "1px solid #F3F4F6" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#374151" }}>☁ SharePoint photo sync</p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF", wordBreak: "break-word" }}>
@@ -2456,7 +2463,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
               : `${pendingCount} photo${pendingCount>1?"s":""} pending`}
           </p>
           {!syncState.running && syncState.errors.length>0 && (
-            <p style={{ margin: "2px 0 0", fontSize: 11, color: "#EF4444" }}>{syncState.errors.length} failed — tap to retry</p>
+            <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 600, color: "#EF4444" }}>{syncState.errors.length} failed to upload — tap "Upload to SharePoint" again to retry</p>
           )}
         </div>
         <button onClick={handleUploadToSharePoint} disabled={!project.sharePointFolder || syncState.running || (auth && pendingCount===0)}
@@ -2464,9 +2471,27 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           {!project.sharePointFolder ? "Not linked" : !auth ? "Connect" : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
         </button>
       </div>
+      {/* Per-photo failures — named and clickable, not just a count, so it's obvious which
+          item's evidence didn't make it to SharePoint and where to go fix it. */}
+      {!syncState.running && syncState.errors.length > 0 && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+          {syncState.errors.map((err, i) => (
+            err.item ? (
+              <button key={i} onClick={() => onSelectItem(err.item)}
+                style={{ textAlign: "left", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+                <span style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: "#991B1B" }}>{err.item.pointNumber || err.item.text}</span>
+                <span style={{ display: "block", fontSize: 11, color: "#991B1B" }}>{err.message} — tap to open</span>
+              </button>
+            ) : (
+              <p key={i} style={{ margin: 0, fontSize: 11, color: "#991B1B" }}>{err.message}</p>
+            )
+          ))}
+        </div>
+      )}
+      </div>
 
       {/* Global search bar */}
-      <div style={{ padding: "12px 20px", borderBottom: "1px solid #F3F4F6", background: "#F9FAFB" }}>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid #F3F4F6", background: "#FFF" }}>
         <SearchBar query={query} onChange={setQuery} placeholder="Search all items across every category…"/>
         {q && <p style={{ margin: "6px 0 0", fontSize: 11, color: "#9CA3AF" }}>{searchResults.length} result{searchResults.length !== 1 ? "s" : ""} across all categories</p>}
       </div>
@@ -2512,7 +2537,7 @@ function ChecklistView({ project, category, records, onSelectItem }) {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <div style={{ padding: "14px 20px 12px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
+      <div style={{ padding: "16px 20px", background: "#FFF", borderBottom: "1px solid #F3F4F6" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#08182E" }}>{category.id}</h3>
@@ -2521,7 +2546,7 @@ function ChecklistView({ project, category, records, onSelectItem }) {
               {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} failing</span>}
             </p>
           </div>
-          <span style={{ fontSize: 22, fontWeight: 700, color: p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB" }}>{p.pct}%</span>
+          <span style={{ fontSize: 22, fontWeight: 600, color: p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB" }}>{p.pct}%</span>
         </div>
         <div style={{ marginTop: 10 }}><ProgressBar pct={p.pct} fail={p.fail}/></div>
         <div style={{ marginTop: 12 }}>
@@ -2859,31 +2884,30 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
   return (
     <div style={{ padding: "20px 20px 40px" }}>
       {/* Item card */}
-      <div style={{ background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 6, padding: "14px 16px", marginBottom: 24 }}>
+      <div style={{ background: "#FFF", borderRadius: 12, padding: "16px", marginBottom: 24 }}>
         {item.pointNumber && (
           <span style={{ display: "inline-block", marginBottom: 8, fontSize: 12, fontWeight: 700, color: "#026581", background: "#E3F5FA", padding: "2px 8px", borderRadius: 6, letterSpacing: "0.02em" }}>
             {item.pointNumber}
           </span>
         )}
         {item.points != null && (
-          <span style={{ display: "inline-block", marginBottom: 8, marginLeft: 6, fontSize: 12, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "2px 8px", borderRadius: 6 }}>
+          <span style={{ display: "inline-block", marginBottom: 8, marginLeft: 6, fontSize: 12, fontWeight: 700, color: "#8A6D14", background: "transparent", border: "1px solid #DFC82266", padding: "2px 8px", borderRadius: 8 }}>
             ★ {item.points} pt{item.points===1?"":"s"}
           </span>
         )}
         <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#08182E", lineHeight: 1.55 }}>{item.text}</p>
         <p style={{ margin: "6px 0 0", fontSize: 11, color: "#9CA3AF" }}>{category.id} · {project.name}</p>
         <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {item.mergedWith && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "#E3F9F4", color: "#0F7A66", fontWeight: 600 }}>Multi-program</span>}
+          {item.mergedWith && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "transparent", border: "1px solid #1ABC9C55", color: "#0F7A66", fontWeight: 600 }}>Multi-program</span>}
           {itemPrograms.map(prog => {
               const isEC = prog.id === "earthcraft_certified" || prog.id === "earthcraft_gold" || prog.id === "earthcraft_sf2024_certified" || prog.id === "earthcraft_sf2024_gold";
               const isGoldItem = isEC && item.tier === "GOLD";
               const label = isEC ? (isGoldItem ? "EarthCraft Gold" : "EarthCraft Certified") : prog.label;
-              const bg = isGoldItem ? "#FBF6DC" : prog.color+"18";
               const color = isGoldItem ? "#8A6D14" : prog.color;
-              return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: bg, color, fontWeight: 600 }}>{label}</span>;
+              return <span key={prog.id} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "transparent", border: `1px solid ${color}66`, color, fontWeight: 600 }}>{label}</span>;
             })}
-          {record?.fromWorkbook && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "#E3F5FA", color: "#026581", fontWeight: 600 }}>📄 from workbook</span>}
-          {mrfDoc && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "#E3F9F4", color: "#0F7A66", fontWeight: 600 }}>📎 documented via MRF</span>}
+          {record?.fromWorkbook && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "transparent", border: "1px solid #009ACB55", color: "#026581", fontWeight: 600 }}>📄 from workbook</span>}
+          {mrfDoc && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "transparent", border: "1px solid #1ABC9C55", color: "#0F7A66", fontWeight: 600 }}>📎 documented via MRF</span>}
         </div>
         {mrfDocItem && (
           <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "#0F7A66" }}>
@@ -3039,7 +3063,7 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
           {historyOpen && (
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
               {[...record.history].reverse().map((h, i) => (
-                <div key={i} style={{ padding: "10px 12px", background: "#F9FAFB", border: "1px solid #F3F4F6", borderRadius: 6 }}>
+                <div key={i} style={{ padding: "10px 12px", background: "#F7F7F8", borderRadius: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: (h.note || h.mismatch) ? 6 : 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <StatusBadge status={h.status}/>
@@ -3083,7 +3107,7 @@ function TeamLogin() {
   };
 
   return (
-    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "Poppins, sans-serif", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px", boxSizing: "border-box" }}>
+    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#F7F7F8", fontFamily: "Poppins, sans-serif", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px", boxSizing: "border-box" }}>
       <img src="/logo192.png" alt="" style={{ width: 56, height: 56, marginBottom: 16 }}/>
       <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#08182E" }}>Doc Tracker</h1>
       <p style={{ margin: "0 0 28px", fontSize: 13, color: "#6B7280" }}>Sign in with the team login to continue.</p>
@@ -3202,7 +3226,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "Poppins, sans-serif" }}>
+    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#F7F7F8", fontFamily: "Poppins, sans-serif" }}>
       <div style={{ position: "sticky", top: 0, zIndex: 40, background: "#FFF", borderBottom: "1px solid #F3F4F6", padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
         {screen !== "projects" && (
           <button onClick={navBack} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "#374151", padding: 0, flexShrink: 0 }}>‹</button>
