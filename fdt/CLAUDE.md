@@ -1,4 +1,4 @@
-# GreenCert Field Documentation App
+# Doc Tracker
 
 ## Purpose
 Mobile field documentation app for green building certification inspectors 
