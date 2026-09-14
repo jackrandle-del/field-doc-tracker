@@ -159,6 +159,29 @@ const extFromDataUrl = (dataUrl) => {
 // Strips characters SharePoint disallows in file/folder names
 const sanitizeSpName = (name) => name.replace(/[\\/:*?"<>|]/g, "-").trim();
 
+// A short, human-scannable topic for a SharePoint filename (e.g. "Duct insulation" pulled out of
+// a long threshold-heavy item description) — lets a PM search the file database by topic
+// ("glazing", "ventilation") instead of needing to look up what a code like "BE 3.10" even means.
+// Heuristic, not curated per item (there are 400+ of them) — most item text already leads with a
+// short descriptive phrase before the numeric threshold/detail, so cutting at the first natural
+// break (colon, parenthesis, or a word boundary near 42 chars) usually lands on exactly that.
+const SP_DESC_STOPWORDS = new Set(["or","and","a","the","in","at","with","of","to","on","for","is","are","if"]);
+const ecShortDescription = (text) => {
+  if (!text) return "";
+  let head = text.trim();
+  const breakIdx = [head.indexOf(":"), head.indexOf("(")].filter(i => i !== -1).sort((a,b)=>a-b)[0];
+  if (breakIdx !== undefined && breakIdx > 2) head = head.slice(0, breakIdx);
+  head = head.trim();
+  if (head.length > 42) {
+    const cut = head.slice(0, 42);
+    const lastSpace = cut.lastIndexOf(" ");
+    head = lastSpace > 15 ? cut.slice(0, lastSpace) : cut;
+  }
+  const words = head.replace(/[,;:\s]+$/, "").trim().split(" ");
+  while (words.length && SP_DESC_STOPWORDS.has(words[words.length-1].toLowerCase().replace(/[.,;]+$/, ""))) words.pop();
+  return words.join(" ");
+};
+
 // Resolves a folder path (relative to the site's default drive root, e.g. a project's
 // "Site Visits" folder) to its Graph item id. Throws if the folder doesn't exist.
 const getSharePointFolderId = async (siteId, token, path) => {
@@ -2365,7 +2388,13 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         if (!dataUrl) throw new Error("Photo not found locally");
         const nextNum = base.nextPhotoNum || 1;
         const label = sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
-        const fileName = `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
+        // MRF's own pointNumber is already a short descriptive phrase ("Mechanical Ventilation",
+        // "Wall Insulation") — appending another short description derived from its instructional
+        // text would just be redundant clutter, so only add one for EarthCraft/Energy Star items.
+        const shortDesc = job.item._cat === "Minimum Rated Features" ? "" : sanitizeSpName(ecShortDescription(job.item.text));
+        const fileName = shortDesc && shortDesc !== label
+          ? `${label} - ${shortDesc} - ${nextNum}.${extFromDataUrl(dataUrl)}`
+          : `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
         const uploaded = await uploadPhotoToFolder(siteId, token, dateFolderId, fileName, dataUrl);
         const updatedPhotos = (base.photos||[]).map(p => {
           const pid = typeof p === "string" ? p : p.id;
