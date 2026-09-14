@@ -2787,7 +2787,7 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
 
   // Derive stable key for IndexedDB lookup — each photo gets its own suffixed slot
   const photoKey = `${project.id}__${category.id}__${item.id}`;
-  const MAX_PHOTOS = 5;
+  const MAX_PHOTOS = 15;
 
   const isMRF = category.id === "Minimum Rated Features";
   // A photo linked from another item (the reverse MRF<->EarthCraft/Energy Star direction —
@@ -2857,19 +2857,41 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
     save({ entries: next });
   };
 
-  const handleAddPhoto = e => {
-    const file = e.target.files[0]; e.target.value = ""; if (!file || photosRef.current.length >= MAX_PHOTOS) return;
-    const reader = new FileReader();
-    reader.onload = async ev => {
-      const dataUrl = ev.target.result;
+  // Shared by the file picker (multi-select) and drag-and-drop — reads each file, saves it to
+  // IndexedDB, and appends it to the record's photo list. Processes files one at a time (rather
+  // than Promise.all) so photosRef.current — read fresh at the start of each iteration — never
+  // goes stale across awaits, the same stale-closure concern documented on the refs above.
+  const processFiles = async (fileList) => {
+    const files = Array.from(fileList || []).filter(f => f.type.startsWith("image/"));
+    const room = MAX_PHOTOS - photosRef.current.length;
+    if (!files.length || room <= 0) return;
+    for (const file of files.slice(0, room)) {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = ev => resolve(ev.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
       const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
       const next = [...photosRef.current, { id, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null }];
       setPhotos(next);
       photosRef.current = next;
       save({ photos: next.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) => ({ id, syncedAt, spFileName, spItemId, spWebUrl })) });
-    };
-    reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddPhoto = e => {
+    const fileList = e.target.files;
+    e.target.value = "";
+    processFiles(fileList);
+  };
+
+  const [dragOver, setDragOver] = useState(false);
+  const handleDrop = e => {
+    e.preventDefault();
+    setDragOver(false);
+    processFiles(e.dataTransfer.files);
   };
 
   const handleRemovePhoto = async (id) => {
@@ -3002,12 +3024,16 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
             <span style={{ fontSize: 11, fontWeight: 600, color: "#1ABC9C", background: "#E3F9F4", padding: "2px 8px", borderRadius: 8 }}>✓ documented via linked item</span>
           )}
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div
+          onDragOver={e => { if (photos.length < MAX_PHOTOS) { e.preventDefault(); setDragOver(true); } }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          style={{ display: "flex", flexWrap: "wrap", gap: 8, borderRadius: 8, outline: dragOver ? "2px dashed #009ACB" : "none", outlineOffset: 4, transition: "outline 0.1s ease" }}>
           {photos.map(p => (
             <PhotoThumb key={p.id} photoKey={photoKey} meta={p} auth={auth} setAuth={setAuth} onRemove={handleRemovePhoto}/>
           ))}
           {photos.length < MAX_PHOTOS && (
-            <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "Upload a photo to enable confirmation" : "Add a photo"}
+            <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "Upload a photo to enable confirmation" : "Add a photo, or drag and drop"}
               style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 6, background: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
               +
             </button>
@@ -3015,7 +3041,7 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
         </div>
         {photos.length===0 && linkedPhotoGroups.length===0 && (
           <p style={{ margin: "8px 0 0", fontSize: 12, color: isMRF ? "#EF4444" : "#9CA3AF" }}>
-            {isMRF ? "Upload a photo to enable confirmation" : "Take or upload a photo"}
+            {isMRF ? "Upload a photo to enable confirmation" : "Take or upload photos — you can select several at once, or drag and drop"}
           </p>
         )}
         {photos.length===0 && linkedPhotoGroups.length>0 && (
@@ -3024,7 +3050,7 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
           </p>
         )}
         {photos.length>0 && <p style={{ margin: "8px 0 0", fontSize: 11, color: "#9CA3AF" }}>{photos.length}/{MAX_PHOTOS} photos</p>}
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleAddPhoto} style={{ display: "none" }}/>
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple onChange={handleAddPhoto} style={{ display: "none" }}/>
       </div>
 
       {/* Linked documentation — read-only photos from the other side of an MRF <-> EarthCraft/
