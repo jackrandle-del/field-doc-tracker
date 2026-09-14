@@ -965,7 +965,7 @@ const PROGRAM_CATALOG = [
     label: "EarthCraft Certified",
     color: "#2D6A4F",
     versions: [
-      { version: "V6", revisions: ["New Construction"] },
+      { version: "V6.5", revisions: ["New Construction"] },
           { version: "V7", revisions: ["New Construction"] },
     ],
   },
@@ -974,7 +974,7 @@ const PROGRAM_CATALOG = [
     label: "EarthCraft Gold",
     color: "#1B4332",
     versions: [
-      { version: "V6", revisions: ["New Construction"] },
+      { version: "V6.5", revisions: ["New Construction"] },
       { version: "V7", revisions: ["New Construction"] },
     ],
   },
@@ -1140,18 +1140,21 @@ const ENERGY_STAR_MFNC_V1_1_REV05 = [
   { id: "r5_13_2", pointNumber: "13.2", text: "ERI Path: Common space refrigerators and dishwashers are ENERGY STAR certified; showerheads are WaterSense labeled", category: "Energy Efficient Systems", mandatory: true },
 ];
 
-// ─── EARTHCRAFT MFNC V6 ───────────────────────────────────────────────────────
-// Tier field: "ALL"// ─── EARTHCRAFT MFNC V6 — NEW CONSTRUCTION ──────────────────────────────────────
-// Source: ECMF-Workbook-V6.xlsx (New Construction)
+// ─── EARTHCRAFT MFNC V6.5 — NEW CONSTRUCTION ─────────────────────────────────────
+// Relabeled from "V6" to "V6.5" 2026-09-14: this array's content was already V6.5 (see the
+// ec_v65_* ids added 2026-08-20 during the V7 audit, and confirmed line-for-line against a real
+// ECMF-Workbook-V6.5.xlsx during Colbrook 1 setup) — it was just filed under the wrong version
+// label. True pre-6.5 V6 is explicitly out of scope per the user: it's only relevant to older
+// projects that won't live in this app.
 // ALL = required at Certified + Gold; GOLD = required at Gold only
 // ec_nc_du2_5 is the NC version of DU 2.5 (vs renovation ec_du2_4)
 
-const EARTHCRAFT_CERTIFIED_V6 = [
+const EARTHCRAFT_CERTIFIED_V6_5 = [
   // SP 2.7 removed 2026-08-20: same bug as the V7 array had -- genuinely optional (already
   // correctly tracked as ec_opt_sp_sp_2_7 in EARTHCRAFT_OPTIONAL_LIBRARY, version-agnostic so
   // it matches a V6.5 or V7 workbook upload either way), not mandatory.
   // ── CONSTRUCTION WASTE MANAGEMENT ────────────────────────────────────────────
-  // Added 2026-09-14: was missing entirely -- flagged during Colbrook 1 setup. GOLD_V6 spreads
+  // Added 2026-09-14: was missing entirely -- flagged during Colbrook 1 setup. GOLD_V6_5 spreads
   // this array, so it inherits this item too without a separate copy.
   { id: "ec_cw1_0", pointNumber: "CW 1.0", tier: "ALL", text: "No construction materials burned or buried on site", category: "Construction Waste Management" },
   // ── RESOURCE EFFICIENCY ─────────────────────────────────────────────────────
@@ -1268,8 +1271,8 @@ const EARTHCRAFT_CERTIFIED_V6 = [
   { id: "ec_v65_we_we_2_1_1", pointNumber: "WE 2.1 > 1", text: "Irrigation system: > Must have rain sensor shutoff switch", category: "Water Efficiency", tier: "ALL" },
 ];
 
-const EARTHCRAFT_GOLD_V6 = [
-  ...EARTHCRAFT_CERTIFIED_V6,
+const EARTHCRAFT_GOLD_V6_5 = [
+  ...EARTHCRAFT_CERTIFIED_V6_5,
   // ── RESOURCE EFFICIENCY: GOLD ───────────────────────────────────────────────
   { id: "ec_v7_re1_2_1", pointNumber: "RE 1.2 > 1", tier: "GOLD", text: "2-stud corners where structurally feasible", category: "Resource Efficiency", points: 3 },
   { id: "ec_v7_re1_2_2", pointNumber: "RE 1.2 > 2", tier: "GOLD", text: "Ladder T-walls where structurally feasible", category: "Resource Efficiency", points: 2 },
@@ -1506,8 +1509,8 @@ const CHECKLIST_REGISTRY = {
   "energy_star_mfnc||1 / 1.1 / 1.2||Rev. 03": ENERGY_STAR_MFNC_V1_REV03,
   "energy_star_mfnc||1 / 1.1 / 1.2||Rev. 04": ENERGY_STAR_MFNC_V1_REV04,
   "energy_star_mfnc||1.1 / 1.2 / 1.3||Rev. 05": ENERGY_STAR_MFNC_V1_1_REV05,
-  "earthcraft_certified||V6||New Construction": EARTHCRAFT_CERTIFIED_V6,
-  "earthcraft_gold||V6||New Construction": EARTHCRAFT_GOLD_V6,
+  "earthcraft_certified||V6.5||New Construction": EARTHCRAFT_CERTIFIED_V6_5,
+  "earthcraft_gold||V6.5||New Construction": EARTHCRAFT_GOLD_V6_5,
   "earthcraft_certified||V7||New Construction": EARTHCRAFT_CERTIFIED_V7,
   "earthcraft_gold||V7||New Construction": EARTHCRAFT_GOLD_V7,
   "earthcraft_sf2024_certified||v2024||Southface": EARTHCRAFT_SF2024_CERTIFIED,
@@ -1534,7 +1537,7 @@ function getItemsForSelection(programSelections, categoryId, extraItems) {
   }
   // Project-specific EarthCraft optional points, matched from an uploaded workbook — see
   // parseEarthCraftWorkbook. An item flagged goldMandatoryOverlap is already on this list as a
-  // mandatory pass/fail item for Gold (see EARTHCRAFT_GOLD_V7/V6), so it's excluded here — live,
+  // mandatory pass/fail item for Gold (see EARTHCRAFT_GOLD_V7/V6.5), so it's excluded here — live,
   // from the project's CURRENT program selections — to avoid showing it twice. Its workbook
   // status still isn't wasted: see applyEarthCraftGoldOverlapAutoPass, which auto-passes the
   // mandatory item instead.
@@ -1629,7 +1632,7 @@ Object.entries(MRF_OVERLAP_MAP).forEach(([mrfId, rules]) => {
 // resolve a linked item's own category/label when rendering the cross-linked photo gallery below.
 const ITEM_INDEX = {};
 [MRF_ITEMS, EARTHCRAFT_OPTIONAL_LIBRARY, ENERGY_STAR_MFNC_V1_REV03, ENERGY_STAR_MFNC_V1_1_REV05,
- EARTHCRAFT_CERTIFIED_V6, EARTHCRAFT_GOLD_V6, EARTHCRAFT_CERTIFIED_V7, EARTHCRAFT_GOLD_V7,
+ EARTHCRAFT_CERTIFIED_V6_5, EARTHCRAFT_GOLD_V6_5, EARTHCRAFT_CERTIFIED_V7, EARTHCRAFT_GOLD_V7,
  EARTHCRAFT_SF2024_CERTIFIED, EARTHCRAFT_SF2024_GOLD].forEach(arr => {
   arr.forEach(it => { if (!ITEM_INDEX[it.id]) ITEM_INDEX[it.id] = it; });
 });
@@ -1950,7 +1953,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   const ecFileRef = useRef();
 
   // A Gold project must already do every Gold-tier item as a mandatory pass/fail check (see
-  // EARTHCRAFT_GOLD_V7/V6) — don't also track it as a separate optional point, or it shows up
+  // EARTHCRAFT_GOLD_V7/V6.5) — don't also track it as a separate optional point, or it shows up
   // twice. Certified-only projects don't have that mandatory item at all, so it's a genuine
   // optional bonus point for them. Re-derived on every render so it stays correct regardless
   // of upload/program-selection order.

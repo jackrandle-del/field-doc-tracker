@@ -3,7 +3,8 @@
 ## Purpose
 Mobile field documentation app for green building certification inspectors 
 on multifamily new construction (MFNC) projects. Targets two certification 
-programs: Energy Star MFNC (Rev03–Rev05) and EarthCraft (V6 and V7).
+programs: Energy Star MFNC (Rev03–Rev05) and EarthCraft (V6.5 and V7 — true pre-6.5 V6 is
+out of scope, it only applies to older projects that won't live in this app).
 
 ## Core Philosophy
 Only include items that are VISUALLY VERIFIABLE in the field — excluding 
