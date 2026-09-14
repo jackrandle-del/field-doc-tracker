@@ -2337,6 +2337,13 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
   // must be checked/set synchronously at call time, with no risk of two overlapping calls both
   // reading a stale "not running" before either's setSyncState({running:true}) has landed.
   const syncRunningRef = useRef(false);
+  // The sync loop below is async and can take a while (network uploads, one per photo) — records
+  // is a prop, so a plain closure over it would freeze on whatever value it had when the run
+  // started, for the run's whole duration. A ref updated every render lets the loop check the
+  // TRUE current state right before each write, so a photo deleted mid-sync doesn't get its
+  // metadata resurrected by a write built from a stale snapshot (see runSharePointSync).
+  const recordsRef = useRef(records);
+  useEffect(() => { recordsRef.current = records; }, [records]);
 
   // All items across every category, tagged with their source category
   const allProjectItems = CATEGORIES.flatMap(cat =>
@@ -2401,49 +2408,66 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         return;
       }
 
-      const workingRecords = {}; // key -> latest record as we mutate it within this batch
-    const dateFolderCache = {}; // dateName -> folderId, resolved once per distinct date this run
-    let done = 0; const errors = [];
-    for (const job of jobs) {
-      const base = workingRecords[job.key] || job.rec;
-      try {
-        const dataUrl = await idbGetPhoto(`${job.key}__${job.photoId}`);
-        if (!dataUrl) throw new Error("Photo not found locally");
-        // Files by the date the photo was actually TAKEN (embedded in its own id, "<Date.now()>_
-        // <random>"), not the date it happens to sync — a photo shot in the field and synced days
-        // later (exactly what auto-sync exists to catch) still lands under the real inspection
-        // date instead of the day it happened to finally upload.
-        const takenAt = new Date(parseInt(job.photoId.split("_")[0], 10));
-        const dateName = formatDateFolderName(isNaN(takenAt) ? new Date() : takenAt);
-        if (!dateFolderCache[dateName]) {
-          dateFolderCache[dateName] = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, dateName);
+      // Is this specific photo still an unsynced entry on the item's CURRENT record (not the
+      // snapshot pendingPhotoJobs() built when this run started)? A slow sync run can easily
+      // outlast a photo's whole lifecycle — added, then deleted again — and without this check a
+      // late write built from the stale snapshot would resurrect that deleted photo's metadata
+      // (bytes gone from IndexedDB forever, but the record claims one exists) into a stuck,
+      // unrecoverable "not yet synced" ghost. Checked twice per job: once before doing any work
+      // (skip the upload entirely if already gone), once again right before writing (a delete can
+      // still land WHILE the upload itself is in flight).
+      const isStillPending = (key, photoId) => {
+        const rec = recordsRef.current[key];
+        const meta = (rec?.photos || []).find(p => (typeof p === "string" ? p : p.id) === photoId);
+        return !!meta && !(typeof meta === "string" ? null : meta.syncedAt);
+      };
+
+      const workingRecords = {}; // key -> latest known record as we mutate it within this batch
+      const dateFolderCache = {}; // dateName -> folderId, resolved once per distinct date this run
+      let done = 0; const errors = [];
+      for (const job of jobs) {
+        if (!isStillPending(job.key, job.photoId)) { done++; setSyncState({ running: true, done, total: jobs.length, errors }); continue; }
+        const base = workingRecords[job.key] || recordsRef.current[job.key] || job.rec;
+        try {
+          const dataUrl = await idbGetPhoto(`${job.key}__${job.photoId}`);
+          if (!dataUrl) throw new Error("Photo not found locally");
+          // Files by the date the photo was actually TAKEN (embedded in its own id, "<Date.now()>_
+          // <random>"), not the date it happens to sync — a photo shot in the field and synced days
+          // later (exactly what auto-sync exists to catch) still lands under the real inspection
+          // date instead of the day it happened to finally upload.
+          const takenAt = new Date(parseInt(job.photoId.split("_")[0], 10));
+          const dateName = formatDateFolderName(isNaN(takenAt) ? new Date() : takenAt);
+          if (!dateFolderCache[dateName]) {
+            dateFolderCache[dateName] = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, dateName);
+          }
+          const dateFolderId = dateFolderCache[dateName];
+          const nextNum = base.nextPhotoNum || 1;
+          const label = sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
+          // MRF's own pointNumber is already a short descriptive phrase ("Mechanical Ventilation",
+          // "Wall Insulation") — appending another short description derived from its instructional
+          // text would just be redundant clutter, so only add one for EarthCraft/Energy Star items.
+          const shortDesc = job.item._cat === "Minimum Rated Features" ? "" : sanitizeSpName(ecShortDescription(job.item.text));
+          const fileName = shortDesc && shortDesc !== label
+            ? `${label} - ${shortDesc} - ${nextNum}.${extFromDataUrl(dataUrl)}`
+            : `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
+          const uploaded = await uploadPhotoToFolder(siteId, token, dateFolderId, fileName, dataUrl);
+          if (!isStillPending(job.key, job.photoId)) { done++; setSyncState({ running: true, done, total: jobs.length, errors }); continue; }
+          const freshBase = workingRecords[job.key] || recordsRef.current[job.key] || base;
+          const updatedPhotos = (freshBase.photos||[]).map(p => {
+            const pid = typeof p === "string" ? p : p.id;
+            if (pid !== job.photoId) return typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p;
+            return { id: pid, syncedAt: new Date().toISOString(), spFileName: fileName, spItemId: uploaded.id, spWebUrl: uploaded.webUrl };
+          });
+          const updatedRec = { ...freshBase, photos: updatedPhotos, nextPhotoNum: nextNum + 1 };
+          workingRecords[job.key] = updatedRec;
+          updateRecord(project.id, job.item._cat, job.item.id, updatedRec);
+        } catch (e) {
+          errors.push({ item: job.item, message: e.message });
         }
-        const dateFolderId = dateFolderCache[dateName];
-        const nextNum = base.nextPhotoNum || 1;
-        const label = sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
-        // MRF's own pointNumber is already a short descriptive phrase ("Mechanical Ventilation",
-        // "Wall Insulation") — appending another short description derived from its instructional
-        // text would just be redundant clutter, so only add one for EarthCraft/Energy Star items.
-        const shortDesc = job.item._cat === "Minimum Rated Features" ? "" : sanitizeSpName(ecShortDescription(job.item.text));
-        const fileName = shortDesc && shortDesc !== label
-          ? `${label} - ${shortDesc} - ${nextNum}.${extFromDataUrl(dataUrl)}`
-          : `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
-        const uploaded = await uploadPhotoToFolder(siteId, token, dateFolderId, fileName, dataUrl);
-        const updatedPhotos = (base.photos||[]).map(p => {
-          const pid = typeof p === "string" ? p : p.id;
-          if (pid !== job.photoId) return typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p;
-          return { id: pid, syncedAt: new Date().toISOString(), spFileName: fileName, spItemId: uploaded.id, spWebUrl: uploaded.webUrl };
-        });
-        const updatedRec = { ...base, photos: updatedPhotos, nextPhotoNum: nextNum + 1 };
-        workingRecords[job.key] = updatedRec;
-        updateRecord(project.id, job.item._cat, job.item.id, updatedRec);
-      } catch (e) {
-        errors.push({ item: job.item, message: e.message });
+        done++;
+        setSyncState({ running: true, done, total: jobs.length, errors });
       }
-      done++;
-      setSyncState({ running: true, done, total: jobs.length, errors });
-    }
-    setSyncState({ running: false, done, total: jobs.length, errors });
+      setSyncState({ running: false, done, total: jobs.length, errors });
     } finally {
       syncRunningRef.current = false;
     }
@@ -2777,8 +2801,17 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
           </span>
         </div>
       )}
-      {onRemove && display?.status === "local" && (
-        <button onClick={() => onRemove(meta.id)}
+      {/* "unsynced" also gets a remove button, not just "local" — it's the only way to clear a
+          photo whose bytes are gone from every device and never made it to SharePoint (e.g. an
+          older record from before a sync race was fixed). Confirmed separately, since "unsynced"
+          is ambiguous: it could genuinely mean gone forever, or just "not on THIS device yet,
+          still sitting locally on whoever took it" — worth a deliberate warning either way. */}
+      {onRemove && (display?.status === "local" || display?.status === "unsynced") && (
+        <button onClick={() => {
+            if (display.status === "unsynced" && !window.confirm("This photo never made it to SharePoint and isn't stored on this device — there may be no copy of it left anywhere (unless it's still sitting unsynced on whichever device took it). Remove this photo record?")) return;
+            onRemove(meta.id);
+          }}
+          title={display.status === "unsynced" ? "Remove this photo record — its bytes aren't recoverable from this device" : "Remove photo"}
           style={{ position: "absolute", top: 4, right: 4, width: 24, height: 24, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 14, cursor: "pointer" }}>×</button>
       )}
       {meta.syncedAt && (
