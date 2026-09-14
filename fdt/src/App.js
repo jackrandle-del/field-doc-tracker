@@ -1724,7 +1724,11 @@ function applyEarthCraftAutoPass(project, existingRecords) {
 // mandatory item instead. Matched by category + point number; falls back to the code before " > "
 // for items like BE 3.10 that are split into sub-options (A/B) in the optional library but exist
 // as a single combined item in the mandatory checklist.
-function ecNormPointNumber(s) { return (s || "").trim().toLowerCase(); }
+// A whole-number code stored as a numeric cell (not text) reads back with no trailing ".0" at
+// all (ecCleanCode's drift-rounding can't distinguish "1" from "1.0" — JS numbers don't carry
+// that), so a workbook row for "CW 1.0" lands as "CW 1". Stripping a trailing ".0" here makes
+// the comparison tolerant of that, matching either spelling against the item definition.
+function ecNormPointNumber(s) { return (s || "").trim().toLowerCase().replace(/\.0$/, ""); }
 function ecBasePointNumber(s) { return ecNormPointNumber(s).split(">")[0].trim(); }
 
 function findEarthCraftMandatoryMatch(mandatoryItems, category, pointNumber) {
