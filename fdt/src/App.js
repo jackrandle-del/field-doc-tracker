@@ -3084,6 +3084,7 @@ function TeamLogin() {
 
   return (
     <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "DM Sans, sans-serif", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px", boxSizing: "border-box" }}>
+      <img src="/logo192.png" alt="" style={{ width: 56, height: 56, marginBottom: 16 }}/>
       <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#111827" }}>Doc Tracker</h1>
       <p style={{ margin: "0 0 28px", fontSize: 13, color: "#6B7280" }}>Sign in with the team login to continue.</p>
       <form onSubmit={handleSubmit}>
@@ -3201,13 +3202,12 @@ export default function App() {
 
   return (
     <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "DM Sans, sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
       <div style={{ position: "sticky", top: 0, zIndex: 40, background: "#FFF", borderBottom: "1px solid #F3F4F6", padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
         {screen !== "projects" && (
           <button onClick={navBack} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "#374151", padding: 0, flexShrink: 0 }}>‹</button>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-          {screen === "projects" && <span style={{ fontSize: 20 }}>☑️</span>}
+          {screen === "projects" && <img src="/logo192.png" alt="" style={{ width: 24, height: 24, flexShrink: 0 }}/>}
           <h1 style={{ margin: 0, fontSize: screen==="projects"?20:17, fontWeight: 700, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titles[screen]}</h1>
         </div>
         <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "DM Sans, sans-serif", padding: "4px 0" }}>Sign out</button>
