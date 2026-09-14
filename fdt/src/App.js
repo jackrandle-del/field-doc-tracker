@@ -3084,7 +3084,7 @@ function TeamLogin() {
 
   return (
     <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#FFF", fontFamily: "DM Sans, sans-serif", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px", boxSizing: "border-box" }}>
-      <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#111827" }}>Field Documentation Tracker</h1>
+      <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#111827" }}>Doc Tracker</h1>
       <p style={{ margin: "0 0 28px", fontSize: 13, color: "#6B7280" }}>Sign in with the team login to continue.</p>
       <form onSubmit={handleSubmit}>
         <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Email</label>
@@ -3190,7 +3190,7 @@ export default function App() {
     else if (screen === "edit") setScreen("dashboard");
   };
 
-  const titles = { projects: "Field Documentation Tracker", create: "New project", edit: "Edit project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", item: "Document item" };
+  const titles = { projects: "Doc Tracker", create: "New project", edit: "Edit project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", item: "Document item" };
 
   if (teamUser === undefined) {
     return <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "DM Sans, sans-serif", color: "#9CA3AF", fontSize: 13 }}>Loading…</div>;
