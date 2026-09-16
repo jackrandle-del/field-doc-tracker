@@ -2875,7 +2875,7 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
 
 // ─── SCREEN: ITEM DETAIL ──────────────────────────────────────────────────────
 // Autosaves on status tap and on photo add/remove. Note saves on blur.
-function ItemDetail({ project, category, item, record, records, onSave, auth, setAuth }) {
+function ItemDetail({ project, category, item, record, records, onSave, onDeleteMiscItem, auth, setAuth }) {
   const [status, setStatus] = useState(record?.status||"");
   const [note, setNote] = useState(record?.note||"");
   // Photo metadata only — image bytes live in IndexedDB and/or SharePoint, never in this state.
@@ -3089,6 +3089,13 @@ function ItemDetail({ project, category, item, record, records, onSave, auth, se
         )}
         <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#08182E", lineHeight: 1.55 }}>{item.text}</p>
         <p style={{ margin: "6px 0 0", fontSize: 11, color: "#9CA3AF" }}>{category.id} · {project.name}</p>
+        {category.id === "Miscellaneous" && onDeleteMiscItem && (
+          <button
+            onClick={() => { if (window.confirm("Delete this item? Any status, note, or photos logged on it will be removed too.")) onDeleteMiscItem(item.id); }}
+            style={{ marginTop: 10, background: "none", border: "none", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "Poppins, sans-serif" }}>
+            Delete item
+          </button>
+        )}
         <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
           {item.mergedWith && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "transparent", border: "1px solid #1ABC9C55", color: "#0F7A66", fontWeight: 600 }}>Multi-program</span>}
           {itemPrograms.map(prog => {
@@ -3416,6 +3423,21 @@ export default function App() {
     setActiveProject(updated);
   };
 
+  // Removes a misc item and whatever status/note/photo metadata was logged against it — the
+  // photo bytes themselves (IndexedDB) are left alone, same as any other deleted-record cleanup
+  // in this app; they're just no longer referenced from anywhere.
+  const deleteMiscItem = async (itemId) => {
+    const updated = { ...activeProject, miscItems: (activeProject.miscItems || []).filter(i => i.id !== itemId) };
+    const batch = writeBatch(db);
+    batch.set(doc(db, "projects", updated.id), updated);
+    const recordKey = `${updated.id}__Miscellaneous__${itemId}`;
+    if (data.records[recordKey]) batch.delete(doc(db, "records", recordKey));
+    await batch.commit();
+    setActiveProject(updated);
+    setScreen("checklist");
+    setActiveItem(null);
+  };
+
   const navBack = () => {
     if (screen === "item") { setScreen("checklist"); setActiveItem(null); }
     else if (screen === "checklist") { setScreen("dashboard"); setActiveCategory(null); }
@@ -3486,6 +3508,7 @@ export default function App() {
           record={data.records[`${activeProject.id}__${activeItem._cat||activeCategory?.id}__${activeItem.id}`]}
           records={data.records}
           onSave={val=>{updateRecord(activeProject.id, activeItem._cat||activeCategory?.id, activeItem.id, val);}}
+          onDeleteMiscItem={deleteMiscItem}
           auth={auth}
           setAuth={setAuth}
         />
