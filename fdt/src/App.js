@@ -2990,22 +2990,29 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
   // than Promise.all) so photosRef.current — read fresh at the start of each iteration — never
   // goes stale across awaits, the same stale-closure concern documented on the refs above.
   const processFiles = async (fileList) => {
-    const files = Array.from(fileList || []).filter(f => f.type.startsWith("image/"));
+    const all = Array.from(fileList || []);
+    const files = all.filter(f => f.type.startsWith("image/"));
+    if (!all.length) return;
+    if (!files.length) { alert("That didn't look like an image file — nothing was added."); return; }
     const room = MAX_PHOTOS - photosRef.current.length;
-    if (!files.length || room <= 0) return;
+    if (room <= 0) { alert(`This item already has the maximum of ${MAX_PHOTOS} photos — remove one before adding more.`); return; }
     for (const file of files.slice(0, room)) {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = ev => resolve(ev.target.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
-      const next = [...photosRef.current, { id, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null }];
-      setPhotos(next);
-      photosRef.current = next;
-      save({ photos: next.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) => ({ id, syncedAt, spFileName, spItemId, spWebUrl })) });
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = ev => resolve(ev.target.result);
+          reader.onerror = () => reject(reader.error || new Error("Couldn't read the file"));
+          reader.readAsDataURL(file);
+        });
+        const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
+        const next = [...photosRef.current, { id, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null }];
+        setPhotos(next);
+        photosRef.current = next;
+        save({ photos: next.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) => ({ id, syncedAt, spFileName, spItemId, spWebUrl })) });
+      } catch (err) {
+        alert(`Couldn't save "${file.name || "this photo"}": ${err?.message || err}`);
+      }
     }
   };
 
