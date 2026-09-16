@@ -2996,39 +2996,34 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
     if (!files.length) { alert("That didn't look like an image file — nothing was added."); return; }
     const room = MAX_PHOTOS - photosRef.current.length;
     if (room <= 0) { alert(`This item already has the maximum of ${MAX_PHOTOS} photos — remove one before adding more.`); return; }
-    const withTimeout = (promise, ms, label) => Promise.race([
-      promise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error(`Timed out at: ${label}`)), ms)),
-    ]);
     for (const file of files.slice(0, room)) {
       try {
-        alert(`DEBUG: checkpoint A - starting file, type=${file.type}, size=${file.size} bytes`);
-        const dataUrl = await withTimeout(new Promise((resolve, reject) => {
+        const dataUrl = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = ev => resolve(ev.target.result);
           reader.onerror = () => reject(reader.error || new Error("Couldn't read the file"));
           reader.readAsDataURL(file);
-        }), 15000, "reading file");
-        alert(`DEBUG: checkpoint B - file read OK, dataUrl length=${dataUrl.length}`);
+        });
         const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        await withTimeout(idbSavePhoto(`${photoKey}__${id}`, dataUrl), 15000, "saving to on-device storage");
-        alert(`DEBUG: checkpoint C - saved to on-device storage OK`);
+        await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
         const next = [...photosRef.current, { id, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null }];
         setPhotos(next);
         photosRef.current = next;
         save({ photos: next.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) => ({ id, syncedAt, spFileName, spItemId, spWebUrl })) });
-        alert(`DEBUG: checkpoint D - state updated, should now show ${next.length}/${MAX_PHOTOS} photos`);
       } catch (err) {
         alert(`Couldn't save "${file.name || "this photo"}": ${err?.message || err}`);
       }
     }
   };
 
+  // Snapshot into a real array immediately — e.target.files is a live reference tied to the
+  // input, and clearing e.target.value right after (needed so selecting the same file twice in a
+  // row still fires onChange) can clear that same reference in some browsers before processFiles
+  // ever gets to read it, silently dropping every photo with no error anywhere.
   const handleAddPhoto = e => {
-    const fileList = e.target.files;
-    alert(`DEBUG: file picker returned ${fileList ? fileList.length : "null"} file(s)`);
+    const files = Array.from(e.target.files || []);
     e.target.value = "";
-    processFiles(fileList);
+    processFiles(files);
   };
 
   const [dragOver, setDragOver] = useState(false);
