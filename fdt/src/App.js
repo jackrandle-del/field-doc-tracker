@@ -1818,6 +1818,16 @@ function calcProjectProgress(project, records) {
   return { pct: total ? Math.round((verified / total) * 100) : 0, fail, total, verified, pointsFail, pointsAtRisk };
 }
 
+// Word-order-independent search: a TA typing "aligned air barrier" should still find
+// "Air barrier fully aligned" — split the query into words and require each one to appear
+// somewhere in the item, rather than requiring the whole phrase as one exact substring.
+function itemMatchesQuery(item, q) {
+  const tokens = q.split(/\s+/).filter(Boolean);
+  if (!tokens.length) return true;
+  const haystack = `${item.text} ${item.pointNumber || ""}`.toLowerCase();
+  return tokens.every(t => haystack.includes(t));
+}
+
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
 function fmtDate(iso) {
   if (!iso) return null;
@@ -2499,10 +2509,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
   }, [project.id, auth]);
 
   const searchResults = q
-    ? allProjectItems.filter(i =>
-        i.text.toLowerCase().includes(q) ||
-        (i.pointNumber||"").toLowerCase().includes(q)
-      )
+    ? allProjectItems.filter(i => itemMatchesQuery(i, q))
     : null;
 
   const CatRow = ({ cat }) => {
@@ -2673,10 +2680,7 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
   };
 
   const displayItems = q
-    ? allItems.filter(i =>
-        i.text.toLowerCase().includes(q) ||
-        (i.pointNumber||"").toLowerCase().includes(q)
-      )
+    ? allItems.filter(i => itemMatchesQuery(i, q))
     : allItems;
 
   return (
