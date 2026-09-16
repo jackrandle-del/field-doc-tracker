@@ -3018,6 +3018,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
 
   const handleAddPhoto = e => {
     const fileList = e.target.files;
+    alert(`DEBUG: file picker returned ${fileList ? fileList.length : "null"} file(s)`);
     e.target.value = "";
     processFiles(fileList);
   };
