@@ -1027,6 +1027,7 @@ const CATEGORIES = [
   { id: "Education & Operations",           code: "EO"  },
   { id: "Innovation",                       code: "INV" },
   { id: "Minimum Rated Features",           code: "MRF" },
+  { id: "Final Testing",                    code: "FT"  },
   { id: "Miscellaneous",                    code: "MISC" },
 ];
 
@@ -1421,6 +1422,18 @@ const EARTHCRAFT_SF2024_GOLD = [
 ];
 
 
+// The fixed set of performance tests done per dwelling unit at final testing. Photo
+// documentation only, deliberately — see getItemsForSelection's "Final Testing" branch for why
+// there's no points/pass-fail here (pass/fail is determined in a separate external testing sheet
+// for now; a future pass will let that sheet be uploaded here to pull real targets and numbers).
+const FINAL_TESTING_TYPES = [
+  { key: "blower_door", label: "Blower Door" },
+  { key: "duct_leakage_outside", label: "Duct Leakage to Outside" },
+  { key: "duct_leakage_total", label: "Total Duct Leakage" },
+  { key: "ventilation", label: "Ventilation" },
+  { key: "exhaust_fans", label: "Exhaust Fans" },
+];
+
 const MRF_ITEMS = [
   // ── HVAC & MECHANICAL ────────────────────────────────────────────────────────
   { id: "mrf_1_0", pointNumber: "HVAC Equipment", tier: "ALL", category: "Minimum Rated Features",
@@ -1545,7 +1558,7 @@ function isEarthCraftGoldSelected(programSelections) {
   return (programSelections || []).some(s => s.programId === "earthcraft_gold");
 }
 
-function getItemsForSelection(programSelections, categoryId, extraItems, miscItems) {
+function getItemsForSelection(programSelections, categoryId, extraItems, miscItems, finalTestingUnits) {
   const seen = new Set();
   const result = [];
   // MRF items are program-agnostic — always show when viewing MRF category
@@ -1556,6 +1569,21 @@ function getItemsForSelection(programSelections, categoryId, extraItems, miscIte
   // catch-all items (see ChecklistView's "+ Add item" form), stored directly on the project.
   if (categoryId === "Miscellaneous") {
     return (miscItems || []).map(i => ({ ...i, _cat: "Miscellaneous" }));
+  }
+  // Final Testing has no static checklist either — items are derived, not stored, as the cross
+  // product of TA-added units x the fixed FINAL_TESTING_TYPES. pointNumber carries the unit name
+  // (renders as ItemRow's badge, and doubles as the SharePoint filename prefix); text carries the
+  // test type. No points/status field on purpose — see FINAL_TESTING_TYPES's comment.
+  if (categoryId === "Final Testing") {
+    return (finalTestingUnits || []).flatMap(unit =>
+      FINAL_TESTING_TYPES.map(type => ({
+        id: `${unit.id}__${type.key}`,
+        category: "Final Testing",
+        pointNumber: unit.name,
+        text: type.label,
+        _cat: "Final Testing",
+      }))
+    );
   }
   for (const sel of programSelections) {
     const key = `${sel.programId}||${sel.version}||${sel.revision}`;
@@ -1804,7 +1832,12 @@ function calcCatProgress(items, records, projectId, categoryId) {
 function calcProjectProgress(project, records) {
   let total = 0, verified = 0, fail = 0, pointsFail = 0, pointsAtRisk = 0;
   CATEGORIES.forEach(cat => {
-    const items = getItemsForSelection(project.programs || [], cat.id, project.earthcraftOptionalItems, project.miscItems);
+    // Final Testing has no status to speak of (photo-only, see FINAL_TESTING_TYPES) and is
+    // deliberately excluded from the project's main percentage entirely, per explicit request —
+    // unlike MRF, which today still counts toward this total even though it's hidden from its
+    // own category row's percentage.
+    if (cat.id === "Final Testing") return;
+    const items = getItemsForSelection(project.programs || [], cat.id, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits);
     items.forEach(item => {
       total++;
       const r = records[`${project.id}__${cat.id}__${item.id}`];
@@ -2317,7 +2350,7 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
           {rec.status && <StatusBadge status={rec.status}/>}
           <button onClick={() => onSelectItem(item)}
             style={{ fontSize: 11, padding: "5px 11px", border: "1.5px solid #E5E7EB", borderRadius: 8, background: "#FFF", color: "#374151", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontWeight: 500 }}>
-            {rec.status ? "Update" : "Document"}
+            {(rec.status || rec.photos?.length) ? "Update" : "Document"}
           </button>
         </div>
       </div>
@@ -2367,7 +2400,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
 
   // All items across every category, tagged with their source category
   const allProjectItems = CATEGORIES.flatMap(cat =>
-    getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems, project.miscItems).map(i => ({ ...i, _cat: cat.id }))
+    getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits).map(i => ({ ...i, _cat: cat.id }))
   );
 
   // Every photo, across every item in the project, that has never been uploaded to SharePoint
@@ -2513,12 +2546,14 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
     : null;
 
   const CatRow = ({ cat }) => {
-    const items = getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems, project.miscItems);
+    const items = getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits);
     const mrf = cat.id === "Minimum Rated Features";
     const misc = cat.id === "Miscellaneous";
+    const finalTesting = cat.id === "Final Testing";
     const empty = items.length === 0;
+    const unitCount = finalTesting ? (project.finalTestingUnits || []).length : 0;
     const p = calcCatProgress(items, records, project.id, cat.id);
-    if (empty && !mrf && !misc) return null;
+    if (empty && !mrf && !misc && !finalTesting) return null;
     const accentColor = mrf ? "#1ABC9C" : (p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB");
     return (
       <div onClick={() => onSelectCategory(cat)}
@@ -2533,16 +2568,18 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} fail</span>}
             {p.pointsFail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "2px 7px", borderRadius: 8 }}>−{p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
-            {!mrf && !(misc && empty) && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
+            {!mrf && !finalTesting && !(misc && empty) && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
             {mrf && empty && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Coming soon</span>}
             {misc && empty && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Nothing logged yet</span>}
+            {finalTesting && unitCount === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Nothing logged yet</span>}
             <span style={{ color: "#D1D5DB" }}>›</span>
           </div>
         </div>
-        {!mrf && !(misc && empty) && <ProgressBar pct={p.pct} fail={p.fail}/>}
+        {!mrf && !finalTesting && !(misc && empty) && <ProgressBar pct={p.pct} fail={p.fail}/>}
         <p style={{ margin: "4px 0 0", fontSize: 11, color: mrf?"#0F7A66":"#9CA3AF" }}>
           {mrf ? "Energy modeling documentation"
             : misc && empty ? "Tap to log something that didn't fit an existing item"
+            : finalTesting ? (unitCount === 0 ? "Tap to log a unit and its test photos" : `${unitCount} unit${unitCount===1?"":"s"} documented`)
             : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} failing`:""}${p.pointsFail>0?` · failing to meet ${p.pointsAtRisk} pt${p.pointsAtRisk>1?"s":""}`:""}`}
         </p>
       </div>
@@ -2657,14 +2694,15 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
 
 // ─── SCREEN: CHECKLIST ────────────────────────────────────────────────────────
 // Search is scoped to this category only.
-function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem }) {
-  const allItems = getItemsForSelection(project.programs||[], category.id, project.earthcraftOptionalItems, project.miscItems).map(i => ({ ...i, _cat: category.id }));
+function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem, onAddFinalTestingUnit }) {
+  const allItems = getItemsForSelection(project.programs||[], category.id, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits).map(i => ({ ...i, _cat: category.id }));
   const [query, setQuery] = useState("");
   const [modelNotesOpen, setModelNotesOpen] = useState(false);
   const p = calcCatProgress(allItems, records, project.id, category.id);
   const q = query.trim().toLowerCase();
   const isMRF = category.id === "Minimum Rated Features";
   const isMisc = category.id === "Miscellaneous";
+  const isFinalTesting = category.id === "Final Testing";
   const modelNotes = isMRF ? project.energyModel?.notes : null;
 
   // Miscellaneous has no static checklist — a TA adds their own brief description of whatever
@@ -2679,9 +2717,33 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
     try { await onAddMiscItem(text); setMiscDraft(""); } finally { setMiscAdding(false); }
   };
 
+  // Final Testing also has no static checklist — a TA names the dwelling unit being tested, and
+  // the fixed FINAL_TESTING_TYPES appear underneath it (see getItemsForSelection). No dedup on
+  // name: a retest is legitimately a second entry sharing the same unit name.
+  const [unitDraft, setUnitDraft] = useState("");
+  const [unitAdding, setUnitAdding] = useState(false);
+  const handleAddUnit = async () => {
+    const name = unitDraft.trim();
+    if (!name || unitAdding) return;
+    setUnitAdding(true);
+    try { await onAddFinalTestingUnit(name); setUnitDraft(""); } finally { setUnitAdding(false); }
+  };
+
   const displayItems = q
     ? allItems.filter(i => itemMatchesQuery(i, q))
     : allItems;
+
+  // Grouped by dwelling unit (not by name, since duplicate names are allowed for retests — the
+  // id prefix before "__" is the actual unique unit id). Only when not searching, same as
+  // everywhere else in the app falls back to a flat list while a query is active.
+  const finalTestingGroups = isFinalTesting && !q
+    ? Object.values(displayItems.reduce((acc, item) => {
+        const unitId = item.id.split("__")[0];
+        if (!acc[unitId]) acc[unitId] = { unitId, unitName: item.pointNumber, items: [] };
+        acc[unitId].items.push(item);
+        return acc;
+      }, {}))
+    : null;
 
   return (
     <div style={{ paddingBottom: 40 }}>
@@ -2690,14 +2752,18 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#08182E" }}>{category.id}</h3>
             <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
-              {p.pass+p.na}/{p.total} verified
-              {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} failing</span>}
-              {p.pointsFail > 0 && <span style={{ color: "#8A6D14" }}> · failing to meet {p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
+              {isFinalTesting
+                ? `${(project.finalTestingUnits||[]).length} unit${(project.finalTestingUnits||[]).length===1?"":"s"} documented`
+                : (<>
+                    {p.pass+p.na}/{p.total} verified
+                    {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} failing</span>}
+                    {p.pointsFail > 0 && <span style={{ color: "#8A6D14" }}> · failing to meet {p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
+                  </>)}
             </p>
           </div>
-          <span style={{ fontSize: 22, fontWeight: 600, color: p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB" }}>{p.pct}%</span>
+          {!isFinalTesting && <span style={{ fontSize: 22, fontWeight: 600, color: p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB" }}>{p.pct}%</span>}
         </div>
-        <div style={{ marginTop: 10 }}><ProgressBar pct={p.pct} fail={p.fail}/></div>
+        {!isFinalTesting && <div style={{ marginTop: 10 }}><ProgressBar pct={p.pct} fail={p.fail}/></div>}
         <div style={{ marginTop: 12 }}>
           <SearchBar query={query} onChange={setQuery} placeholder={`Search in ${category.id}…`}/>
         </div>
@@ -2712,6 +2778,18 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
           <button onClick={handleAddMisc} disabled={!miscDraft.trim() || miscAdding}
             style={{ marginTop: 8, padding: "10px 16px", background: !miscDraft.trim() || miscAdding ? "#E5E7EB" : "#08182E", color: !miscDraft.trim() || miscAdding ? "#9CA3AF" : "#FFF", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: !miscDraft.trim() || miscAdding ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
             {miscAdding ? "Adding…" : "+ Add item"}
+          </button>
+        </div>
+      )}
+      {isFinalTesting && (
+        <div style={{ padding: "16px 20px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
+          <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Log a unit</label>
+          <input value={unitDraft} onChange={e => setUnitDraft(e.target.value)}
+            placeholder="Unit number or name (e.g. Unit 403)"
+            style={{ width: "100%", padding: "10px 12px", border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "Poppins, sans-serif", color: "#08182E", outline: "none", boxSizing: "border-box" }}/>
+          <button onClick={handleAddUnit} disabled={!unitDraft.trim() || unitAdding}
+            style={{ marginTop: 8, padding: "10px 16px", background: !unitDraft.trim() || unitAdding ? "#E5E7EB" : "#08182E", color: !unitDraft.trim() || unitAdding ? "#9CA3AF" : "#FFF", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: !unitDraft.trim() || unitAdding ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
+            {unitAdding ? "Adding…" : "+ Add unit"}
           </button>
         </div>
       )}
@@ -2732,9 +2810,18 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
           <p style={{ margin: 0, fontSize: 14 }}>No items match "{query}"</p>
         </div>
       )}
-      {displayItems.map(item => (
-        <ItemRow key={item.id} project={project} item={item} records={records} onSelectItem={onSelectItem} showCategory={false}/>
-      ))}
+      {finalTestingGroups
+        ? finalTestingGroups.map(group => (
+            <div key={group.unitId}>
+              <p style={{ margin: 0, padding: "10px 20px 4px", fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em", background: "#FAFAFA" }}>{group.unitName}</p>
+              {group.items.map(item => (
+                <ItemRow key={item.id} project={project} item={item} records={records} onSelectItem={onSelectItem} showCategory={false}/>
+              ))}
+            </div>
+          ))
+        : displayItems.map(item => (
+            <ItemRow key={item.id} project={project} item={item} records={records} onSelectItem={onSelectItem} showCategory={false}/>
+          ))}
     </div>
   );
 }
@@ -2875,7 +2962,8 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
 
 // ─── SCREEN: ITEM DETAIL ──────────────────────────────────────────────────────
 // Autosaves on status tap and on photo add/remove. Note saves on blur.
-function ItemDetail({ project, category, item, record, records, onSave, onDeleteMiscItem, auth, setAuth }) {
+function ItemDetail({ project, category, item, record, records, onSave, onDeleteMiscItem, onDeleteFinalTestingUnit, auth, setAuth }) {
+  const isFinalTesting = category.id === "Final Testing";
   const [status, setStatus] = useState(record?.status||"");
   const [note, setNote] = useState(record?.note||"");
   // Photo metadata only — image bytes live in IndexedDB and/or SharePoint, never in this state.
@@ -3107,6 +3195,13 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
             Delete item
           </button>
         )}
+        {isFinalTesting && onDeleteFinalTestingUnit && (
+          <button
+            onClick={() => { if (window.confirm(`Delete "${item.pointNumber}"? This removes all 5 test items for this unit, and any photos or notes logged on any of them.`)) onDeleteFinalTestingUnit(item.id.split("__")[0]); }}
+            style={{ marginTop: 10, background: "none", border: "none", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "Poppins, sans-serif" }}>
+            Delete unit
+          </button>
+        )}
         <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
           {item.mergedWith && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "transparent", border: "1px solid #1ABC9C55", color: "#0F7A66", fontWeight: 600 }}>Multi-program</span>}
           {itemPrograms.map(prog => {
@@ -3225,28 +3320,32 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
         </div>
       )}
 
-      {/* Status */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Status</p>
-        {saved && <span style={{ fontSize: 11, color: "#7CB83F", fontWeight: 600 }}>✓ Saved</span>}
-      </div>
+      {/* Status — Final Testing skips this entirely, photo-only per FINAL_TESTING_TYPES */}
+      {!isFinalTesting && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Status</p>
+            {saved && <span style={{ fontSize: 11, color: "#7CB83F", fontWeight: 600 }}>✓ Saved</span>}
+          </div>
 
-      {/* Status buttons — Pass and Fail blocked on MRF without photo. MRF isn't a compliance
-          pass/fail check, it's "is this fully documented" — relabeled accordingly, same
-          underlying pass/fail/na values so nothing else about how records are stored changes. */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
-        {[["pass","#F0F8E6","#4B7A22","#7CB83F",isMRF?"All Features Documented":"Pass"],["fail","#FEE2E2","#991B1B","#EF4444",isMRF?"Additional Photos Needed":"Fail"],["na","#F3F4F6","#4B5563","#9CA3AF","N/A"]].map(([id,bg,col,brd,label]) => {
-          const blocked = photoRequired(id);
-          return (
-            <button key={id} onClick={() => handleStatus(id)} disabled={blocked}
-              title={blocked ? "Upload a photo first" : ""}
-              style={{ padding: "12px 8px", border: `2px solid ${status===id ? brd : blocked ? "#F3F4F6" : "#E5E7EB"}`, borderRadius: 6, background: status===id ? bg : blocked ? "#F9FAFB" : "#FFF", color: status===id ? col : blocked ? "#D1D5DB" : "#6B7280", fontSize: 13, fontWeight: 700, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif", position: "relative" }}>
-              {label}
-              {blocked && <span style={{ display: "block", fontSize: 9, fontWeight: 400, marginTop: 2, color: "#FCA5A5" }}>photo first</span>}
-            </button>
-          );
-        })}
-      </div>
+          {/* Status buttons — Pass and Fail blocked on MRF without photo. MRF isn't a compliance
+              pass/fail check, it's "is this fully documented" — relabeled accordingly, same
+              underlying pass/fail/na values so nothing else about how records are stored changes. */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
+            {[["pass","#F0F8E6","#4B7A22","#7CB83F",isMRF?"All Features Documented":"Pass"],["fail","#FEE2E2","#991B1B","#EF4444",isMRF?"Additional Photos Needed":"Fail"],["na","#F3F4F6","#4B5563","#9CA3AF","N/A"]].map(([id,bg,col,brd,label]) => {
+              const blocked = photoRequired(id);
+              return (
+                <button key={id} onClick={() => handleStatus(id)} disabled={blocked}
+                  title={blocked ? "Upload a photo first" : ""}
+                  style={{ padding: "12px 8px", border: `2px solid ${status===id ? brd : blocked ? "#F3F4F6" : "#E5E7EB"}`, borderRadius: 6, background: status===id ? bg : blocked ? "#F9FAFB" : "#FFF", color: status===id ? col : blocked ? "#D1D5DB" : "#6B7280", fontSize: 13, fontWeight: 700, cursor: blocked ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif", position: "relative" }}>
+                  {label}
+                  {blocked && <span style={{ display: "block", fontSize: 9, fontWeight: 400, marginTop: 2, color: "#FCA5A5" }}>photo first</span>}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* Timestamp */}
       {record?.updatedAt && (
@@ -3449,6 +3548,32 @@ export default function App() {
     setActiveItem(null);
   };
 
+  // A TA-named dwelling unit under Final Testing — see FINAL_TESTING_TYPES and
+  // getItemsForSelection's "Final Testing" branch for how the 5 fixed test items get derived
+  // from this. No dedup on name: a retest is legitimately a second entry sharing the same name.
+  const addFinalTestingUnit = async (name) => {
+    const unit = { id: `ft_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name, createdAt: new Date().toISOString() };
+    const updated = { ...activeProject, finalTestingUnits: [...(activeProject.finalTestingUnits || []), unit] };
+    await saveProject(updated);
+    setActiveProject(updated);
+  };
+
+  // Removes a unit and all 5 of its derived test-item records (status/note/photo metadata) —
+  // same photo-bytes-left-alone reasoning as deleteMiscItem.
+  const deleteFinalTestingUnit = async (unitId) => {
+    const updated = { ...activeProject, finalTestingUnits: (activeProject.finalTestingUnits || []).filter(u => u.id !== unitId) };
+    const batch = writeBatch(db);
+    batch.set(doc(db, "projects", updated.id), updated);
+    FINAL_TESTING_TYPES.forEach(type => {
+      const recordKey = `${updated.id}__Final Testing__${unitId}__${type.key}`;
+      if (data.records[recordKey]) batch.delete(doc(db, "records", recordKey));
+    });
+    await batch.commit();
+    setActiveProject(updated);
+    setScreen("checklist");
+    setActiveItem(null);
+  };
+
   const navBack = () => {
     if (screen === "item") { setScreen("checklist"); setActiveItem(null); }
     else if (screen === "checklist") { setScreen("dashboard"); setActiveCategory(null); }
@@ -3509,6 +3634,7 @@ export default function App() {
           records={data.records}
           onSelectItem={item=>{setActiveItem(item);setScreen("item");}}
           onAddMiscItem={addMiscItem}
+          onAddFinalTestingUnit={addFinalTestingUnit}
         />
       )}
       {screen === "item" && activeProject && activeItem && (
@@ -3520,6 +3646,7 @@ export default function App() {
           records={data.records}
           onSave={val=>{updateRecord(activeProject.id, activeItem._cat||activeCategory?.id, activeItem.id, val);}}
           onDeleteMiscItem={deleteMiscItem}
+          onDeleteFinalTestingUnit={deleteFinalTestingUnit}
           auth={auth}
           setAuth={setAuth}
         />
