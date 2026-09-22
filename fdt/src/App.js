@@ -3100,9 +3100,14 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
       ...visibleOverrides,
     };
     // Notes/entries/photos may be documented before a status is picked (e.g. before a photo is
-    // uploaded) — only skip saving if there's truly nothing to save yet.
+    // uploaded) — only skip saving if there's truly nothing to save yet AND nothing was ever
+    // saved before. Once a record already exists, a save must go through even when the new state
+    // is now empty (e.g. deleting the item's last/only photo) — otherwise the removal never
+    // reaches Firestore, and the old data comes right back the next time this item loads, even
+    // though it visibly disappeared in this session.
     const hasEntryContent = rec.entries?.some(e => Object.values(e).some(v => v));
-    if (!rec.status && !rec.note && !rec.photos?.length && !hasEntryContent) return;
+    const isEmpty = !rec.status && !rec.note && !rec.photos?.length && !hasEntryContent;
+    if (isEmpty && !record) return;
     if (archive) {
       rec.history = [...(record?.history||[]), archive];
     } else if (record?.history) {
