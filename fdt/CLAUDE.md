@@ -75,3 +75,11 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
   for anything non-trivial, then implement after I confirm
 - Commit and push only after I explicitly approve
 - I'm not a developer by background — explain technical tradeoffs in plain terms
+- **IMPORTANT — the app is live in production with real TAs/PMs using it during their actual
+  workflow (since 2026-09-16).** Merging to `main` deploys immediately and affects everyone
+  currently using the tool, not just test data. Do NOT merge a branch into `main` (or push
+  directly to `main`) without my explicit authorization, given AFTER we've gone through QA
+  together on the branch/change first. Work and test on a feature branch and wait for that
+  go-ahead — don't assume urgency justifies skipping this, even for a fix. (Earlier in the
+  project, immediate merge-to-main after every small fix was the norm, justified by SharePoint
+  OAuth only working on the production domain — that pattern is retired now that this is live.)
