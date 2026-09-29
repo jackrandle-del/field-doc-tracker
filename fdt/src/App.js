@@ -151,10 +151,13 @@ const getSharePointSiteId = async (token) => {
 };
 
 const extFromDataUrl = (dataUrl) => {
+  if (/^data:application\/pdf/.test(dataUrl)) return "pdf";
   const m = /^data:image\/(\w+)/.exec(dataUrl);
   const type = (m?.[1] || "jpeg").toLowerCase();
   return type === "jpeg" ? "jpg" : type;
 };
+
+const isPdfDataUrl = (src) => !!src && src.startsWith("data:application/pdf");
 
 // Strips characters SharePoint disallows in file/folder names
 const sanitizeSpName = (name) => name.replace(/[\\/:*?"<>|]/g, "-").trim();
@@ -1422,34 +1425,77 @@ const EARTHCRAFT_SF2024_GOLD = [
 ];
 
 
-// The fixed set of performance tests done per dwelling unit at final testing. Photo
+// The performance tests done per dwelling unit at final testing, split into the two task groups a
+// TA is guided to pick between when opening a unit (see FinalTestingPathChooser). Photo
 // documentation only, deliberately — see getItemsForSelection's "Final Testing" branch for why
 // there's no points/pass-fail here (pass/fail is determined in a separate external testing sheet
 // for now; a future pass will let that sheet be uploaded here to pull real targets and numbers).
-// Exhaust fans are NOT in this fixed list — some units have more than one (e.g. one continuous,
-// one intermittent), so they're generated dynamically per unit instead, see
-// getFinalTestingUnitItems below.
-const FINAL_TESTING_TYPES = [
+// `naOnly` items get a plain not-applicable toggle instead of the usual 3-button status control
+// (still none for everything else here) — see ItemDetail. `programGate` restricts an item to
+// projects with that program selected.
+// Exhaust fans are NOT in either list — some units have more than one (e.g. one continuous, one
+// intermittent), so they're generated dynamically per unit instead, see getFinalTestingUnitItems.
+// Water Storage is intentionally not here yet — deferred pending an "Efficient New Homes" checkbox
+// in program selection that doesn't exist yet (see Punch List memory).
+const FINAL_TESTING_PATH_A = [
   { key: "blower_door", label: "Blower Door" },
-  { key: "duct_leakage_outside", label: "Duct Leakage to Outside" },
   { key: "duct_leakage_total", label: "Total Duct Leakage" },
+  { key: "duct_leakage_outside", label: "Duct Leakage to Outside" },
+];
+const FINAL_TESTING_PATH_B = [
   { key: "ventilation", label: "Ventilation" },
+  { key: "bedroom_pressure", label: "Bedroom Pressure", naOnly: true },
+  { key: "interior_ambient_temp", label: "Interior Ambient Temperature", naOnly: true, programGate: "energy_star_mfnc" },
 ];
 
-// Derives one unit's full test-item list: the 4 fixed types above, plus one item per exhaust fan
-// (unit.exhaustFanCount, default 1 — see addExhaustFan). Shared by getItemsForSelection (the
-// cross-project view) and FinalTestingUnitView (a single unit's own screen), so the two never
-// drift apart.
-function getFinalTestingUnitItems(unit) {
+const finalTestingProgramAllows = (programs, type) =>
+  !type.programGate || (programs || []).some(s => s.programId === type.programGate);
+
+function finalTestingFixedItems(unit, programs, types) {
+  return types
+    .filter(type => finalTestingProgramAllows(programs, type))
+    .map(type => ({
+      id: `${unit.id}__${type.key}`, category: "Final Testing", pointNumber: unit.name, text: type.label,
+      _cat: "Final Testing", naOnly: !!type.naOnly,
+    }));
+}
+
+function finalTestingFanItems(unit) {
   const fanCount = unit.exhaustFanCount || 1;
-  const fixed = FINAL_TESTING_TYPES.map(type => ({
-    id: `${unit.id}__${type.key}`, category: "Final Testing", pointNumber: unit.name, text: type.label, _cat: "Final Testing",
-  }));
-  const fans = Array.from({ length: fanCount }, (_, i) => ({
+  return Array.from({ length: fanCount }, (_, i) => ({
     id: `${unit.id}__exhaust_fan_${i + 1}`, category: "Final Testing", pointNumber: unit.name,
     text: fanCount > 1 ? `Exhaust Fan ${i + 1}` : "Exhaust Fan", _cat: "Final Testing",
   }));
-  return [...fixed, ...fans];
+}
+
+function finalTestingMiscItems(unit) {
+  return (unit.miscItems || []).map(m => ({
+    id: `${unit.id}__misc_${m.id}`, category: "Final Testing", pointNumber: unit.name, text: m.text,
+    _cat: "Final Testing", isUnitMisc: true, unitId: unit.id, miscId: m.id,
+  }));
+}
+
+// Just one path's items (Path A or B) — what FinalTestingUnitView actually shows once a TA has
+// picked what they're there to do. Never includes misc items; those render separately so they
+// show under both paths (a unit-level catch-all, not tied to either task group).
+function getFinalTestingPathItems(unit, programs, path) {
+  const types = path === "A" ? FINAL_TESTING_PATH_A : FINAL_TESTING_PATH_B;
+  const fixed = finalTestingFixedItems(unit, programs, types);
+  return path === "A" ? fixed : [...fixed, ...finalTestingFanItems(unit)];
+}
+
+// Derives one unit's FULL test-item list — both paths combined, plus exhaust fans and misc items.
+// This is the source of truth for anything that needs to see everything regardless of path: the
+// SharePoint sync pipeline, delete-unit's record cleanup, and the units-list summary count.
+// Shared by getItemsForSelection (the cross-project view) and FinalTestingUnitView (a single
+// unit's own screen), so none of these ever drift apart.
+function getFinalTestingUnitItems(unit, programs) {
+  return [
+    ...finalTestingFixedItems(unit, programs, FINAL_TESTING_PATH_A),
+    ...finalTestingFixedItems(unit, programs, FINAL_TESTING_PATH_B),
+    ...finalTestingFanItems(unit),
+    ...finalTestingMiscItems(unit),
+  ];
 }
 
 const MRF_ITEMS = [
@@ -1593,7 +1639,7 @@ function getItemsForSelection(programSelections, categoryId, extraItems, miscIte
   // pointNumber carries the unit name (renders as ItemRow's badge, and doubles as the SharePoint
   // unit-subfolder name); text carries the test type. No points/status field on purpose.
   if (categoryId === "Final Testing") {
-    return (finalTestingUnits || []).flatMap(unit => getFinalTestingUnitItems(unit));
+    return (finalTestingUnits || []).flatMap(unit => getFinalTestingUnitItems(unit, programSelections));
   }
   for (const sel of programSelections) {
     const key = `${sel.programId}||${sel.version}||${sel.revision}`;
@@ -2751,13 +2797,21 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
   };
 
   // Final Testing also has no static checklist — a TA names the dwelling unit being tested, and
-  // the fixed FINAL_TESTING_TYPES appear underneath it (see getItemsForSelection). No dedup on
-  // name: a retest is legitimately a second entry sharing the same unit name.
+  // its test list appears underneath it (see getFinalTestingUnitItems). Typing an existing name
+  // is a soft warning, not a hard block: a real retest is a legitimate second entry, but it should
+  // be a deliberate choice ("- Retest") rather than an accidental silent duplicate.
   const [unitDraft, setUnitDraft] = useState("");
   const [unitAdding, setUnitAdding] = useState(false);
   const handleAddUnit = async () => {
-    const name = unitDraft.trim();
+    let name = unitDraft.trim();
     if (!name || unitAdding) return;
+    const existingNames = new Set((project.finalTestingUnits || []).map(u => u.name.trim().toLowerCase()));
+    if (existingNames.has(name.toLowerCase())) {
+      if (!window.confirm("This unit number already exists. Would you like to create a retest unit?")) return;
+      let retestName = `${name} - Retest`, n = 2;
+      while (existingNames.has(retestName.toLowerCase())) retestName = `${name} - Retest ${n++}`;
+      name = retestName;
+    }
     setUnitAdding(true);
     try { await onAddFinalTestingUnit(name); setUnitDraft(""); } finally { setUnitAdding(false); }
   };
@@ -2772,7 +2826,7 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
   // unit's tests at once and falls back to the normal flat list below, same as everywhere else.
   const finalTestingUnitRows = isFinalTesting && !q
     ? (project.finalTestingUnits || []).map(unit => {
-        const items = getFinalTestingUnitItems(unit);
+        const items = getFinalTestingUnitItems(unit, project.programs);
         const photoCount = items.reduce((sum, item) => sum + (records[`${project.id}__Final Testing__${item.id}`]?.photos?.length || 0), 0);
         return { unit, items, photoCount };
       })
@@ -2868,31 +2922,83 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
 // One dwelling unit's own Final Testing screen — its fixed 4 tests plus however many exhaust
 // fans it has (see getFinalTestingUnitItems). Reached by tapping a unit in ChecklistView's
 // Final Testing unit list, never shown as one long list mixed with other units'.
-function FinalTestingUnitView({ project, unit, records, onSelectItem, onAddExhaustFan, onDeleteUnit }) {
+// Two big buttons shown every time a unit is opened — no memory of a prior choice, always starts
+// blank (confirmed with user). Path A is the 3 core performance tests; Path B is everything else
+// (ventilation, bedroom pressure, interior ambient temp, exhaust fans). Keeps a TA who's only
+// there to do part of a unit's testing from scrolling past items they're not touching today.
+function FinalTestingPathChooser({ unit, onChoosePath }) {
+  const btnStyle = { width: "100%", padding: "18px 16px", background: "#FFF", color: "#08182E", border: "1.5px solid #E5E7EB", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif", textAlign: "left", display: "block" };
+  return (
+    <div style={{ padding: "20px" }}>
+      <p style={{ margin: "0 0 16px", fontSize: 13, color: "#6B7280" }}>What are you documenting for <strong>{unit.name}</strong> right now?</p>
+      <button style={btnStyle} onClick={() => onChoosePath("A")}>
+        Document Blower Door, Total Duct Leakage &amp; Duct Leakage to Outside
+      </button>
+      <button style={{ ...btnStyle, marginTop: 12 }} onClick={() => onChoosePath("B")}>
+        Document all remaining commissioning items
+      </button>
+    </div>
+  );
+}
+
+function FinalTestingUnitView({ project, unit, path, records, onSelectItem, onAddExhaustFan, onDeleteUnit, onAddUnitMiscItem }) {
   const [adding, setAdding] = useState(false);
-  const items = getFinalTestingUnitItems(unit).map(i => ({ ...i, _cat: "Final Testing" }));
+  const items = getFinalTestingPathItems(unit, project.programs, path).map(i => ({ ...i, _cat: "Final Testing" }));
+  const miscItems = finalTestingMiscItems(unit).map(i => ({ ...i, _cat: "Final Testing" }));
+  const allItemsCount = getFinalTestingUnitItems(unit, project.programs).length;
   const handleAddFan = async () => {
     if (adding) return;
     setAdding(true);
     try { await onAddExhaustFan(); } finally { setAdding(false); }
   };
+  const [miscDraft, setMiscDraft] = useState("");
+  const [miscAdding, setMiscAdding] = useState(false);
+  const handleAddMisc = async () => {
+    const text = miscDraft.trim();
+    if (!text || miscAdding) return;
+    setMiscAdding(true);
+    try { await onAddUnitMiscItem(text); setMiscDraft(""); } finally { setMiscAdding(false); }
+  };
   return (
     <div style={{ paddingBottom: 40 }}>
       <div style={{ padding: "16px 20px", background: "#FFF", borderBottom: "1px solid #F3F4F6" }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#08182E" }}>{unit.name}</h3>
-        <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>{items.length} test{items.length===1?"":"s"}</p>
+        <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
+          {path === "A" ? "Blower Door, Total Duct Leakage & Duct Leakage to Outside" : "All remaining commissioning items"}
+        </p>
       </div>
       {items.map(item => (
         <ItemRow key={item.id} project={project} item={item} records={records} onSelectItem={onSelectItem} showCategory={false}/>
       ))}
-      <div style={{ padding: "16px 20px" }}>
-        <button onClick={handleAddFan} disabled={adding}
-          style={{ width: "100%", padding: "10px 16px", background: "#FFF", color: "#08182E", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: adding ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
-          {adding ? "Adding…" : "+ Add another exhaust fan"}
+      {path === "B" && (
+        <div style={{ padding: "16px 20px 0" }}>
+          <button onClick={handleAddFan} disabled={adding}
+            style={{ width: "100%", padding: "10px 16px", background: "#FFF", color: "#08182E", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: adding ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
+            {adding ? "Adding…" : "+ Add another exhaust fan"}
+          </button>
+        </div>
+      )}
+
+      {/* Unit-level catch-all — shown regardless of which path is active, since a TA might spot
+          something worth flagging (e.g. a sealing detail needing remediation) during either. */}
+      <p style={{ margin: 0, padding: "20px 20px 4px", fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Miscellaneous for this unit</p>
+      {miscItems.map(item => (
+        <ItemRow key={item.id} project={project} item={item} records={records} onSelectItem={onSelectItem} showCategory={false}/>
+      ))}
+      <div style={{ padding: "12px 20px" }}>
+        <textarea value={miscDraft} onChange={e => setMiscDraft(e.target.value)} rows={2}
+          placeholder="Briefly describe what you found and why it didn't fit an existing item…"
+          style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "Poppins, sans-serif", color: "#08182E", boxSizing: "border-box", resize: "vertical" }}/>
+        <button onClick={handleAddMisc} disabled={miscAdding || !miscDraft.trim()}
+          style={{ marginTop: 8, width: "100%", padding: "10px 16px", background: miscAdding || !miscDraft.trim() ? "#9CA3AF" : "#08182E", color: "#FFF", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: miscAdding || !miscDraft.trim() ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
+          {miscAdding ? "Adding…" : "+ Add item"}
         </button>
+      </div>
+
+      <div style={{ padding: "8px 20px 16px" }}>
         <button
-          onClick={() => { if (window.confirm(`Delete "${unit.name}"? This removes all ${items.length} test items for this unit, and any photos or notes logged on any of them.`)) onDeleteUnit(); }}
-          style={{ marginTop: 16, background: "none", border: "none", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "Poppins, sans-serif", display: "block" }}>
+          onClick={() => { if (window.confirm(`Delete "${unit.name}"? This removes all ${allItemsCount} test items for this unit (both documentation groups), and any photos or notes logged on any of them.`)) onDeleteUnit(); }}
+          style={{ background: "none", border: "none", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "Poppins, sans-serif", display: "block" }}>
           Delete unit
         </button>
       </div>
@@ -2985,7 +3091,11 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoKey, meta.id, meta.spItemId, meta.syncedAt]);
 
-  const showImage = display?.status === "local" || display?.status === "remote";
+  // A local (not-yet-synced) PDF has no rendered preview to show — Graph generates a real
+  // thumbnail for a PDF once it's actually in SharePoint, so "remote" is left alone here and only
+  // needs the local case special-cased.
+  const showPdfTile = display?.status === "local" && isPdfDataUrl(display.src);
+  const showImage = (display?.status === "local" || display?.status === "remote") && !showPdfTile;
   // Thumbnails are deliberately small/compressed by Graph — this link opens the real full-size
   // file straight from SharePoint (no extra auth needed beyond whatever the browser already has
   // for that SharePoint tenant), so it's always available whenever a photo has been synced, not
@@ -2993,7 +3103,13 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
   const webUrl = meta.spWebUrl;
   return (
     <div style={{ position: "relative", width: size, height: size }}>
-      {showImage ? (
+      {showPdfTile ? (
+        <a href={display.src} target="_blank" rel="noreferrer" title="Open PDF"
+          style={{ width: size, height: size, borderRadius: 6, background: "#F3F4F6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textDecoration: "none", boxSizing: "border-box", padding: 6 }}>
+          <span style={{ fontSize: 28 }}>📄</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", marginTop: 4 }}>PDF</span>
+        </a>
+      ) : showImage ? (
         <img src={display.src} alt="" style={{ width: size, height: size, borderRadius: 6, display: "block", objectFit: "cover" }}/>
       ) : (
         <div style={{ width: size, height: size, borderRadius: 6, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center" }}>
@@ -3035,7 +3151,7 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
 
 // ─── SCREEN: ITEM DETAIL ──────────────────────────────────────────────────────
 // Autosaves on status tap and on photo add/remove. Note saves on blur.
-function ItemDetail({ project, category, item, record, records, onSave, onDeleteMiscItem, auth, setAuth }) {
+function ItemDetail({ project, category, item, record, records, onSave, onDeleteMiscItem, onDeleteUnitMiscItem, auth, setAuth }) {
   const isFinalTesting = category.id === "Final Testing";
   const [status, setStatus] = useState(record?.status||"");
   const [note, setNote] = useState(record?.note||"");
@@ -3157,9 +3273,9 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
   // goes stale across awaits, the same stale-closure concern documented on the refs above.
   const processFiles = async (fileList) => {
     const all = Array.from(fileList || []);
-    const files = all.filter(f => f.type.startsWith("image/"));
+    const files = all.filter(f => f.type.startsWith("image/") || f.type === "application/pdf");
     if (!all.length) return;
-    if (!files.length) { alert("That didn't look like an image file — nothing was added."); return; }
+    if (!files.length) { alert("That didn't look like an image or PDF file — nothing was added."); return; }
     const room = MAX_PHOTOS - photosRef.current.length;
     if (room <= 0) { alert(`This item already has the maximum of ${MAX_PHOTOS} photos — remove one before adding more.`); return; }
     for (const file of files.slice(0, room)) {
@@ -3273,6 +3389,13 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
             Delete item
           </button>
         )}
+        {item.isUnitMisc && onDeleteUnitMiscItem && (
+          <button
+            onClick={() => { if (window.confirm("Delete this item? Any note or photos logged on it will be removed too.")) onDeleteUnitMiscItem(item.unitId, item.miscId); }}
+            style={{ marginTop: 10, background: "none", border: "none", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "Poppins, sans-serif" }}>
+            Delete item
+          </button>
+        )}
         <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
           {item.mergedWith && <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8, background: "transparent", border: "1px solid #1ABC9C55", color: "#0F7A66", fontWeight: 600 }}>Multi-program</span>}
           {itemPrograms.map(prog => {
@@ -3362,7 +3485,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
           </p>
         )}
         {photos.length>0 && <p style={{ margin: "8px 0 0", fontSize: 11, color: "#9CA3AF" }}>{photos.length}/{MAX_PHOTOS} photos</p>}
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple onChange={handleAddPhoto} style={{ display: "none" }}/>
+        <input ref={fileRef} type="file" accept="image/*,application/pdf" capture="environment" multiple onChange={handleAddPhoto} style={{ display: "none" }}/>
       </div>
 
       {/* Linked documentation — read-only photos from the other side of an MRF <-> EarthCraft/
@@ -3389,6 +3512,17 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
             </div>
           ))}
         </div>
+      )}
+
+      {/* Final Testing items are photo-only with no status control, EXCEPT a couple (Bedroom
+          Pressure, Interior Ambient Temperature) that can legitimately not apply to a given unit
+          — those get a plain not-applicable toggle, not the full pass/fail/N-A control below. */}
+      {isFinalTesting && item.naOnly && (
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, fontSize: 13, color: "#374151", cursor: "pointer" }}>
+          <input type="checkbox" checked={status === "na"} onChange={e => handleStatus(e.target.checked ? "na" : "")}
+            style={{ width: 18, height: 18, cursor: "pointer" }}/>
+          Not applicable to this unit
+        </label>
       )}
 
       {/* Status — Final Testing skips this entirely, photo-only per FINAL_TESTING_TYPES */}
@@ -3566,6 +3700,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [activeItem, setActiveItem] = useState(null);
   const [activeFinalTestingUnit, setActiveFinalTestingUnit] = useState(null);
+  const [activeFinalTestingPath, setActiveFinalTestingPath] = useState(null);
 
   const updateRecord = (projectId, categoryId, itemId, value) => {
     const key = `${projectId}__${categoryId}__${itemId}`;
@@ -3649,17 +3784,57 @@ export default function App() {
     if (nextUnit) setActiveFinalTestingUnit(nextUnit);
   };
 
+  // A per-unit catch-all, same idea as addMiscItem but scoped to one dwelling unit (e.g. a
+  // sealing detail found while testing that unit specifically) instead of the whole project.
+  // Visible under both documentation paths for that unit — see FinalTestingUnitView.
+  const addFinalTestingUnitMiscItem = async (unitId, text) => {
+    const item = { id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, text };
+    let nextUnit = null;
+    const updated = {
+      ...activeProject,
+      finalTestingUnits: (activeProject.finalTestingUnits || []).map(u => {
+        if (u.id !== unitId) return u;
+        nextUnit = { ...u, miscItems: [...(u.miscItems || []), item] };
+        return nextUnit;
+      }),
+    };
+    await saveProject(updated);
+    setActiveProject(updated);
+    if (nextUnit) setActiveFinalTestingUnit(nextUnit);
+  };
+
+  const deleteFinalTestingUnitMiscItem = async (unitId, miscId) => {
+    let nextUnit = null;
+    const updated = {
+      ...activeProject,
+      finalTestingUnits: (activeProject.finalTestingUnits || []).map(u => {
+        if (u.id !== unitId) return u;
+        nextUnit = { ...u, miscItems: (u.miscItems || []).filter(m => m.id !== miscId) };
+        return nextUnit;
+      }),
+    };
+    const batch = writeBatch(db);
+    batch.set(doc(db, "projects", updated.id), updated);
+    const recordKey = `${updated.id}__Final Testing__${unitId}__misc_${miscId}`;
+    if (data.records[recordKey]) batch.delete(doc(db, "records", recordKey));
+    await batch.commit();
+    setActiveProject(updated);
+    if (nextUnit) setActiveFinalTestingUnit(nextUnit);
+    setScreen("final-testing-unit");
+    setActiveItem(null);
+  };
+
   // Removes a unit and all of its derived test-item records (status/note/photo metadata) — same
   // photo-bytes-left-alone reasoning as deleteMiscItem. Looks up the unit first (rather than
-  // assuming the fixed 4) so a unit with extra exhaust fans gets every one of its records cleaned
-  // up, not just the first.
+  // assuming a fixed list) so a unit with extra exhaust fans or misc items gets every one of its
+  // records cleaned up, not just the core ones.
   const deleteFinalTestingUnit = async (unitId) => {
     const unit = (activeProject.finalTestingUnits || []).find(u => u.id === unitId);
     const updated = { ...activeProject, finalTestingUnits: (activeProject.finalTestingUnits || []).filter(u => u.id !== unitId) };
     const batch = writeBatch(db);
     batch.set(doc(db, "projects", updated.id), updated);
     if (unit) {
-      getFinalTestingUnitItems(unit).forEach(item => {
+      getFinalTestingUnitItems(unit, activeProject.programs).forEach(item => {
         const recordKey = `${updated.id}__Final Testing__${item.id}`;
         if (data.records[recordKey]) batch.delete(doc(db, "records", recordKey));
       });
@@ -3668,21 +3843,23 @@ export default function App() {
     setActiveProject(updated);
     setScreen("checklist");
     setActiveFinalTestingUnit(null);
+    setActiveFinalTestingPath(null);
     setActiveItem(null);
   };
 
   const navBack = () => {
-    // A Final Testing item was opened from its unit's own screen, not the category list directly
-    // — back should return there, not skip past it to the (now unit-grouped) category screen.
+    // A Final Testing item was opened from its unit's own (path-filtered) screen, not the category
+    // list directly — back should return there, not skip past it to the units list.
     if (screen === "item") { setScreen(activeItem?._cat === "Final Testing" ? "final-testing-unit" : "checklist"); setActiveItem(null); }
-    else if (screen === "final-testing-unit") { setScreen("checklist"); setActiveFinalTestingUnit(null); }
+    else if (screen === "final-testing-unit") { setScreen("final-testing-path"); setActiveFinalTestingPath(null); }
+    else if (screen === "final-testing-path") { setScreen("checklist"); setActiveFinalTestingUnit(null); }
     else if (screen === "checklist") { setScreen("dashboard"); setActiveCategory(null); }
     else if (screen === "dashboard") { setScreen("projects"); setActiveProject(null); }
     else if (screen === "create") setScreen("projects");
     else if (screen === "edit") setScreen("dashboard");
   };
 
-  const titles = { projects: "Doc Tracker", create: "New project", edit: "Edit project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", "final-testing-unit": activeFinalTestingUnit?.name||"", item: "Document item" };
+  const titles = { projects: "Doc Tracker", create: "New project", edit: "Edit project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", "final-testing-path": activeFinalTestingUnit?.name||"", "final-testing-unit": activeFinalTestingUnit?.name||"", item: "Document item" };
 
   if (teamUser === undefined) {
     return <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Poppins, sans-serif", color: "#9CA3AF", fontSize: 13 }}>Loading…</div>;
@@ -3735,17 +3912,25 @@ export default function App() {
           onSelectItem={item=>{setActiveItem(item);setScreen("item");}}
           onAddMiscItem={addMiscItem}
           onAddFinalTestingUnit={addFinalTestingUnit}
-          onSelectUnit={unit=>{setActiveFinalTestingUnit(unit);setScreen("final-testing-unit");}}
+          onSelectUnit={unit=>{setActiveFinalTestingUnit(unit);setScreen("final-testing-path");}}
         />
       )}
-      {screen === "final-testing-unit" && activeProject && activeFinalTestingUnit && (
+      {screen === "final-testing-path" && activeProject && activeFinalTestingUnit && (
+        <FinalTestingPathChooser
+          unit={activeFinalTestingUnit}
+          onChoosePath={path=>{setActiveFinalTestingPath(path);setScreen("final-testing-unit");}}
+        />
+      )}
+      {screen === "final-testing-unit" && activeProject && activeFinalTestingUnit && activeFinalTestingPath && (
         <FinalTestingUnitView
           project={activeProject}
           unit={activeFinalTestingUnit}
+          path={activeFinalTestingPath}
           records={data.records}
           onSelectItem={item=>{setActiveItem(item);setScreen("item");}}
           onAddExhaustFan={()=>addExhaustFan(activeFinalTestingUnit.id)}
           onDeleteUnit={()=>deleteFinalTestingUnit(activeFinalTestingUnit.id)}
+          onAddUnitMiscItem={text=>addFinalTestingUnitMiscItem(activeFinalTestingUnit.id, text)}
         />
       )}
       {screen === "item" && activeProject && activeItem && (
@@ -3757,6 +3942,7 @@ export default function App() {
           records={data.records}
           onSave={val=>{updateRecord(activeProject.id, activeItem._cat||activeCategory?.id, activeItem.id, val);}}
           onDeleteMiscItem={deleteMiscItem}
+          onDeleteUnitMiscItem={deleteFinalTestingUnitMiscItem}
           auth={auth}
           setAuth={setAuth}
         />
