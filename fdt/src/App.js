@@ -2941,7 +2941,7 @@ function FinalTestingPathChooser({ unit, onChoosePath }) {
   );
 }
 
-function FinalTestingUnitView({ project, unit, path, records, onSelectItem, onAddExhaustFan, onDeleteUnit, onAddUnitMiscItem }) {
+function FinalTestingUnitView({ project, unit, path, records, onSelectItem, onAddExhaustFan, onDeleteUnit, onAddUnitMiscItem, onRenameUnit }) {
   const [adding, setAdding] = useState(false);
   const items = getFinalTestingPathItems(unit, project.programs, path).map(i => ({ ...i, _cat: "Final Testing" }));
   const miscItems = finalTestingMiscItems(unit).map(i => ({ ...i, _cat: "Final Testing" }));
@@ -2959,10 +2959,50 @@ function FinalTestingUnitView({ project, unit, path, records, onSelectItem, onAd
     setMiscAdding(true);
     try { await onAddUnitMiscItem(text); setMiscDraft(""); } finally { setMiscAdding(false); }
   };
+
+  // Fixing a mistyped unit name is safe even after photos have synced (see renameFinalTestingUnit
+  // in App()) — but the SharePoint folder those photos already landed in keeps the old name, so
+  // that's called out explicitly rather than left as a silent gap.
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState(unit.name);
+  const [renameSaving, setRenameSaving] = useState(false);
+  const startRename = () => { setRenameDraft(unit.name); setRenaming(true); };
+  const handleRename = async () => {
+    const newName = renameDraft.trim();
+    if (!newName || renameSaving) return;
+    if (newName === unit.name) { setRenaming(false); return; }
+    const collision = (project.finalTestingUnits || []).some(u => u.id !== unit.id && u.name.trim().toLowerCase() === newName.toLowerCase());
+    if (collision) { alert(`A unit named "${newName}" already exists — choose a different name.`); return; }
+    if (!window.confirm(`Rename "${unit.name}" to "${newName}"?\n\nPhotos already synced to SharePoint will stay in a folder named "${unit.name}" — only new photos from here on will use the corrected name. You may want to rename that folder in SharePoint directly to match.`)) return;
+    setRenameSaving(true);
+    try { await onRenameUnit(newName); setRenaming(false); } finally { setRenameSaving(false); }
+  };
+
   return (
     <div style={{ paddingBottom: 40 }}>
       <div style={{ padding: "16px 20px", background: "#FFF", borderBottom: "1px solid #F3F4F6" }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#08182E" }}>{unit.name}</h3>
+        {renaming ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input value={renameDraft} onChange={e => setRenameDraft(e.target.value)} autoFocus
+              style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #009ACB", borderRadius: 6, fontSize: 15, fontWeight: 600, color: "#08182E", fontFamily: "Poppins, sans-serif" }}/>
+            <button onClick={handleRename} disabled={renameSaving}
+              style={{ padding: "8px 12px", background: "#08182E", color: "#FFF", border: "none", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: renameSaving ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
+              {renameSaving ? "…" : "Save"}
+            </button>
+            <button onClick={() => setRenaming(false)} disabled={renameSaving}
+              style={{ padding: "8px 12px", background: "none", color: "#6B7280", border: "1.5px solid #E5E7EB", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: renameSaving ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#08182E" }}>{unit.name}</h3>
+            <button onClick={startRename} title="Rename unit"
+              style={{ background: "none", border: "none", color: "#009ACB", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "Poppins, sans-serif" }}>
+              Rename
+            </button>
+          </div>
+        )}
         <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
           {path === "A" ? "Blower Door, Total Duct Leakage & Duct Leakage to Outside" : "All remaining commissioning items"}
         </p>
@@ -3788,6 +3828,29 @@ export default function App() {
     if (nextUnit) setActiveFinalTestingUnit(nextUnit);
   };
 
+  // Fixes a mistyped/wrong unit name after the fact. Safe even once photos have already synced —
+  // every derived item's pointNumber comes fresh from unit.name on every render (see
+  // getFinalTestingUnitItems), never stored per-record, and each photo's SharePoint reference
+  // (spItemId/spWebUrl) is a stable Graph id independent of the display name, so already-synced
+  // photos stay fully viewable either way. The one thing this does NOT do: the SharePoint FOLDER
+  // that photos already synced into keeps its old name — Graph doesn't get asked to rename it,
+  // only future syncs use the corrected name for a new folder. Caller is responsible for warning
+  // about that; this function just does the rename.
+  const renameFinalTestingUnit = async (unitId, newName) => {
+    let nextUnit = null;
+    const updated = {
+      ...activeProject,
+      finalTestingUnits: (activeProject.finalTestingUnits || []).map(u => {
+        if (u.id !== unitId) return u;
+        nextUnit = { ...u, name: newName };
+        return nextUnit;
+      }),
+    };
+    await saveProject(updated);
+    setActiveProject(updated);
+    if (nextUnit) setActiveFinalTestingUnit(nextUnit);
+  };
+
   // A per-unit catch-all, same idea as addMiscItem but scoped to one dwelling unit (e.g. a
   // sealing detail found while testing that unit specifically) instead of the whole project.
   // Visible under both documentation paths for that unit — see FinalTestingUnitView.
@@ -3935,6 +3998,7 @@ export default function App() {
           onAddExhaustFan={()=>addExhaustFan(activeFinalTestingUnit.id)}
           onDeleteUnit={()=>deleteFinalTestingUnit(activeFinalTestingUnit.id)}
           onAddUnitMiscItem={text=>addFinalTestingUnitMiscItem(activeFinalTestingUnit.id, text)}
+          onRenameUnit={newName=>renameFinalTestingUnit(activeFinalTestingUnit.id, newName)}
         />
       )}
       {screen === "item" && activeProject && activeItem && (
