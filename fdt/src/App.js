@@ -3485,7 +3485,11 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
           </p>
         )}
         {photos.length>0 && <p style={{ margin: "8px 0 0", fontSize: 11, color: "#9CA3AF" }}>{photos.length}/{MAX_PHOTOS} photos</p>}
-        <input ref={fileRef} type="file" accept="image/*,application/pdf" capture="environment" multiple onChange={handleAddPhoto} style={{ display: "none" }}/>
+        {/* No `capture` attribute — that forces mobile browsers straight to the camera, skipping
+            the file/gallery/Files picker entirely. Fine when only photos were supported; actively
+            wrong now that PDFs are too. Without it, phones show their normal chooser (camera is
+            still one of the options, just not forced), and desktop is unaffected either way. */}
+        <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple onChange={handleAddPhoto} style={{ display: "none" }}/>
       </div>
 
       {/* Linked documentation — read-only photos from the other side of an MRF <-> EarthCraft/
