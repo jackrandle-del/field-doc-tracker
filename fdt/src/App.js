@@ -1564,6 +1564,23 @@ const MRF_ITEMS = [
     text: "Exterior fixtures at building perimeter. Record percentage of LED at all exterior locations." },
 ];
 
+// Items whose photos must each be tagged with one of a few fixed options at capture time. HVAC
+// Equipment: model numbers and sizing differ between 1BR/2BR/3BR units, so every nameplate photo
+// needs to say which unit type it belongs to. The tag is stored on the photo's own metadata
+// (photo.tag), shows as a chip on its thumbnail, and goes into the SharePoint filename. Photos
+// added before this existed simply have no tag. Add another item id here to reuse it elsewhere.
+const PHOTO_TAG_CONFIG = {
+  mrf_1_0: { label: "Unit type", options: ["1BR", "2BR", "3BR"] },
+};
+
+// The shape of one photo's metadata as stored on a record. `tag` is only included when set —
+// Firestore rejects an explicit undefined, and untagged photos shouldn't carry the field at all.
+const photoMetaForSave = (p) => ({
+  id: p.id, syncedAt: p.syncedAt || null, spFileName: p.spFileName || null,
+  spItemId: p.spItemId || null, spWebUrl: p.spWebUrl || null,
+  ...(p.tag ? { tag: p.tag } : {}),
+});
+
 // Repeatable structured entries for MRF envelope items — several assemblies can exist per item
 // (e.g. an Interior wall entry and an Exterior wall entry on the same "Wall Insulation" item).
 const MULTI_ENTRY_CONFIG = {
@@ -2554,8 +2571,18 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           // retested on a different day naturally lands under that day's own "Final Testing -
           // <date>/<unit>" folder, which also happens to keep an original test and a later
           // retest visibly separate rather than mixed in one folder.
+          // MRF photos all go into one dedicated "MRF" folder (sibling to the dated folders), not
+          // split by inspection date — MRF is nameplate/label documentation, not a site-visit
+          // record, so the date adds nothing. Files stay unique without date folders because each
+          // item's own nextPhotoNum counter is baked into the filename.
+          const isMRFItem = job.item._cat === "Minimum Rated Features";
           let destFolderId;
-          if (isFinalTesting) {
+          if (isMRFItem) {
+            if (!dateFolderCache.__MRF) {
+              dateFolderCache.__MRF = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, "MRF");
+            }
+            destFolderId = dateFolderCache.__MRF;
+          } else if (isFinalTesting) {
             const ftDateKey = `FT__${dateName}`;
             if (!dateFolderCache[ftDateKey]) {
               dateFolderCache[ftDateKey] = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, `Final Testing - ${dateName}`);
@@ -2578,17 +2605,23 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           // MRF's own pointNumber is already a short descriptive phrase ("Mechanical Ventilation",
           // "Wall Insulation") — appending another short description derived from its instructional
           // text would just be redundant clutter, so only add one for EarthCraft/Energy Star items.
-          const shortDesc = (isFinalTesting || job.item._cat === "Minimum Rated Features") ? "" : sanitizeSpName(ecShortDescription(job.item.text));
+          const shortDesc = (isFinalTesting || isMRFItem) ? "" : sanitizeSpName(ecShortDescription(job.item.text));
+          // A photo can carry an optional tag (currently HVAC Equipment's 1BR/2BR/3BR unit type —
+          // see PHOTO_TAG_CONFIG); it goes in the filename so the type is visible in SharePoint.
+          const thisPhotoMeta = (base.photos || []).find(p => (typeof p === "string" ? p : p.id) === job.photoId);
+          const photoTag = thisPhotoMeta && typeof thisPhotoMeta !== "string" && thisPhotoMeta.tag ? sanitizeSpName(thisPhotoMeta.tag) : "";
           const fileName = shortDesc && shortDesc !== label
             ? `${label} - ${shortDesc} - ${nextNum}.${extFromDataUrl(dataUrl)}`
-            : `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
+            : photoTag
+              ? `${label} - ${photoTag} - ${nextNum}.${extFromDataUrl(dataUrl)}`
+              : `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
           const uploaded = await uploadPhotoToFolder(siteId, token, destFolderId, fileName, dataUrl);
           if (!isStillPending(job.key, job.photoId)) { done++; setSyncState({ running: true, done, total: jobs.length, errors }); continue; }
           const freshBase = workingRecords[job.key] || recordsRef.current[job.key] || base;
           const updatedPhotos = (freshBase.photos||[]).map(p => {
             const pid = typeof p === "string" ? p : p.id;
             if (pid !== job.photoId) return typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p;
-            return { id: pid, syncedAt: new Date().toISOString(), spFileName: fileName, spItemId: uploaded.id, spWebUrl: uploaded.webUrl };
+            return { ...(typeof p === "string" ? {} : p), id: pid, syncedAt: new Date().toISOString(), spFileName: fileName, spItemId: uploaded.id, spWebUrl: uploaded.webUrl };
           });
           const updatedRec = { ...freshBase, photos: updatedPhotos, nextPhotoNum: nextNum + 1 };
           workingRecords[job.key] = updatedRec;
@@ -3174,6 +3207,9 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
           title={display.status === "unsynced" ? "Remove this photo record — its bytes aren't recoverable from this device" : "Remove photo"}
           style={{ position: "absolute", top: 4, right: 4, width: 24, height: 24, borderRadius: "50%", background: "rgba(0,0,0,.6)", border: "none", color: "#FFF", fontSize: 14, cursor: "pointer" }}>×</button>
       )}
+      {meta.tag && (
+        <span style={{ position: "absolute", top: 4, left: 4, fontSize: 11, fontWeight: 700, background: "rgba(8,24,46,.85)", color: "#FFF", borderRadius: 6, padding: "2px 7px" }}>{meta.tag}</span>
+      )}
       {meta.syncedAt && (
         <span title={`Uploaded to SharePoint as ${meta.spFileName}`}
           style={{ position: "absolute", bottom: 4, left: 4, fontSize: 12, background: "rgba(16,185,129,.9)", color: "#FFF", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>☁</span>
@@ -3212,6 +3248,10 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
     return [];
   });
   const fileRef = useRef();
+  // Items in PHOTO_TAG_CONFIG (HVAC Equipment) need a unit type picked before any photo is added.
+  // Starts unselected on purpose — an explicit choice per visit beats a silent wrong default.
+  const tagConfig = PHOTO_TAG_CONFIG[item.id];
+  const [photoTag, setPhotoTag] = useState(null);
   const noteTimer = useRef();
   // Snapshot of note+timestamp as they stood when the note field was last focused —
   // used to log ONE history entry per edit session instead of one per autosave.
@@ -3249,8 +3289,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
     const rec = {
       status: statusRef.current,
       note: noteRef.current,
-      photos: photosRef.current.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) =>
-        ({ id, syncedAt: syncedAt||null, spFileName: spFileName||null, spItemId: spItemId||null, spWebUrl: spWebUrl||null })),
+      photos: photosRef.current.map(photoMetaForSave),
       entries: entriesRef.current,
       updatedAt: new Date().toISOString(),
       ...visibleOverrides,
@@ -3316,6 +3355,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
     const files = all.filter(f => f.type.startsWith("image/") || f.type === "application/pdf");
     if (!all.length) return;
     if (!files.length) { alert("That didn't look like an image or PDF file — nothing was added."); return; }
+    if (tagConfig && !photoTag) { alert(`Select a ${tagConfig.label.toLowerCase()} (${tagConfig.options.join(" / ")}) first — every photo on this item needs one.`); return; }
     const room = MAX_PHOTOS - photosRef.current.length;
     if (room <= 0) { alert(`This item already has the maximum of ${MAX_PHOTOS} photos — remove one before adding more.`); return; }
     for (const file of files.slice(0, room)) {
@@ -3328,10 +3368,10 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
         });
         const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         await idbSavePhoto(`${photoKey}__${id}`, dataUrl);
-        const next = [...photosRef.current, { id, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null }];
+        const next = [...photosRef.current, { id, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null, ...(tagConfig ? { tag: photoTag } : {}) }];
         setPhotos(next);
         photosRef.current = next;
-        save({ photos: next.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) => ({ id, syncedAt, spFileName, spItemId, spWebUrl })) });
+        save({ photos: next.map(photoMetaForSave) });
       } catch (err) {
         alert(`Couldn't save "${file.name || "this photo"}": ${err?.message || err}`);
       }
@@ -3360,7 +3400,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
     const next = photosRef.current.filter(p => p.id !== id);
     setPhotos(next);
     photosRef.current = next;
-    save({ photos: next.map(({ id, syncedAt, spFileName, spItemId, spWebUrl }) => ({ id, syncedAt, spFileName, spItemId, spWebUrl })) });
+    save({ photos: next.map(photoMetaForSave) });
   };
 
   const handleNoteFocus = () => {
@@ -3499,6 +3539,21 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
             <span style={{ fontSize: 11, fontWeight: 600, color: "#1ABC9C", background: "#E3F9F4", padding: "2px 8px", borderRadius: 8 }}>✓ documented via linked item</span>
           )}
         </div>
+        {tagConfig && (
+          <div style={{ marginBottom: 12 }}>
+            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 600, color: photoTag ? "#374151" : "#EF4444" }}>
+              {tagConfig.label} — pick one before adding photos{photoTag ? "" : " (required)"}
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              {tagConfig.options.map(opt => (
+                <button key={opt} onClick={() => setPhotoTag(opt)}
+                  style={{ flex: 1, padding: "10px 8px", border: `2px solid ${photoTag === opt ? "#009ACB" : "#E5E7EB"}`, borderRadius: 8, background: photoTag === opt ? "#E3F5FA" : "#FFF", color: photoTag === opt ? "#026581" : "#6B7280", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div
           onDragOver={e => { if (photos.length < MAX_PHOTOS) { e.preventDefault(); setDragOver(true); } }}
           onDragLeave={() => setDragOver(false)}
@@ -3508,7 +3563,10 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
             <PhotoThumb key={p.id} photoKey={photoKey} meta={p} auth={auth} setAuth={setAuth} onRemove={handleRemovePhoto}/>
           ))}
           {photos.length < MAX_PHOTOS && (
-            <button onClick={() => fileRef.current.click()} title={isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "Upload a photo to enable confirmation" : "Add a photo, or drag and drop"}
+            <button onClick={() => {
+                if (tagConfig && !photoTag) { alert(`Select a ${tagConfig.label.toLowerCase()} (${tagConfig.options.join(" / ")}) first — every photo on this item needs one.`); return; }
+                fileRef.current.click();
+              }} title={isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "Upload a photo to enable confirmation" : "Add a photo, or drag and drop"}
               style={{ width: 84, height: 84, border: `2px dashed ${isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FCA5A5" : "#D1D5DB"}`, borderRadius: 6, background: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#FFF5F5" : "#F9FAFB", color: isMRF && photos.length===0 && linkedPhotoGroups.length===0 ? "#EF4444" : "#6B7280", fontSize: 24, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
               +
             </button>
