@@ -56,7 +56,17 @@ const SP_SITE     = "https://ecva.sharepoint.com/sites/MFProjects";
 const SCOPES      = "Files.ReadWrite.All Sites.ReadWrite.All User.Read offline_access";
 const AUTH_KEY    = "fdt_auth_v1";
 
-const getRedirectUri = () => window.location.origin + window.location.pathname.replace(/\/$/, '');
+// Server-side sign-in (api/ms-token.js): lets Microsoft keep a sign-in for ~90 days instead of the
+// 24-hour cap on browser-only apps. Off unless switched on for this browser — visit the site once
+// with ?serverauth=1 (or ?serverauth=0 to switch back). It uses its own redirect URI, registered in
+// Azure under the "Web" platform, because Microsoft can't tell two platform types apart on one URI.
+const SERVER_AUTH_KEY = "fdt_server_auth";
+const SERVER_REDIRECT_PATH = "/auth/callback";
+const serverAuthEnabled = () => { try { return localStorage.getItem(SERVER_AUTH_KEY) === "1"; } catch { return false; } };
+const getServerRedirectUri = () => window.location.origin + SERVER_REDIRECT_PATH;
+
+const getRedirectUri = () => window.location.origin +
+  (window.location.pathname === SERVER_REDIRECT_PATH ? "" : window.location.pathname.replace(/\/$/, ''));
 
 // PKCE helpers
 const genVerifier = () => {
@@ -75,7 +85,7 @@ const startLogin = async () => {
   sessionStorage.setItem('fdt_verifier', verifier);
   const p = new URLSearchParams({
     client_id: CLIENT_ID, response_type: 'code',
-    redirect_uri: getRedirectUri(), scope: SCOPES,
+    redirect_uri: serverAuthEnabled() ? getServerRedirectUri() : getRedirectUri(), scope: SCOPES,
     code_challenge: challenge, code_challenge_method: 'S256',
     response_mode: 'query',
   });
@@ -96,7 +106,26 @@ const exchangeCode = async (code) => {
   return res.json();
 };
 
-const refreshAuth = async (refreshToken) => {
+// The server-side counterpart of exchangeCode — same one-time code and PKCE verifier, but the
+// request goes through our own function, which adds the client secret before talking to Microsoft.
+const exchangeCodeServer = async (code) => {
+  const verifier = sessionStorage.getItem('fdt_verifier');
+  sessionStorage.removeItem('fdt_verifier');
+  const res = await fetch('/api/ms-token', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grant_type: 'authorization_code', code, code_verifier: verifier }),
+  });
+  return res.json();
+};
+
+const refreshAuth = async (refreshToken, mode) => {
+  if (mode === "server") {
+    const res = await fetch('/api/ms-token', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: refreshToken }),
+    });
+    return res.json();
+  }
   const body = new URLSearchParams({
     client_id: CLIENT_ID, grant_type: 'refresh_token',
     refresh_token: refreshToken, scope: SCOPES,
@@ -137,7 +166,7 @@ const getValidToken = async (auth, setAuth) => {
   if (auth.expiresAt > Date.now() + 300000) return auth.accessToken; // still valid
   let result;
   try {
-    result = await refreshAuth(auth.refreshToken);
+    result = await refreshAuth(auth.refreshToken, auth.mode);
   } catch {
     // No signal / network failure says nothing about whether the sign-in is still good. Keep it
     // and try again later — dropping it here used to disconnect a TA just for being offline at
@@ -3809,16 +3838,30 @@ export default function App() {
     return () => { unsubProjects(); unsubRecords(); };
   }, [teamUser]);
 
+  // One-time switch for the server-side sign-in (see SERVER_AUTH_KEY): ?serverauth=1 turns it on for
+  // this browser, ?serverauth=0 turns it back off. Runs before the callback handler below.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const flag = params.get('serverauth');
+    if (flag !== "1" && flag !== "0") return;
+    try { if (flag === "1") localStorage.setItem(SERVER_AUTH_KEY, "1"); else localStorage.removeItem(SERVER_AUTH_KEY); } catch {}
+    params.delete('serverauth');
+    const rest = params.toString();
+    window.history.replaceState({}, document.title, window.location.pathname + (rest ? `?${rest}` : ""));
+  }, []);
+
   // Handle OAuth redirect callback — fires when Microsoft redirects back with ?code=
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const error = params.get('error');
     if (!code && !error) return;
+    // Server-side sign-ins come back to their own path; everything is cleaned back to "/" for it.
+    const isServerCallback = window.location.pathname === SERVER_REDIRECT_PATH;
     // Clean the URL immediately so a refresh doesn't re-trigger
-    window.history.replaceState({}, document.title, window.location.pathname);
+    window.history.replaceState({}, document.title, isServerCallback ? "/" : window.location.pathname);
     if (error) { console.error('Auth error:', error, params.get('error_description')); return; }
-    exchangeCode(code).then(async result => {
+    (isServerCallback ? exchangeCodeServer(code) : exchangeCode(code)).then(async result => {
       if (!result.access_token) { console.error('Token exchange failed:', result); return; }
       const user = await fetchUserInfo(result.access_token);
       const authData = {
@@ -3826,6 +3869,7 @@ export default function App() {
         refreshToken: result.refresh_token,
         expiresAt: Date.now() + result.expires_in * 1000,
         user: { name: user.displayName, email: user.userPrincipalName },
+        ...(isServerCallback ? { mode: "server" } : {}),
       };
       clearAuthExpired();
       saveAuth(authData);
