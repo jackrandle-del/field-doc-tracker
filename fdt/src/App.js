@@ -118,21 +118,43 @@ const loadAuth = () => { try { return JSON.parse(localStorage.getItem(AUTH_KEY))
 const saveAuth = (a) => localStorage.setItem(AUTH_KEY, JSON.stringify(a));
 const clearAuth = () => localStorage.removeItem(AUTH_KEY);
 
-// Returns a valid access token, refreshing if needed. Returns null if not authenticated.
+// Set when Microsoft itself refuses to renew a sign-in (it expired or was revoked), as opposed to
+// never having connected. Microsoft caps sign-ins for browser apps like this one at 24 hours, so
+// this is a routine daily event — the UI uses it to say "session expired, reconnect" rather than
+// looking like nothing was ever set up. Cleared on the next successful login.
+const AUTH_EXPIRED_KEY = "fdt_auth_expired_v1";
+const wasAuthExpired = () => { try { return localStorage.getItem(AUTH_EXPIRED_KEY) === "1"; } catch { return false; } };
+const markAuthExpired = () => { try { localStorage.setItem(AUTH_EXPIRED_KEY, "1"); } catch {} };
+const clearAuthExpired = () => { try { localStorage.removeItem(AUTH_EXPIRED_KEY); } catch {} };
+
+// Microsoft errors that mean "this sign-in is finished, a person has to sign in again" — anything
+// else (server hiccup, throttling) is treated as temporary and the connection is kept.
+const DEFINITIVE_AUTH_ERRORS = ["invalid_grant", "interaction_required", "login_required", "consent_required"];
+
+// Returns a valid access token, refreshing if needed. Returns null if it can't get one right now.
 const getValidToken = async (auth, setAuth) => {
   if (!auth) return null;
   if (auth.expiresAt > Date.now() + 300000) return auth.accessToken; // still valid
+  let result;
   try {
-    const result = await refreshAuth(auth.refreshToken);
-    if (result.access_token) {
-      const updated = { ...auth, accessToken: result.access_token,
-        expiresAt: Date.now() + result.expires_in * 1000,
-        refreshToken: result.refresh_token || auth.refreshToken };
-      saveAuth(updated); setAuth(updated);
-      return updated.accessToken;
-    }
-  } catch {}
-  clearAuth(); setAuth(null); return null;
+    result = await refreshAuth(auth.refreshToken);
+  } catch {
+    // No signal / network failure says nothing about whether the sign-in is still good. Keep it
+    // and try again later — dropping it here used to disconnect a TA just for being offline at
+    // the moment their access token (~1 hour) needed renewing.
+    return null;
+  }
+  if (result.access_token) {
+    const updated = { ...auth, accessToken: result.access_token,
+      expiresAt: Date.now() + result.expires_in * 1000,
+      refreshToken: result.refresh_token || auth.refreshToken };
+    saveAuth(updated); setAuth(updated);
+    return updated.accessToken;
+  }
+  if (DEFINITIVE_AUTH_ERRORS.includes(result.error)) {
+    markAuthExpired(); clearAuth(); setAuth(null);
+  }
+  return null;
 };
 
 // ── SHAREPOINT PHOTO UPLOAD (Microsoft Graph) ─────────────────────────────────
@@ -273,7 +295,11 @@ async function resolvePhotoDisplay(photoKey, meta, auth, setAuth) {
   }
   if (_thumbCache.has(meta.spItemId)) return { status: "remote", src: _thumbCache.get(meta.spItemId) };
   const token = await getValidToken(auth, setAuth);
-  if (!token) return { status: "need-auth" };
+  if (!token) {
+    // getValidToken clears the stored sign-in only when Microsoft definitively refused it. If it's
+    // still there, the failure was just no signal — don't tell the user to reconnect for that.
+    return { status: loadAuth() ? "offline" : "need-auth" };
+  }
   try {
     const siteId = await getSharePointSiteId(token);
     const url = await getPhotoThumbnailUrl(siteId, token, meta.spItemId);
@@ -1997,10 +2023,15 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
           </>
         ) : (
           <>
-            <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF" }}>SharePoint not connected</p>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: wasAuthExpired() ? 600 : 400, color: wasAuthExpired() ? "#B45309" : "#9CA3AF" }}>
+                {wasAuthExpired() ? "SharePoint session expired" : "SharePoint not connected"}
+              </p>
+              {wasAuthExpired() && <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6B7280" }}>Photos stay safe on this device and upload once you reconnect.</p>}
+            </div>
             <button onClick={startLogin}
               style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: "#0078D4", border: "none", borderRadius: 6, padding: "6px 14px", cursor: "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
-              Connect
+              {wasAuthExpired() ? "Reconnect" : "Connect"}
             </button>
           </>
         )}
@@ -2745,7 +2776,9 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>
             {!project.sharePointFolder ? "Set up by your Project Manager when the project is created"
               : syncState.running ? `Uploading ${syncState.done}/${syncState.total}…`
-              : !auth ? "Not connected"
+              : !auth ? (wasAuthExpired()
+                  ? `SharePoint session expired — reconnect to upload${pendingCount > 0 ? ` (${pendingCount} photo${pendingCount>1?"s":""} waiting on this device)` : ""}`
+                  : "Not connected")
               : pendingCount === 0 ? "All photos synced"
               : `${pendingCount} photo${pendingCount>1?"s":""} pending — syncs automatically`}
           </p>
@@ -2755,7 +2788,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         </div>
         <button onClick={handleUploadToSharePoint} disabled={!project.sharePointFolder || syncState.running || (auth && pendingCount===0)}
           style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: !project.sharePointFolder ? "#D1D5DB" : !auth ? "#0078D4" : (pendingCount===0 ? "#D1D5DB" : "#1ABC9C"), border: "none", borderRadius: 6, padding: "6px 14px", cursor: (!project.sharePointFolder || syncState.running) ? "not-allowed" : "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
-          {!project.sharePointFolder ? "Not linked" : !auth ? "Connect" : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
+          {!project.sharePointFolder ? "Not linked" : !auth ? (wasAuthExpired() ? "Reconnect" : "Connect") : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
         </button>
       </div>
       {/* Per-photo failures — named and clickable, not just a count, so it's obvious which
@@ -3185,13 +3218,18 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
       ) : showImage ? (
         <img src={display.src} alt="" style={{ width: size, height: size, borderRadius: 6, display: "block", objectFit: "cover" }}/>
       ) : (
-        <div style={{ width: size, height: size, borderRadius: 6, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center" }}>
+        <div style={{ width: size, height: size, borderRadius: 6, background: "#F3F4F6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 6, textAlign: "center", boxSizing: "border-box" }}>
           <span style={{ fontSize: 11, color: "#9CA3AF", lineHeight: 1.3 }}>
             {!display && "…"}
             {display?.status === "unsynced" && "not yet synced"}
-            {display?.status === "need-auth" && !webUrl && "connect SharePoint"}
+            {display?.status === "need-auth" && "SharePoint session expired — reconnect to preview"}
+            {display?.status === "offline" && "offline — preview unavailable"}
             {display?.status === "no-preview" && "no live preview"}
           </span>
+          {display?.status === "need-auth" && (
+            <button onClick={() => startLogin()} title="Reconnect SharePoint"
+              style={{ fontSize: 11, fontWeight: 600, background: "#0078D4", color: "#FFF", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Reconnect</button>
+          )}
         </div>
       )}
       {/* "unsynced" also gets a remove button, not just "local" — it's the only way to clear a
@@ -3214,12 +3252,9 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
         <span title={`Uploaded to SharePoint as ${meta.spFileName}`}
           style={{ position: "absolute", bottom: 4, left: 4, fontSize: 12, background: "rgba(16,185,129,.9)", color: "#FFF", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>☁</span>
       )}
-      {webUrl ? (
+      {webUrl && (
         <a href={webUrl} target="_blank" rel="noreferrer" title="Open full-size in SharePoint"
           style={{ position: "absolute", bottom: 4, right: 4, fontSize: 10.5, fontWeight: 700, background: "rgba(29,78,216,.92)", color: "#FFF", borderRadius: 6, padding: "2px 7px", textDecoration: "none" }}>⤢ open</a>
-      ) : display?.status === "need-auth" && (
-        <button onClick={() => startLogin()} title="Connect SharePoint"
-          style={{ position: "absolute", bottom: 4, right: 4, fontSize: 10.5, background: "rgba(29,78,216,.92)", color: "#FFF", border: "none", borderRadius: 6, padding: "2px 7px", cursor: "pointer" }}>connect</button>
       )}
     </div>
   );
@@ -3792,6 +3827,7 @@ export default function App() {
         expiresAt: Date.now() + result.expires_in * 1000,
         user: { name: user.displayName, email: user.userPrincipalName },
       };
+      clearAuthExpired();
       saveAuth(authData);
       setAuth(authData);
     }).catch(e => console.error('Auth callback error:', e));
@@ -4006,7 +4042,7 @@ export default function App() {
         <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 0" }}>Sign out</button>
       </div>
 
-      {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();setAuth(null);}}/>}
+      {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();clearAuthExpired();setAuth(null);}}/>}
       {screen === "create" && <ProjectForm onSave={async proj=>{await saveProject(proj);setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
       {screen === "edit" && activeProject && (
         <ProjectForm
