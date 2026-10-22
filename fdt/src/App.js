@@ -1073,7 +1073,12 @@ const PROGRAM_CATALOG = [
   },
 ];
 
+// Display order on the project dashboard: MRF and Final Testing first (the field-evidence
+// categories TAs reach for most), then the program checklists, Miscellaneous last. Nothing else
+// depends on this order — lookups go by id/code and progress is summed across all of them.
 const CATEGORIES = [
+  { id: "Minimum Rated Features",           code: "MRF" },
+  { id: "Final Testing",                    code: "FT"  },
   { id: "Site Planning",                    code: "SP"  },
   { id: "Construction Waste Management",    code: "CW"  },
   { id: "Resource Efficiency",              code: "RE"  },
@@ -1084,8 +1089,6 @@ const CATEGORIES = [
   { id: "Water Efficiency",                 code: "WE"  },
   { id: "Education & Operations",           code: "EO"  },
   { id: "Innovation",                       code: "INV" },
-  { id: "Minimum Rated Features",           code: "MRF" },
-  { id: "Final Testing",                    code: "FT"  },
   { id: "Miscellaneous",                    code: "MISC" },
 ];
 
