@@ -49,6 +49,14 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
   SharePoint connect fails with AADSTS50011. `getRedirectUri()` in `src/App.js` builds this from
   `window.location.origin` at runtime, so moving domains again needs a matching Azure AD update
   but no code change.
+- Server-side SharePoint sign-in (`api/ms-token.js`; **off unless a browser visits `?serverauth=1`**):
+  Microsoft caps sign-ins for browser-only (SPA) apps at 24 hours, so this path has a Vercel
+  Function add the client secret and gets ~90-day sign-ins instead. Needs a `MS_CLIENT_SECRET` env
+  var in Vercel (no `REACT_APP_` prefix — that would expose it), a **Web**-platform redirect URI
+  `https://www.doctracker.org/auth/callback` on the Azure app (the SPA redirect URI stays for the
+  default flow), and `/auth/callback` + `/api/ms-token` allowed in any Vercel Firewall allowlist
+  rule. **The client secret expires (max 24 months) — renew it before then or every server-side
+  sign-in fails.** `GET /api/ms-token` returns `secretConfigured` as a setup check.
 - Requires six `REACT_APP_FIREBASE_*` env vars (API key, auth domain, project ID, storage
   bucket, messaging sender ID, app ID) set in Vercel for Production, Preview, and Development —
   CRA bakes these in at build time, so a build that ran before they were saved needs a fresh
