@@ -1502,6 +1502,7 @@ const FINAL_TESTING_PATH_A = [
 ];
 const FINAL_TESTING_PATH_B = [
   { key: "ventilation", label: "Ventilation" },
+  { key: "kitchen_range", label: "Kitchen Range" },
   { key: "bedroom_pressure", label: "Bedroom Pressure", naOnly: true },
   { key: "interior_ambient_temp", label: "Interior Ambient Temperature", naOnly: true, programGate: "energy_star_mfnc" },
 ];
@@ -3017,28 +3018,71 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
   );
 }
 
-// One dwelling unit's own Final Testing screen — its fixed 4 tests plus however many exhaust
-// fans it has (see getFinalTestingUnitItems). Reached by tapping a unit in ChecklistView's
-// Final Testing unit list, never shown as one long list mixed with other units'.
-// Two big buttons shown every time a unit is opened — no memory of a prior choice, always starts
+// Simple line icons for the two Final Testing cards (24px grid, drawn inline so they stay crisp and
+// take the card's color — no image files or icon library involved).
+const FtIconSvg = ({ children }) => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
+);
+const FtGaugeIcon = () => (<FtIconSvg><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></FtIconSvg>);
+const FtClipboardIcon = () => (
+  <FtIconSvg><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></FtIconSvg>
+);
+
+// How many of a path's items already have something logged — a photo, or (for the not-applicable
+// items) a "not applicable" mark. Lets the chooser show "2 of 3 documented" at a glance.
+function finalTestingPathProgress(unit, project, records, path) {
+  const items = getFinalTestingPathItems(unit, project.programs, path);
+  const done = items.filter(item => {
+    const rec = records[`${project.id}__Final Testing__${item.id}`];
+    return (rec?.photos?.length > 0) || (item.naOnly && rec?.status === "na");
+  }).length;
+  return { done, total: items.length };
+}
+
+// Two big cards shown every time a unit is opened — no memory of a prior choice, always starts
 // blank (confirmed with user). Path A is the 3 core performance tests; Path B is everything else
-// (ventilation, bedroom pressure, interior ambient temp, exhaust fans). Keeps a TA who's only
-// there to do part of a unit's testing from scrolling past items they're not touching today.
-function FinalTestingPathChooser({ unit, onChoosePath }) {
-  const btnStyle = { width: "100%", padding: "18px 16px", background: "#FFF", color: "#08182E", border: "1.5px solid #E5E7EB", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif", textAlign: "left", display: "block" };
+// (ventilation, kitchen range, bedroom pressure, interior ambient temp, exhaust fans). Keeps a TA
+// who's only there to do part of a unit's testing from scrolling past items they're not touching
+// today. Each card carries an icon, a plain name, the tests it covers, and how far along it is.
+function FinalTestingPathChooser({ project, unit, records, onChoosePath }) {
+  const cards = [
+    { path: "A", title: "Blower Door & Duct Leakage", Icon: FtGaugeIcon, tint: "#E3F5FA", color: "#009ACB",
+      covers: finalTestingFixedItems(unit, project.programs, FINAL_TESTING_PATH_A).map(i => i.text) },
+    { path: "B", title: "Commissioning", Icon: FtClipboardIcon, tint: "#EEF0F4", color: "#08182E",
+      covers: [...finalTestingFixedItems(unit, project.programs, FINAL_TESTING_PATH_B).map(i => i.text), "Exhaust fans"] },
+  ];
   return (
     <div style={{ padding: "20px" }}>
-      <p style={{ margin: "0 0 16px", fontSize: 13, color: "#6B7280" }}>What are you documenting for <strong>{unit.name}</strong> right now?</p>
-      <button style={btnStyle} onClick={() => onChoosePath("A")}>
-        Document Blower Door, Total Duct Leakage &amp; Duct Leakage to Outside
-      </button>
-      <button style={{ ...btnStyle, marginTop: 12 }} onClick={() => onChoosePath("B")}>
-        Document all remaining commissioning items
-      </button>
+      <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, color: "#08182E" }}>What are you documenting?</h2>
+      {cards.map(card => {
+        const { done, total } = finalTestingPathProgress(unit, project, records, card.path);
+        const complete = total > 0 && done === total;
+        return (
+          <button key={card.path} onClick={() => onChoosePath(card.path)}
+            onTouchStart={e => { e.currentTarget.style.background = "#F9FAFB"; }}
+            onTouchEnd={e => { e.currentTarget.style.background = "#FFF"; }}
+            style={{ width: "100%", display: "flex", alignItems: "center", gap: 14, padding: 16, marginBottom: 12, background: "#FFF", border: "1.5px solid #E5E7EB", borderRadius: 12, cursor: "pointer", textAlign: "left", fontFamily: "Poppins, sans-serif" }}>
+            <span style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 12, background: card.tint, color: card.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <card.Icon/>
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 16, fontWeight: 700, color: "#08182E" }}>{card.title}</span>
+              <span style={{ display: "block", margin: "3px 0 6px", fontSize: 12, color: "#6B7280", lineHeight: 1.4 }}>{card.covers.join(" · ")}</span>
+              <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: complete ? "#4B7A22" : "#9CA3AF" }}>
+                {complete ? "✓ All documented" : `${done} of ${total} documented`}
+              </span>
+            </span>
+            <span style={{ fontSize: 22, color: "#D1D5DB", flexShrink: 0 }}>›</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
+// One dwelling unit's own Final Testing screen, showing just the path (A or B) the TA picked in
+// FinalTestingPathChooser plus the unit-level Miscellaneous section. Reached from that chooser,
+// never shown as one long list mixed with other units'.
 function FinalTestingUnitView({ project, unit, path, records, onSelectItem, onAddExhaustFan, onDeleteUnit, onAddUnitMiscItem, onRenameUnit }) {
   const [adding, setAdding] = useState(false);
   const items = getFinalTestingPathItems(unit, project.programs, path).map(i => ({ ...i, _cat: "Final Testing" }));
@@ -4125,7 +4169,9 @@ export default function App() {
       )}
       {screen === "final-testing-path" && activeProject && activeFinalTestingUnit && (
         <FinalTestingPathChooser
+          project={activeProject}
           unit={activeFinalTestingUnit}
+          records={data.records}
           onChoosePath={path=>{setActiveFinalTestingPath(path);setScreen("final-testing-unit");}}
         />
       )}
