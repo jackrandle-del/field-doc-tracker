@@ -57,12 +57,15 @@ const SCOPES      = "Files.ReadWrite.All Sites.ReadWrite.All User.Read offline_a
 const AUTH_KEY    = "fdt_auth_v1";
 
 // Server-side sign-in (api/ms-token.js): lets Microsoft keep a sign-in for ~90 days instead of the
-// 24-hour cap on browser-only apps. Off unless switched on for this browser — visit the site once
-// with ?serverauth=1 (or ?serverauth=0 to switch back). It uses its own redirect URI, registered in
-// Azure under the "Web" platform, because Microsoft can't tell two platform types apart on one URI.
+// 24-hour cap on browser-only apps. ON by default (proven in real use first — it stayed connected
+// well past 24 hours). A browser can still opt out by visiting the site once with ?serverauth=0,
+// and ?serverauth=1 puts it back to the default. It uses its own redirect URI, registered in Azure
+// under the "Web" platform, because Microsoft can't tell two platform types apart on one URI.
+// Sign-ins made before this default flipped have no mode and keep refreshing the old way until they
+// expire; the next Connect after that uses the server flow.
 const SERVER_AUTH_KEY = "fdt_server_auth";
 const SERVER_REDIRECT_PATH = "/auth/callback";
-const serverAuthEnabled = () => { try { return localStorage.getItem(SERVER_AUTH_KEY) === "1"; } catch { return false; } };
+const serverAuthEnabled = () => { try { return localStorage.getItem(SERVER_AUTH_KEY) !== "0"; } catch { return true; } };
 const getServerRedirectUri = () => window.location.origin + SERVER_REDIRECT_PATH;
 
 const getRedirectUri = () => window.location.origin +
@@ -3904,13 +3907,14 @@ export default function App() {
     return () => { unsubProjects(); unsubRecords(); };
   }, [teamUser]);
 
-  // One-time switch for the server-side sign-in (see SERVER_AUTH_KEY): ?serverauth=1 turns it on for
-  // this browser, ?serverauth=0 turns it back off. Runs before the callback handler below.
+  // Escape hatch for the server-side sign-in (see SERVER_AUTH_KEY), which is on by default:
+  // ?serverauth=0 opts this browser out, ?serverauth=1 puts it back to the default. Runs before the
+  // callback handler below.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const flag = params.get('serverauth');
     if (flag !== "1" && flag !== "0") return;
-    try { if (flag === "1") localStorage.setItem(SERVER_AUTH_KEY, "1"); else localStorage.removeItem(SERVER_AUTH_KEY); } catch {}
+    try { if (flag === "0") localStorage.setItem(SERVER_AUTH_KEY, "0"); else localStorage.removeItem(SERVER_AUTH_KEY); } catch {}
     params.delete('serverauth');
     const rest = params.toString();
     window.history.replaceState({}, document.title, window.location.pathname + (rest ? `?${rest}` : ""));
