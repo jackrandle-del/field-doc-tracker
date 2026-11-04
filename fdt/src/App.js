@@ -1624,12 +1624,13 @@ const MRF_ITEMS = [
 ];
 
 // Items whose photos must each be tagged with one of a few fixed options at capture time. HVAC
-// Equipment: model numbers and sizing differ between 1BR/2BR/3BR units, so every nameplate photo
-// needs to say which unit type it belongs to. The tag is stored on the photo's own metadata
-// (photo.tag), shows as a chip on its thumbnail, and goes into the SharePoint filename. Photos
-// added before this existed simply have no tag. Add another item id here to reuse it elsewhere.
+// Equipment and Water Heater: model numbers and sizing differ between 1BR/2BR/3BR units, so every
+// nameplate photo needs to say which unit type it belongs to. The tag is stored on the photo's own
+// metadata (photo.tag), shows as a chip on its thumbnail, and goes into the SharePoint filename.
+// Photos added before this existed simply have no tag. Add another item id here to reuse it.
 const PHOTO_TAG_CONFIG = {
   mrf_1_0: { label: "Unit type", options: ["1BR", "2BR", "3BR"] },
+  mrf_3_0: { label: "Unit type", options: ["1BR", "2BR", "3BR"] },
 };
 
 // The shape of one photo's metadata as stored on a record. `tag` is only included when set —
@@ -2730,7 +2731,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
     const unitCount = finalTesting ? (project.finalTestingUnits || []).length : 0;
     const p = calcCatProgress(items, records, project.id, cat.id);
     if (empty && !mrf && !misc && !finalTesting) return null;
-    const accentColor = mrf ? "#1ABC9C" : (p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB");
+    const accentColor = p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB";
     return (
       <div onClick={() => onSelectCategory(cat)}
         style={{ padding: "16px 20px", borderBottom: "1px solid #F9FAFB", cursor: "pointer", background: "#FFF" }}
@@ -2742,18 +2743,19 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
             <span style={{ fontSize: 14, fontWeight: 600, color: mrf?"#0F7A66":"#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat.id}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} fail</span>}
+            {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} {mrf ? "need photos" : "fail"}</span>}
             {p.pointsFail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "2px 7px", borderRadius: 8 }}>−{p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
-            {!mrf && !finalTesting && !(misc && empty) && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
+            {!finalTesting && !(misc && empty) && !(mrf && empty) && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
             {mrf && empty && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Coming soon</span>}
             {misc && empty && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Nothing logged yet</span>}
             {finalTesting && unitCount === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Nothing logged yet</span>}
             <span style={{ color: "#D1D5DB" }}>›</span>
           </div>
         </div>
-        {!mrf && !finalTesting && !(misc && empty) && <ProgressBar pct={p.pct} fail={p.fail}/>}
+        {!finalTesting && !(misc && empty) && !(mrf && empty) && <ProgressBar pct={p.pct} fail={p.fail}/>}
         <p style={{ margin: "4px 0 0", fontSize: 11, color: mrf?"#0F7A66":"#9CA3AF" }}>
-          {mrf ? "Energy modeling documentation"
+          {mrf ? (empty ? "Energy modeling documentation"
+                : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} need photos`:""} · Energy modeling documentation`)
             : misc && empty ? "Tap to log something that didn't fit an existing item"
             : finalTesting ? (unitCount === 0 ? "Tap to log a unit and its test photos" : `${unitCount} unit${unitCount===1?"":"s"} documented`)
             : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} failing`:""}${p.pointsFail>0?` · failing to meet ${p.pointsAtRisk} pt${p.pointsAtRisk>1?"s":""}`:""}`}
@@ -2915,9 +2917,21 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
     try { await onAddFinalTestingUnit(name); setUnitDraft(""); } finally { setUnitAdding(false); }
   };
 
+  // MRF: items already verified (documented, or marked N/A) drop to the bottom, so the ones still
+  // needing attention — not yet touched, or flagged "additional photos needed" — stay at the top.
+  // Keeps each group in its original order; other categories keep their normal order.
+  const isMrfResolved = (item) => {
+    const s = records[`${project.id}__${category.id}__${item.id}`]?.status;
+    return s === "pass" || s === "na";
+  };
+  const orderedItems = isMRF ? [...allItems.filter(i => !isMrfResolved(i)), ...allItems.filter(isMrfResolved)] : allItems;
+  const mrfResolvedCount = isMRF ? orderedItems.filter(isMrfResolved).length : 0;
+  const firstResolvedId = isMRF && !q && mrfResolvedCount > 0 && mrfResolvedCount < orderedItems.length
+    ? orderedItems.find(isMrfResolved).id : null;
+
   const displayItems = q
-    ? allItems.filter(i => itemMatchesQuery(i, q))
-    : allItems;
+    ? orderedItems.filter(i => itemMatchesQuery(i, q))
+    : orderedItems;
 
   // Final Testing navigates unit-first (tap a unit, then see its tests) rather than showing every
   // unit's tests in one long flat list — with several units each carrying 4+ tests, a flat list
@@ -2942,7 +2956,7 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
                 ? `${(project.finalTestingUnits||[]).length} unit${(project.finalTestingUnits||[]).length===1?"":"s"} documented`
                 : (<>
                     {p.pass+p.na}/{p.total} verified
-                    {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} failing</span>}
+                    {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} {isMRF ? "need photos" : "failing"}</span>}
                     {p.pointsFail > 0 && <span style={{ color: "#8A6D14" }}> · failing to meet {p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
                   </>)}
             </p>
@@ -3012,7 +3026,12 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
                 </div>
               )))
         : displayItems.map(item => (
-            <ItemRow key={item.id} project={project} item={item} records={records} onSelectItem={onSelectItem} showCategory={false}/>
+            <React.Fragment key={item.id}>
+              {item.id === firstResolvedId && (
+                <p style={{ margin: 0, padding: "10px 20px 4px", fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em", background: "#FAFAFA" }}>Verified ({mrfResolvedCount})</p>
+              )}
+              <ItemRow project={project} item={item} records={records} onSelectItem={onSelectItem} showCategory={false}/>
+            </React.Fragment>
           ))}
     </div>
   );
