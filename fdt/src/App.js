@@ -4504,7 +4504,7 @@ export default function App() {
         </div>
         {sfOn && screen === "projects" && (
           <button onClick={()=>choosePortal(isSfPortal ? "mf" : "sf")} style={{ flexShrink: 0, background: "none", border: "1px solid #E5E7EB", borderRadius: 6, color: "#374151", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 9px" }}>
-            {isSfPortal ? "→ Multifamily" : "→ Single Family"}
+            {isSfPortal ? "Multifamily" : "Single Family"}
           </button>
         )}
         <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 0" }}>Sign out</button>
