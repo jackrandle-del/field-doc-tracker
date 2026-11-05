@@ -2035,13 +2035,129 @@ function StatusBadge({ status }) {
   return <span style={{ background: s[0], color: s[1], fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>{s[2]}</span>;
 }
 
+// ─── SINGLE FAMILY: PHASE 0 ACCESS TEST ──────────────────────────────────────
+// The Single Family folders live in someone else's OneDrive (viridiantdata@viridiant.org), not on
+// the MFProjects SharePoint site the rest of the app talks to. Before building the portal we need
+// to know whether this app's sign-in can read and write there, and by which Microsoft Graph route.
+// Hidden unless a browser has been opened once with ?sf=1 (?sf=0 turns it back off), so nobody else
+// sees it. Standalone on purpose: it uses none of the existing SharePoint helpers.
+const SF_FLAG_KEY = "fdt_sf_v1";
+const sfEnabled = () => {
+  try {
+    const p = new URLSearchParams(window.location.search).get("sf");
+    if (p === "1") localStorage.setItem(SF_FLAG_KEY, "1");
+    else if (p === "0") localStorage.removeItem(SF_FLAG_KEY);
+    return localStorage.getItem(SF_FLAG_KEY) === "1";
+  } catch { return false; }
+};
+const SF_ONEDRIVE_URL = "https://ecva-my.sharepoint.com/personal/viridiantdata_viridiant_org";
+const SF_ONEDRIVE_OWNER = "viridiantdata@viridiant.org";
+const SF_ROOT_PATH = "Viridiant Team Folder/Projects/Single Family";
+
+function SfAccessTest({ auth, setAuth }) {
+  const [log, setLog] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [base, setBase] = useState(null); // Graph path prefix of the route that worked for reading
+  const add = (line) => setLog(l => [...l, line]);
+
+  const graph = async (token, path, opts = {}) => {
+    const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+      ...opts, headers: { Authorization: `Bearer ${token}`, ...(opts.headers || {}) },
+    });
+    let body = null;
+    try { body = await res.json(); } catch {}
+    return { ok: res.ok, status: res.status, body };
+  };
+  const errText = (r) => `HTTP ${r.status} — ${r.body?.error?.code || ""} ${r.body?.error?.message || ""}`.trim();
+  const encPath = SF_ROOT_PATH.split("/").map(encodeURIComponent).join("/");
+
+  const listRoot = async (token, prefix) => {
+    const r = await graph(token, `${prefix}/root:/${encPath}:/children?$select=id,name,folder&$top=200`);
+    if (!r.ok) { add(`   ✗ could not list Single Family folder: ${errText(r)}`); return false; }
+    const items = r.body?.value || [];
+    add(`   ✓ listed Single Family folder: ${items.length} item(s)`);
+    items.slice(0, 20).forEach(i => add(`      ${i.folder ? "📁" : "📄"} ${i.name}`));
+    if (items.length > 20) add(`      …and ${items.length - 20} more`);
+    return true;
+  };
+
+  const runRead = async () => {
+    setBusy(true); setLog([]); setBase(null);
+    try {
+      const token = await getValidToken(auth, setAuth);
+      if (!token) { add("Not signed in to SharePoint (or session expired) — tap Connect / Reconnect first."); return; }
+      add(`Signed in as ${auth.user?.email || auth.user?.name || "?"} (${auth.mode === "server" ? "server sign-in" : "browser sign-in"})`);
+      let working = null;
+
+      add("Route A — as a SharePoint site (same method the multifamily projects use)");
+      const u = new URL(SF_ONEDRIVE_URL);
+      const site = await graph(token, `/sites/${u.hostname}:${u.pathname}`);
+      if (!site.ok || !site.body?.id) add(`   ✗ could not resolve site: ${errText(site)}`);
+      else {
+        add("   ✓ resolved site");
+        if (await listRoot(token, `/sites/${site.body.id}/drive`)) working = `/sites/${site.body.id}/drive`;
+      }
+
+      add(`Route B — directly as ${SF_ONEDRIVE_OWNER}'s drive`);
+      const drv = await graph(token, `/users/${encodeURIComponent(SF_ONEDRIVE_OWNER)}/drive?$select=id,webUrl`);
+      if (!drv.ok || !drv.body?.id) add(`   ✗ could not open drive: ${errText(drv)}`);
+      else {
+        add("   ✓ opened drive");
+        if (await listRoot(token, `/drives/${drv.body.id}`) && !working) working = `/drives/${drv.body.id}`;
+      }
+
+      add(working ? `RESULT: read access works (${working.startsWith("/sites") ? "Route A" : "Route B"} used for the write test).`
+                  : "RESULT: could not read the Single Family folder by either route — copy this whole log back to Claude.");
+      setBase(working);
+    } catch (e) { add(`Unexpected error: ${e.message}`); }
+    finally { setBusy(false); }
+  };
+
+  const runWrite = async () => {
+    if (!base) return;
+    if (!window.confirm("This will briefly create an empty folder named \"_doc-tracker-access-test\" inside the Single Family folder, then delete it right away. Nothing else is touched. Continue?")) return;
+    setBusy(true); add("— Write test —");
+    try {
+      const token = await getValidToken(auth, setAuth);
+      if (!token) { add("Not signed in — reconnect first."); return; }
+      const made = await graph(token, `${base}/root:/${encPath}:/children`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "_doc-tracker-access-test", folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
+      });
+      if (!made.ok || !made.body?.id) { add(`   ✗ create folder failed: ${errText(made)}`); return; }
+      add("   ✓ created test folder");
+      const del = await graph(token, `${base}/items/${made.body.id}`, { method: "DELETE" });
+      add(del.ok ? "   ✓ deleted test folder — write access works" : `   ✗ delete failed (folder may remain, please remove it by hand): ${errText(del)}`);
+    } catch (e) { add(`Unexpected error: ${e.message}`); }
+    finally { setBusy(false); }
+  };
+
+  const copyLog = () => { try { navigator.clipboard.writeText(log.join("\n")); } catch {} };
+  const btn = { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: "Poppins, sans-serif", border: "1px solid #D1D5DB", background: "#FFF", color: "#08182E" };
+
+  return (
+    <div style={{ margin: "12px 20px", padding: 14, border: "1px dashed #C4A24A", borderRadius: 8, background: "#FFFBEB" }}>
+      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#92400E" }}>Single Family — access test (internal)</p>
+      <p style={{ margin: "4px 0 10px", fontSize: 11, color: "#6B7280" }}>Checks whether Doc Tracker can reach the Single Family folder. Only visible on browsers opened with ?sf=1.</p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button style={btn} disabled={busy || !auth} onClick={runRead}>{busy ? "Working…" : "1. Test read access"}</button>
+        <button style={{ ...btn, opacity: base ? 1 : 0.5 }} disabled={busy || !base} onClick={runWrite}>2. Test write access</button>
+        {log.length > 0 && <button style={btn} onClick={copyLog}>Copy results</button>}
+      </div>
+      {!auth && <p style={{ margin: "8px 0 0", fontSize: 11, color: "#B45309" }}>Connect to SharePoint above first.</p>}
+      {log.length > 0 && <pre style={{ margin: "10px 0 0", fontSize: 11, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#08182E" }}>{log.join("\n")}</pre>}
+    </div>
+  );
+}
+
 // ─── SCREEN: PROJECT LIST ─────────────────────────────────────────────────────
-function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, onLogout }) {
+function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, setAuth, onLogout }) {
   const [confirmId, setConfirmId] = useState(null);
   const confirmProj = projects.find(p => p.id === confirmId);
 
   return (
     <div style={{ paddingBottom: 80 }}>
+      {sfEnabled() && <SfAccessTest auth={auth} setAuth={setAuth}/>}
 
       {/* SharePoint connection bar — a passive status report, not an action, so it stays quiet:
           no colored background wash, state conveyed through the small icon/text color only.
@@ -4156,7 +4272,7 @@ export default function App() {
         <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 0" }}>Sign out</button>
       </div>
 
-      {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();clearAuthExpired();setAuth(null);}}/>}
+      {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} setAuth={setAuth} onLogout={()=>{clearAuth();clearAuthExpired();setAuth(null);}}/>}
       {screen === "create" && <ProjectForm onSave={async proj=>{await saveProject(proj);setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
       {screen === "edit" && activeProject && (
         <ProjectForm
