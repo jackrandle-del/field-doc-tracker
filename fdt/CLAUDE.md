@@ -35,7 +35,7 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
   items the workbook already confirms — see [[project_earthcraft_optional_points]] and
   [[project_earthcraft_workbook_structure]] in memory for the full design/parsing details.
 
-- **Single Family portal** (in progress, behind a per-browser switch): a second, much simpler portal
+- **Single Family portal — shown to users as "Audits"** (in progress, behind a per-browser switch): a second, much simpler portal
   next to multifamily. A browser opts in with `?sf=1` (`?sf=0` opts out; localStorage `fdt_sf_v1`);
   without it the app is exactly the multifamily tool and Single Family houses are hidden. With it, a
   chooser appears after login (last choice remembered in `fdt_portal_v1`, a "Single Family /
@@ -49,6 +49,10 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
   subfolders; uploads use rename-on-conflict so nothing is ever overwritten. Existing folders are
   never modified. Final Testing / MRF / programs / workbook are intentionally not part of it.
   Later phase: TA-provided per-house checklists populate `sfItems`.
+  **Simplified (current UI):** opening a house shows just `SfPhotoBoard` — a "+ Add photos" button and a
+  grid of photos, each with an optional per-photo note under it (stored as `note` on the photo's metadata
+  entry via `photoMetaForSave`). All photos live on the `sf_general` record; the category/item/status
+  screens and `sfItems` still exist in code and data but aren't reachable from the Single Family UI.
 - Folder linking uses a shared tap-down `FolderBrowser` (read-only, folders only). Single Family starts at
   `SF_ROOT_PATH`; the multifamily New/Edit project form starts at the top of the MFProjects library and
   fills in the same plain-text `sharePointFolder` path as before (the typed/pasted box stays as a fallback).
