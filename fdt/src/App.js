@@ -1652,6 +1652,7 @@ const photoMetaForSave = (p) => ({
   id: p.id, syncedAt: p.syncedAt || null, spFileName: p.spFileName || null,
   spItemId: p.spItemId || null, spWebUrl: p.spWebUrl || null,
   ...(p.tag ? { tag: p.tag } : {}),
+  ...(p.note ? { note: p.note } : {}),
 });
 
 // Repeatable structured entries for MRF envelope items — several assemblies can exist per item
@@ -2345,10 +2346,16 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
         return (
           <div key={proj.id}
             style={{ padding: "14px 20px", borderBottom: "1px solid #F9FAFB", display: "flex", alignItems: "center", gap: 14, background: "#FFF" }}>
+            {isSF(proj) ? (
+              <div onClick={() => onSelect(proj)} style={{ width: 52, height: 52, borderRadius: "50%", background: "#E3F5FA", color: "#026581", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, flexShrink: 0, cursor: "pointer" }}>
+                {sfPhotoCount(proj, records)}
+              </div>
+            ) : (
             <div onClick={() => onSelect(proj)} style={{ position: "relative", flexShrink: 0, cursor: "pointer" }}>
               <ProgressRing pct={pg.pct} fail={pg.fail}/>
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, color: pg.fail>0?"#EF4444":pg.pct===100?"#7CB83F":"#009ACB" }}>{pg.pct}%</div>
             </div>
+            )}
             <div onClick={() => onSelect(proj)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</p>
               {/* Fail/points-shortfall detail is intentionally left off the active-projects list —
@@ -2356,7 +2363,7 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, on
                   actually inside a project (hero, category rows, checklist header). */}
               <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
                 {isSF(proj)
-                  ? (pg.total ? `${pg.verified}/${pg.total} items verified${pg.fail>0?` · ${pg.fail} issue${pg.fail>1?"s":""} found`:""}` : (proj.advisor ? `TA: ${proj.advisor}` : "Documentation"))
+                  ? `${sfPhotoCount(proj, records)} photo${sfPhotoCount(proj, records)===1?"":"s"}${proj.advisor ? ` · TA: ${proj.advisor}` : ""}`
                   : <>{(proj.programs||[]).length} program{proj.programs?.length!==1?"s":""} · {pg.verified}/{pg.total} items</>}
               </p>
             </div>
@@ -2796,6 +2803,127 @@ function SearchBar({ query, onChange, placeholder }) {
   );
 }
 
+// ─── SINGLE FAMILY: PHOTO BOARD ──────────────────────────────────────────────
+// The whole Single Family house screen: a big "+ Add photos" button and a grid of this house's
+// photos, each with an optional note shown UNDER the picture (never on top of it). Photos live on
+// the house's existing "General uploads" record, so sync, filing and thumbnails are the shared
+// code paths; a note is stored on the photo's own metadata entry (photoMetaForSave keeps it).
+const SF_MAX_PHOTOS = 200;
+const sfPhotoRecordKey = (project) => `${project.id}__Documentation__${SF_GENERAL_ITEM.id}`;
+const sfPhotoCount = (project, records) => (records[sfPhotoRecordKey(project)]?.photos || []).length;
+
+function SfPhotoBoard({ project, records, updateRecord, auth, setAuth }) {
+  const key = sfPhotoRecordKey(project);
+  const record = records[key];
+  const photos = (record?.photos || []).map(p => typeof p === "string"
+    ? { id: p, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null } : p);
+  // Latest record as of the last write or snapshot, so several files added in one go (each write
+  // awaited in turn) never build on a stale copy — same reasoning as ItemDetail's refs.
+  const latestRef = useRef(record);
+  useEffect(() => { latestRef.current = record; }, [record]);
+  const fileRef = useRef();
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState("");
+
+  const write = (nextPhotos) => {
+    const base = latestRef.current || {};
+    const rec = { ...base, status: base.status || "", note: base.note || "", entries: base.entries || [],
+      photos: nextPhotos.map(photoMetaForSave), updatedAt: new Date().toISOString() };
+    latestRef.current = rec;
+    updateRecord(project.id, "Documentation", SF_GENERAL_ITEM.id, rec);
+  };
+  const currentPhotos = () => (latestRef.current?.photos || []).map(p => typeof p === "string"
+    ? { id: p, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null } : p);
+
+  // Reads each file, keeps its bytes in IndexedDB, and appends it to the record — one at a time so
+  // the photo list read at the start of each pass is never stale across awaits.
+  const processFiles = async (fileList) => {
+    const all = Array.from(fileList || []);
+    const files = all.filter(f => f.type.startsWith("image/") || f.type === "application/pdf");
+    if (!all.length) return;
+    if (!files.length) { alert("That didn't look like an image or PDF file — nothing was added."); return; }
+    const room = SF_MAX_PHOTOS - currentPhotos().length;
+    if (room <= 0) { alert(`This house already has the maximum of ${SF_MAX_PHOTOS} photos.`); return; }
+    for (const file of files.slice(0, room)) {
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = ev => resolve(ev.target.result);
+          reader.onerror = () => reject(reader.error || new Error("Couldn't read the file"));
+          reader.readAsDataURL(file);
+        });
+        const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await idbSavePhoto(`${key}__${id}`, dataUrl);
+        write([...currentPhotos(), { id, syncedAt: null, spFileName: null, spItemId: null, spWebUrl: null }]);
+      } catch (err) {
+        alert(`Couldn't save "${file.name || "this photo"}": ${err?.message || err}`);
+      }
+    }
+  };
+  // Snapshot into a real array first — e.target.files is live and cleared by resetting the input.
+  const handleAdd = e => { const files = Array.from(e.target.files || []); e.target.value = ""; processFiles(files); };
+
+  const removePhoto = async (id) => {
+    await idbDeletePhoto(`${key}__${id}`);
+    write(currentPhotos().filter(p => p.id !== id));
+  };
+
+  const saveNote = (id) => {
+    const text = draft.trim();
+    setEditingId(null);
+    write(currentPhotos().map(p => {
+      if (p.id !== id) return p;
+      const { note: _old, ...rest } = p;
+      return text ? { ...rest, note: text } : rest;
+    }));
+  };
+
+  const newestFirst = [...photos].reverse();
+  return (
+    <div style={{ padding: "16px 20px 40px" }}>
+      <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple onChange={handleAdd} style={{ display: "none" }}/>
+      <button onClick={() => fileRef.current?.click()}
+        style={{ width: "100%", padding: 16, background: "#08182E", color: "#FFF", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+        + Add photos
+      </button>
+      <p style={{ margin: "8px 0 14px", fontSize: 11, color: "#9CA3AF", textAlign: "center" }}>Take a photo or choose from your phone. PDFs work too.</p>
+
+      {photos.length === 0 ? (
+        <div style={{ padding: "32px 0", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 8 }}>📷</div>
+          <p style={{ margin: 0, fontSize: 14, color: "#6B7280" }}>No photos yet</p>
+        </div>
+      ) : (
+        <>
+          <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#6B7280" }}>{photos.length} photo{photos.length === 1 ? "" : "s"}</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 16 }}>
+            {newestFirst.map(p => (
+              <div key={p.id} style={{ minWidth: 0 }}>
+                <PhotoThumb photoKey={key} meta={p} auth={auth} setAuth={setAuth} onRemove={removePhoto} size={150} siteUrl={SF_ONEDRIVE_URL}/>
+                {editingId === p.id ? (
+                  <div style={{ marginTop: 6, width: 150 }}>
+                    <textarea autoFocus value={draft} onChange={e => setDraft(e.target.value)} rows={3} placeholder="Add a note…"
+                      style={{ width: "100%", padding: "6px 8px", border: "1.5px solid #E5E7EB", borderRadius: 6, fontSize: 13, fontFamily: "Poppins, sans-serif", color: "#08182E", resize: "none", outline: "none", boxSizing: "border-box" }}/>
+                    <div style={{ marginTop: 4, display: "flex", gap: 6 }}>
+                      <button onClick={() => saveNote(p.id)} style={{ flex: 1, padding: "5px 0", border: "none", borderRadius: 6, background: "#08182E", color: "#FFF", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Save</button>
+                      <button onClick={() => setEditingId(null)} style={{ flex: 1, padding: "5px 0", border: "1px solid #E5E7EB", borderRadius: 6, background: "#FFF", color: "#6B7280", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => { setDraft(p.note || ""); setEditingId(p.id); }}
+                    style={{ display: "block", width: 150, marginTop: 6, padding: 0, border: "none", background: "none", textAlign: "left", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontSize: 12, lineHeight: 1.4, color: p.note ? "#374151" : "#009ACB", fontWeight: p.note ? 400 : 600, wordBreak: "break-word" }}>
+                    {p.note || "+ Add note"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── SCREEN: PROJECT DASHBOARD ────────────────────────────────────────────────
 function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, onEdit, auth, setAuth, updateRecord }) {
   const pg = calcProjectProgress(project, records);
@@ -3063,15 +3191,15 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
       <div style={{ background: "linear-gradient(135deg,#08182E,#17325A)", padding: "24px 20px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
-            <div style={{ position: "relative", flexShrink: 0 }}>
+            {!isSf && <div style={{ position: "relative", flexShrink: 0 }}>
               <ProgressRing pct={pg.pct} size={72} stroke={5} fail={pg.fail}/>
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, color: pg.fail>0?"#EF4444":pg.pct===100?"#7CB83F":"#6FD4EE" }}>{pg.pct}%</div>
-            </div>
+            </div>}
             <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#FFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.name}</h2>
-              {!(isSf && pg.total === 0) && <p style={{ margin: 0, fontSize: 12, color: "#B9E6A0" }}>{pg.verified}/{pg.total} items verified</p>}
+              {!isSf && <p style={{ margin: 0, fontSize: 12, color: "#B9E6A0" }}>{pg.verified}/{pg.total} items verified</p>}
               {project.advisor && <p style={{ margin: 0, fontSize: 12, color: "#9FC3E0" }}>TA: {project.advisor}</p>}
-              {pg.fail>0 && <p style={{ margin: 0, fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} {isSf ? `issue${pg.fail>1?"s":""} found` : `item${pg.fail>1?"s":""} failing`}</p>}
+              {!isSf && pg.fail>0 && <p style={{ margin: 0, fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
               {pg.pointsFail>0 && <p style={{ margin: 0, fontSize: 12, color: "#F0D678", fontWeight: 600 }}>failing to meet {pg.pointsAtRisk} pt{pg.pointsAtRisk>1?"s":""}</p>}
             </div>
           </div>
@@ -3126,7 +3254,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
       {!syncState.running && syncState.errors.length > 0 && (
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
           {syncState.errors.map((err, i) => (
-            err.item ? (
+            err.item && !isSf ? (
               <button key={i} onClick={() => onSelectItem(err.item)}
                 style={{ textAlign: "left", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
                 <span style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: "#991B1B" }}>{err.item.pointNumber || err.item.text}</span>
@@ -3140,14 +3268,16 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
       )}
       </div>
 
+      {isSf && <SfPhotoBoard project={project} records={records} updateRecord={updateRecord} auth={auth} setAuth={setAuth}/>}
+
       {/* Global search bar */}
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid #F3F4F6", background: "#FFF" }}>
+      {!isSf && <div style={{ padding: "16px 20px", borderBottom: "1px solid #F3F4F6", background: "#FFF" }}>
         <SearchBar query={query} onChange={setQuery} placeholder="Search all items across every category…"/>
         {q && <p style={{ margin: "6px 0 0", fontSize: 11, color: "#9CA3AF" }}>{searchResults.length} result{searchResults.length !== 1 ? "s" : ""} across all categories</p>}
-      </div>
+      </div>}
 
       {/* Search results OR category list */}
-      {searchResults ? (
+      {!isSf && (searchResults ? (
         <>
           {searchResults.length === 0 && (
             <div style={{ padding: "32px 20px", textAlign: "center", color: "#9CA3AF" }}>
@@ -3162,7 +3292,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         <>
           {getProjectCategories(project).map(cat => <CatRow key={cat.id} cat={cat}/>)}
         </>
-      )}
+      ))}
     </div>
   );
 }
