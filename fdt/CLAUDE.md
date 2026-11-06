@@ -49,6 +49,9 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
   subfolders; uploads use rename-on-conflict so nothing is ever overwritten. Existing folders are
   never modified. Final Testing / MRF / programs / workbook are intentionally not part of it.
   Later phase: TA-provided per-house checklists populate `sfItems`.
+- Folder linking uses a shared tap-down `FolderBrowser` (read-only, folders only). Single Family starts at
+  `SF_ROOT_PATH`; the multifamily New/Edit project form starts at the top of the MFProjects library and
+  fills in the same plain-text `sharePointFolder` path as before (the typed/pasted box stays as a fallback).
 
 ## Deployment
 - GitHub: jackrandle-del/field-doc-tracker (this code is in the `fdt` subfolder)
