@@ -2104,9 +2104,13 @@ function PortalChooser({ onChoose, onSignOut }) {
   );
 }
 
-// Walks the Single Family folder tree one level at a time (names only, folders only) so a TA can
-// tap down to a house's folder instead of typing a path. Read-only: it never creates anything.
-function SfFolderBrowser({ auth, setAuth, onSelect, onCancel }) {
+// Walks a SharePoint folder tree one level at a time (names only, folders only) so a TA can tap
+// down to a project's folder instead of typing a path. Used by both portals: Single Family starts
+// at its own root folder (SF_ROOT_PATH in the viridiantdata OneDrive), multifamily at the top of the
+// MFProjects library (rootPath ""). Read-only: it never creates or changes anything. onSelect gets
+// {id, name, path (below the root, for display), fullPath (from the library root, as stored on MF
+// projects)}.
+function FolderBrowser({ auth, setAuth, siteUrl, rootPath, rootLabel, hint, onSelect, onCancel }) {
   const [stack, setStack] = useState([]); // folders descended into, below the Single Family root
   const [items, setItems] = useState(null); // null = loading
   const [error, setError] = useState("");
@@ -2121,8 +2125,15 @@ function SfFolderBrowser({ auth, setAuth, onSelect, onCancel }) {
       try {
         const token = await getValidToken(auth, setAuth);
         if (!token) throw new Error("Not connected to SharePoint — reconnect and try again.");
-        const siteId = await getSharePointSiteId(token, SF_ONEDRIVE_URL);
-        if (!rootIdRef.current) rootIdRef.current = await getSharePointFolderId(siteId, token, SF_ROOT_PATH);
+        const siteId = await getSharePointSiteId(token, siteUrl);
+        if (!rootIdRef.current) {
+          if (rootPath) rootIdRef.current = await getSharePointFolderId(siteId, token, rootPath);
+          else {
+            const rootRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root?$select=id`, { headers: { Authorization: `Bearer ${token}` } });
+            if (!rootRes.ok) throw new Error(`Could not open the SharePoint library (${rootRes.status})`);
+            rootIdRef.current = (await rootRes.json()).id;
+          }
+        }
         const parentId = stack.length ? stack[stack.length - 1].id : rootIdRef.current;
         let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${parentId}/children?$select=id,name,folder&$top=200`;
         const out = [];
@@ -2155,7 +2166,7 @@ function SfFolderBrowser({ auth, setAuth, onSelect, onCancel }) {
           <button onClick={() => go(stack.slice(0, -1))} style={{ border: "none", background: "none", fontSize: 18, cursor: "pointer", color: "#374151", padding: 0 }}>‹</button>
         )}
         <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: "#374151", wordBreak: "break-word" }}>
-          Single Family{stack.map(s => ` / ${s.name}`).join("")}
+          {rootLabel}{stack.map(s => ` / ${s.name}`).join("")}
         </p>
         <button onClick={onCancel} style={{ border: "none", background: "none", fontSize: 12, color: "#9CA3AF", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Cancel</button>
       </div>
@@ -2182,9 +2193,9 @@ function SfFolderBrowser({ auth, setAuth, onSelect, onCancel }) {
       </div>
       <div style={{ padding: 12, borderTop: "1px solid #F3F4F6" }}>
         <button disabled={!here}
-          onClick={() => onSelect({ id: here.id, name: here.name, path: stack.map(s => s.name).join(" / ") })}
+          onClick={() => onSelect({ id: here.id, name: here.name, path: stack.map(s => s.name).join(" / "), fullPath: [rootPath, ...stack.map(s => s.name)].filter(Boolean).join("/") })}
           style={{ width: "100%", padding: 12, border: "none", borderRadius: 6, fontSize: 14, fontWeight: 600, fontFamily: "Poppins, sans-serif", background: here ? "#08182E" : "#E5E7EB", color: here ? "#FFF" : "#9CA3AF", cursor: here ? "pointer" : "not-allowed" }}>
-          {here ? `Use "${here.name}"` : "Open the house's folder, then tap here"}
+          {here ? `Use "${here.name}"` : hint}
         </button>
       </div>
     </div>
@@ -2239,7 +2250,7 @@ function SfHouseForm({ initialProject, onSave, onBack, auth, setAuth }) {
         </div>
       )}
       {browsing ? (
-        <SfFolderBrowser auth={auth} setAuth={setAuth} onCancel={() => setBrowsing(false)}
+        <FolderBrowser auth={auth} setAuth={setAuth} siteUrl={SF_ONEDRIVE_URL} rootPath={SF_ROOT_PATH} rootLabel="Single Family" hint="Open the house's folder, then tap here" onCancel={() => setBrowsing(false)}
           onSelect={f => { setFolder(f); setBrowsing(false); }}/>
       ) : (
         <>
@@ -2398,6 +2409,7 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
   const [folderPath, setFolderPath] = useState(initialProject?.sharePointFolder || "");
   const [folderStatus, setFolderStatus] = useState(null); // null | "checking" | "ok" | "error"
   const [folderMsg, setFolderMsg] = useState("");
+  const [browsingFolder, setBrowsingFolder] = useState(false);
   const [energyModel, setEnergyModel] = useState(initialProject?.energyModel || null);
   const [energyModelFileName, setEnergyModelFileName] = useState(initialProject?.energyModelFileName || "");
   const [energyModelUploadedAt, setEnergyModelUploadedAt] = useState(initialProject?.energyModelUploadedAt || null);
@@ -2536,6 +2548,19 @@ function ProjectForm({ initialProject, onSave, onBack, auth, setAuth }) {
         {folderStatus === "checking" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#9CA3AF" }}>Checking…</p>}
         {folderStatus === "ok" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7CB83F" }}>✓ {folderMsg}</p>}
         {folderStatus === "error" && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#EF4444" }}>{folderMsg}</p>}
+        {/* Tap-down folder picker — fills in the same path the box above holds, so what gets stored
+            (and how sync finds the folder) is unchanged. The box stays as a fallback for typing/pasting. */}
+        {browsingFolder ? (
+          <FolderBrowser auth={auth} setAuth={setAuth} siteUrl={SP_SITE} rootPath="" rootLabel="MFProjects"
+            hint="Open the project's Site Visits folder, then tap here"
+            onCancel={() => setBrowsingFolder(false)}
+            onSelect={f => { setFolderPath(f.fullPath); setFolderStatus("ok"); setFolderMsg("Folder found"); setBrowsingFolder(false); }}/>
+        ) : (
+          <button disabled={!auth} onClick={() => setBrowsingFolder(true)}
+            style={{ marginTop: 8, fontSize: 13, fontWeight: 600, padding: "9px 14px", border: "1.5px solid #D1D5DB", borderRadius: 6, background: "#FFF", color: auth ? "#08182E" : "#D1D5DB", cursor: auth ? "pointer" : "not-allowed", fontFamily: "Poppins, sans-serif" }}>
+            Browse folders
+          </button>
+        )}
 
         <label style={{ display: "block", marginTop: 20, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>
           Energy model <span style={{ fontWeight: 400, color: "#9CA3AF", textTransform: "none" }}>(optional — Ekotrope .xml export)</span>
