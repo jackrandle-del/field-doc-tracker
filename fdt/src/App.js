@@ -53,7 +53,14 @@ const idbDeletePhoto = async (key) => {
 const CLIENT_ID   = "50108c90-8844-4fbc-96af-d4fb7e7fa4ca";
 const TENANT_ID   = "ba936175-44a3-4888-b75e-6f814421a09c";
 const SP_SITE     = "https://ecva.sharepoint.com/sites/MFProjects";
-const SCOPES      = "Files.ReadWrite.All Sites.ReadWrite.All User.Read offline_access";
+// Single Family lives somewhere else: the OneDrive of viridiantdata@viridiant.org, shared with the
+// team (verified readable/writable through the normal /sites/ route by the Phase 0 access test).
+// A house is linked to one of the folders under SF_ROOT_PATH; everything Doc Tracker uploads goes
+// into a NEW "Doc Tracker Documentation" folder inside it — existing folders are never touched.
+const SF_ONEDRIVE_URL = "https://ecva-my.sharepoint.com/personal/viridiantdata_viridiant_org";
+const SF_ROOT_PATH = "Viridiant Team Folder/Projects/Single Family";
+const SF_DOC_FOLDER = "Doc Tracker Documentation";
+const SCOPES     = "Files.ReadWrite.All Sites.ReadWrite.All User.Read offline_access";
 const AUTH_KEY    = "fdt_auth_v1";
 
 // Server-side sign-in (api/ms-token.js): lets Microsoft keep a sign-in for ~90 days instead of the
@@ -191,17 +198,18 @@ const getValidToken = async (auth, setAuth) => {
 
 // ── SHAREPOINT PHOTO UPLOAD (Microsoft Graph) ─────────────────────────────────
 // Resolves SP_SITE to a Graph site id once per session, then reuses it.
-let _cachedSiteId = null;
-const getSharePointSiteId = async (token) => {
-  if (_cachedSiteId) return _cachedSiteId;
-  const url = new URL(SP_SITE);
+// Defaults to the multifamily site; Single Family passes SF_ONEDRIVE_URL. Cached per URL.
+const _siteIdCache = {};
+const getSharePointSiteId = async (token, siteUrl = SP_SITE) => {
+  if (_siteIdCache[siteUrl]) return _siteIdCache[siteUrl];
+  const url = new URL(siteUrl);
   const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${url.hostname}:${url.pathname}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   const json = await res.json();
   if (!json.id) throw new Error(json.error?.message || "Could not resolve SharePoint site");
-  _cachedSiteId = json.id;
-  return _cachedSiteId;
+  _siteIdCache[siteUrl] = json.id;
+  return json.id;
 };
 
 const extFromDataUrl = (dataUrl) => {
@@ -283,9 +291,11 @@ const createOrGetSubfolder = async (siteId, token, parentId, name) => {
 const formatDateFolderName = (d) =>
   `${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}.${d.getFullYear()}`;
 
-const uploadPhotoToFolder = async (siteId, token, folderId, fileName, dataUrl) => {
+// noOverwrite (Single Family): if a file with that name already exists, SharePoint keeps both by
+// renaming the new one, instead of the default of silently replacing the old file.
+const uploadPhotoToFolder = async (siteId, token, folderId, fileName, dataUrl, noOverwrite = false) => {
   const blob = await (await fetch(dataUrl)).blob();
-  const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${folderId}:/${encodeURIComponent(fileName)}:/content`, {
+  const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${folderId}:/${encodeURIComponent(fileName)}:/content${noOverwrite ? "?@microsoft.graph.conflictBehavior=rename" : ""}`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": blob.type || "image/jpeg" },
     body: blob,
@@ -319,7 +329,7 @@ const _thumbCache = new Map();
 // there's nothing to show yet. This is the one mechanism both an item's own photo grid and the
 // cross-linked MRF overlap gallery use — same problem either way ("is the byte data on THIS
 // device"), just a different source item.
-async function resolvePhotoDisplay(photoKey, meta, auth, setAuth) {
+async function resolvePhotoDisplay(photoKey, meta, auth, setAuth, siteUrl) {
   const dataUrl = await idbGetPhoto(`${photoKey}__${meta.id}`);
   if (dataUrl) return { status: "local", src: dataUrl };
   if (!meta.spItemId) {
@@ -333,7 +343,7 @@ async function resolvePhotoDisplay(photoKey, meta, auth, setAuth) {
     return { status: loadAuth() ? "offline" : "need-auth" };
   }
   try {
-    const siteId = await getSharePointSiteId(token);
+    const siteId = await getSharePointSiteId(token, siteUrl);
     const url = await getPhotoThumbnailUrl(siteId, token, meta.spItemId);
     if (!url) return { status: "no-preview", webUrl: meta.spWebUrl || null };
     _thumbCache.set(meta.spItemId, url);
@@ -1950,7 +1960,21 @@ function applyEarthCraftMandatoryStatusAutoPass(project, existingRecords) {
 // problem — it doesn't count toward `fail` (which drives the red alert / ring color), it counts
 // toward `pointsFail`/`pointsAtRisk` (a separate yellow "failing to meet N points" signal). Only a
 // failed required (non-points) item is a real "fail".
+// ── Single Family helpers ──
+// A Single Family house has one category, "Documentation", holding an always-present "General
+// uploads" bucket (photo/PDF dump, no status, never counted toward progress) plus whatever named
+// items the TA adds (project.sfItems — later pre-filled from each house's checklist). Records use
+// the normal key shape, so photos/notes/statuses all work through the existing item code.
+const SF_CATEGORIES = [{ id: "Documentation", code: "DOC" }];
+const SF_GENERAL_ITEM = { id: "sf_general", text: "General uploads", photoOnly: true, _cat: "Documentation" };
+const isSF = (project) => project?.type === "sf";
+const getProjectCategories = (project) => isSF(project) ? SF_CATEGORIES : CATEGORIES;
+const getProjectItems = (project, categoryId) => isSF(project)
+  ? [SF_GENERAL_ITEM, ...(project.sfItems || []).map(i => ({ ...i, _cat: "Documentation" }))]
+  : getItemsForSelection(project.programs || [], categoryId, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits);
+
 function calcCatProgress(items, records, projectId, categoryId) {
+  items = items.filter(i => !i.photoOnly); // photo-only buckets (SF "General uploads") aren't verifiable
   if (!items.length) return { pct: 0, pass: 0, fail: 0, na: 0, total: 0, pointsFail: 0, pointsAtRisk: 0 };
   let pass = 0, fail = 0, na = 0, pointsFail = 0, pointsAtRisk = 0;
   items.forEach(item => {
@@ -1967,14 +1991,15 @@ function calcCatProgress(items, records, projectId, categoryId) {
 
 function calcProjectProgress(project, records) {
   let total = 0, verified = 0, fail = 0, pointsFail = 0, pointsAtRisk = 0;
-  CATEGORIES.forEach(cat => {
+  getProjectCategories(project).forEach(cat => {
     // Final Testing has no status to speak of (photo-only, see FINAL_TESTING_TYPES) and is
     // deliberately excluded from the project's main percentage entirely, per explicit request —
     // unlike MRF, which today still counts toward this total even though it's hidden from its
     // own category row's percentage.
     if (cat.id === "Final Testing") return;
-    const items = getItemsForSelection(project.programs || [], cat.id, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits);
+    const items = getProjectItems(project, cat.id);
     items.forEach(item => {
+      if (item.photoOnly) return;
       total++;
       const r = records[`${project.id}__${cat.id}__${item.id}`];
       if (r?.status === "pass" || r?.status === "na") verified++;
@@ -2029,18 +2054,17 @@ function ProgressBar({ pct, fail }) {
   );
 }
 
-function StatusBadge({ status }) {
-  const m = { pass: ["#F0F8E6","#4B7A22","Pass"], fail: ["#FEE2E2","#991B1B","Fail"], na: ["#F3F4F6","#4B5563","N/A"] };
+function StatusBadge({ status, sf }) {
+  const m = { pass: ["#F0F8E6","#4B7A22",sf?"Verified":"Pass"], fail: ["#FEE2E2","#991B1B",sf?"Issue found":"Fail"], na: ["#F3F4F6","#4B5563","N/A"] };
   const s = m[status]; if (!s) return null;
   return <span style={{ background: s[0], color: s[1], fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>{s[2]}</span>;
 }
 
-// ─── SINGLE FAMILY: PHASE 0 ACCESS TEST ──────────────────────────────────────
-// The Single Family folders live in someone else's OneDrive (viridiantdata@viridiant.org), not on
-// the MFProjects SharePoint site the rest of the app talks to. Before building the portal we need
-// to know whether this app's sign-in can read and write there, and by which Microsoft Graph route.
-// Hidden unless a browser has been opened once with ?sf=1 (?sf=0 turns it back off), so nobody else
-// sees it. Standalone on purpose: it uses none of the existing SharePoint helpers.
+// ─── SINGLE FAMILY PORTAL ────────────────────────────────────────────────────
+// A much simpler second "portal" next to the multifamily tool: a house is just a name, a TA, a
+// linked SharePoint folder, and a flat list of documentation items. Everything is gated behind a
+// per-browser switch (?sf=1 turns it on, ?sf=0 off) until it has been proven on real houses —
+// without the switch the app behaves exactly as before and Single Family houses stay hidden.
 const SF_FLAG_KEY = "fdt_sf_v1";
 const sfEnabled = () => {
   try {
@@ -2050,114 +2074,220 @@ const sfEnabled = () => {
     return localStorage.getItem(SF_FLAG_KEY) === "1";
   } catch { return false; }
 };
-const SF_ONEDRIVE_URL = "https://ecva-my.sharepoint.com/personal/viridiantdata_viridiant_org";
-const SF_ONEDRIVE_OWNER = "viridiantdata@viridiant.org";
-const SF_ROOT_PATH = "Viridiant Team Folder/Projects/Single Family";
+const PORTAL_KEY = "fdt_portal_v1";
+const loadPortal = () => { try { const p = localStorage.getItem(PORTAL_KEY); return p === "mf" || p === "sf" ? p : null; } catch { return null; } };
+const savePortal = (p) => { try { localStorage.setItem(PORTAL_KEY, p); } catch {} };
 
-function SfAccessTest({ auth, setAuth }) {
-  const [log, setLog] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const [base, setBase] = useState(null); // Graph path prefix of the route that worked for reading
-  const add = (line) => setLog(l => [...l, line]);
+// Shown right after sign-in (when the Single Family switch is on) until a choice has been made;
+// after that the last choice is remembered and a "Switch" button in the top bar comes back here.
+function PortalChooser({ onChoose, onSignOut }) {
+  const card = { display: "block", width: "100%", textAlign: "left", padding: "20px 18px", background: "#FFF", border: "1.5px solid #E5E7EB", borderRadius: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif", marginBottom: 14 };
+  return (
+    <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#F7F7F8", fontFamily: "Poppins, sans-serif", padding: "48px 20px 24px", boxSizing: "border-box" }}>
+      <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <img src="/logo192.png" alt="" style={{ width: 44, height: 44 }}/>
+        <h1 style={{ margin: "12px 0 4px", fontSize: 22, fontWeight: 700, color: "#08182E" }}>Doc Tracker</h1>
+        <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>Which projects are you working on?</p>
+      </div>
+      <button onClick={() => onChoose("mf")} style={card}>
+        <span style={{ display: "block", fontSize: 17, fontWeight: 700, color: "#08182E" }}>🏢 Multifamily</span>
+        <span style={{ display: "block", marginTop: 4, fontSize: 12, color: "#6B7280", lineHeight: 1.5 }}>Energy Star &amp; EarthCraft checklists, Final Testing, MRF</span>
+      </button>
+      <button onClick={() => onChoose("sf")} style={card}>
+        <span style={{ display: "block", fontSize: 17, fontWeight: 700, color: "#08182E" }}>🏠 Single Family</span>
+        <span style={{ display: "block", marginTop: 4, fontSize: 12, color: "#6B7280", lineHeight: 1.5 }}>Upload each house's photos and documents, synced to its Single Family folder</span>
+      </button>
+      <div style={{ textAlign: "center", marginTop: 24 }}>
+        <button onClick={onSignOut} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Sign out</button>
+      </div>
+    </div>
+  );
+}
 
-  const graph = async (token, path, opts = {}) => {
-    const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
-      ...opts, headers: { Authorization: `Bearer ${token}`, ...(opts.headers || {}) },
-    });
-    let body = null;
-    try { body = await res.json(); } catch {}
-    return { ok: res.ok, status: res.status, body };
-  };
-  const errText = (r) => `HTTP ${r.status} — ${r.body?.error?.code || ""} ${r.body?.error?.message || ""}`.trim();
-  const encPath = SF_ROOT_PATH.split("/").map(encodeURIComponent).join("/");
+// Walks the Single Family folder tree one level at a time (names only, folders only) so a TA can
+// tap down to a house's folder instead of typing a path. Read-only: it never creates anything.
+function SfFolderBrowser({ auth, setAuth, onSelect, onCancel }) {
+  const [stack, setStack] = useState([]); // folders descended into, below the Single Family root
+  const [items, setItems] = useState(null); // null = loading
+  const [error, setError] = useState("");
+  const [filter, setFilter] = useState("");
+  const [tick, setTick] = useState(0);
+  const rootIdRef = useRef(null);
 
-  const listRoot = async (token, prefix) => {
-    const r = await graph(token, `${prefix}/root:/${encPath}:/children?$select=id,name,folder&$top=200`);
-    if (!r.ok) { add(`   ✗ could not list Single Family folder: ${errText(r)}`); return false; }
-    const items = r.body?.value || [];
-    add(`   ✓ listed Single Family folder: ${items.length} item(s)`);
-    items.slice(0, 20).forEach(i => add(`      ${i.folder ? "📁" : "📄"} ${i.name}`));
-    if (items.length > 20) add(`      …and ${items.length - 20} more`);
-    return true;
-  };
-
-  const runRead = async () => {
-    setBusy(true); setLog([]); setBase(null);
-    try {
-      const token = await getValidToken(auth, setAuth);
-      if (!token) { add("Not signed in to SharePoint (or session expired) — tap Connect / Reconnect first."); return; }
-      add(`Signed in as ${auth.user?.email || auth.user?.name || "?"} (${auth.mode === "server" ? "server sign-in" : "browser sign-in"})`);
-      let working = null;
-
-      add("Route A — as a SharePoint site (same method the multifamily projects use)");
-      const u = new URL(SF_ONEDRIVE_URL);
-      const site = await graph(token, `/sites/${u.hostname}:${u.pathname}`);
-      if (!site.ok || !site.body?.id) add(`   ✗ could not resolve site: ${errText(site)}`);
-      else {
-        add("   ✓ resolved site");
-        if (await listRoot(token, `/sites/${site.body.id}/drive`)) working = `/sites/${site.body.id}/drive`;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setItems(null); setError("");
+      try {
+        const token = await getValidToken(auth, setAuth);
+        if (!token) throw new Error("Not connected to SharePoint — reconnect and try again.");
+        const siteId = await getSharePointSiteId(token, SF_ONEDRIVE_URL);
+        if (!rootIdRef.current) rootIdRef.current = await getSharePointFolderId(siteId, token, SF_ROOT_PATH);
+        const parentId = stack.length ? stack[stack.length - 1].id : rootIdRef.current;
+        let url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${parentId}/children?$select=id,name,folder&$top=200`;
+        const out = [];
+        for (let page = 0; url && page < 10; page++) {
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) throw new Error(`Could not open this folder (${res.status})`);
+          const json = await res.json();
+          out.push(...(json.value || []).filter(i => i.folder));
+          url = json["@odata.nextLink"] || null;
+        }
+        out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+        if (!cancelled) setItems(out);
+      } catch (e) {
+        if (!cancelled) setError(e.message || "Could not load folders.");
       }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stack, tick]);
 
-      add(`Route B — directly as ${SF_ONEDRIVE_OWNER}'s drive`);
-      const drv = await graph(token, `/users/${encodeURIComponent(SF_ONEDRIVE_OWNER)}/drive?$select=id,webUrl`);
-      if (!drv.ok || !drv.body?.id) add(`   ✗ could not open drive: ${errText(drv)}`);
-      else {
-        add("   ✓ opened drive");
-        if (await listRoot(token, `/drives/${drv.body.id}`) && !working) working = `/drives/${drv.body.id}`;
-      }
-
-      add(working ? `RESULT: read access works (${working.startsWith("/sites") ? "Route A" : "Route B"} used for the write test).`
-                  : "RESULT: could not read the Single Family folder by either route — copy this whole log back to Claude.");
-      setBase(working);
-    } catch (e) { add(`Unexpected error: ${e.message}`); }
-    finally { setBusy(false); }
-  };
-
-  const runWrite = async () => {
-    if (!base) return;
-    if (!window.confirm("This will briefly create an empty folder named \"_doc-tracker-access-test\" inside the Single Family folder, then delete it right away. Nothing else is touched. Continue?")) return;
-    setBusy(true); add("— Write test —");
-    try {
-      const token = await getValidToken(auth, setAuth);
-      if (!token) { add("Not signed in — reconnect first."); return; }
-      const made = await graph(token, `${base}/root:/${encPath}:/children`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "_doc-tracker-access-test", folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
-      });
-      if (!made.ok || !made.body?.id) { add(`   ✗ create folder failed: ${errText(made)}`); return; }
-      add("   ✓ created test folder");
-      const del = await graph(token, `${base}/items/${made.body.id}`, { method: "DELETE" });
-      add(del.ok ? "   ✓ deleted test folder — write access works" : `   ✗ delete failed (folder may remain, please remove it by hand): ${errText(del)}`);
-    } catch (e) { add(`Unexpected error: ${e.message}`); }
-    finally { setBusy(false); }
-  };
-
-  const copyLog = () => { try { navigator.clipboard.writeText(log.join("\n")); } catch {} };
-  const btn = { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: "Poppins, sans-serif", border: "1px solid #D1D5DB", background: "#FFF", color: "#08182E" };
+  const go = (next) => { setFilter(""); setStack(next); };
+  const q = filter.trim().toLowerCase();
+  const shown = (items || []).filter(i => !q || i.name.toLowerCase().includes(q));
+  const here = stack.length ? stack[stack.length - 1] : null;
 
   return (
-    <div style={{ margin: "12px 20px", padding: 14, border: "1px dashed #C4A24A", borderRadius: 8, background: "#FFFBEB" }}>
-      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#92400E" }}>Single Family — access test (internal)</p>
-      <p style={{ margin: "4px 0 10px", fontSize: 11, color: "#6B7280" }}>Checks whether Doc Tracker can reach the Single Family folder. Only visible on browsers opened with ?sf=1.</p>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button style={btn} disabled={busy || !auth} onClick={runRead}>{busy ? "Working…" : "1. Test read access"}</button>
-        <button style={{ ...btn, opacity: base ? 1 : 0.5 }} disabled={busy || !base} onClick={runWrite}>2. Test write access</button>
-        {log.length > 0 && <button style={btn} onClick={copyLog}>Copy results</button>}
+    <div style={{ marginTop: 8, border: "1.5px solid #E5E7EB", borderRadius: 8, background: "#FFF", overflow: "hidden" }}>
+      <div style={{ padding: "10px 12px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 8 }}>
+        {stack.length > 0 && (
+          <button onClick={() => go(stack.slice(0, -1))} style={{ border: "none", background: "none", fontSize: 18, cursor: "pointer", color: "#374151", padding: 0 }}>‹</button>
+        )}
+        <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: "#374151", wordBreak: "break-word" }}>
+          Single Family{stack.map(s => ` / ${s.name}`).join("")}
+        </p>
+        <button onClick={onCancel} style={{ border: "none", background: "none", fontSize: 12, color: "#9CA3AF", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Cancel</button>
       </div>
-      {!auth && <p style={{ margin: "8px 0 0", fontSize: 11, color: "#B45309" }}>Connect to SharePoint above first.</p>}
-      {log.length > 0 && <pre style={{ margin: "10px 0 0", fontSize: 11, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#08182E" }}>{log.join("\n")}</pre>}
+      <div style={{ padding: "8px 12px", borderBottom: "1px solid #F3F4F6" }}>
+        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter folders…"
+          style={{ width: "100%", padding: "8px 10px", fontSize: 14, border: "1px solid #E5E7EB", borderRadius: 6, outline: "none", boxSizing: "border-box", fontFamily: "Poppins, sans-serif" }}/>
+      </div>
+      <div style={{ maxHeight: 320, overflowY: "auto" }}>
+        {error ? (
+          <div style={{ padding: 14 }}>
+            <p style={{ margin: 0, fontSize: 12, color: "#991B1B" }}>{error}</p>
+            <button onClick={() => setTick(t => t + 1)} style={{ marginTop: 8, fontSize: 12, fontWeight: 600, padding: "6px 12px", border: "1px solid #D1D5DB", borderRadius: 6, background: "#FFF", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Try again</button>
+          </div>
+        ) : items === null ? (
+          <p style={{ margin: 0, padding: 14, fontSize: 12, color: "#9CA3AF" }}>Loading…</p>
+        ) : shown.length === 0 ? (
+          <p style={{ margin: 0, padding: 14, fontSize: 12, color: "#9CA3AF" }}>{q ? "No folders match." : "No subfolders here."}</p>
+        ) : shown.map(f => (
+          <button key={f.id} onClick={() => go([...stack, { id: f.id, name: f.name }])}
+            style={{ display: "flex", width: "100%", alignItems: "center", gap: 10, padding: "12px 14px", border: "none", borderBottom: "1px solid #F9FAFB", background: "#FFF", textAlign: "left", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontSize: 14, color: "#08182E" }}>
+            <span>📁</span><span style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{f.name}</span><span style={{ color: "#D1D5DB" }}>›</span>
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: 12, borderTop: "1px solid #F3F4F6" }}>
+        <button disabled={!here}
+          onClick={() => onSelect({ id: here.id, name: here.name, path: stack.map(s => s.name).join(" / ") })}
+          style={{ width: "100%", padding: 12, border: "none", borderRadius: 6, fontSize: 14, fontWeight: 600, fontFamily: "Poppins, sans-serif", background: here ? "#08182E" : "#E5E7EB", color: here ? "#FFF" : "#9CA3AF", cursor: here ? "pointer" : "not-allowed" }}>
+          {here ? `Use "${here.name}"` : "Open the house's folder, then tap here"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Create/edit a Single Family house: name, TA, and the SharePoint folder it files into. The folder
+// can be linked later — until then everything uploaded stays safe on the device.
+function SfHouseForm({ initialProject, onSave, onBack, auth, setAuth }) {
+  const isEdit = !!initialProject;
+  const [name, setName] = useState(initialProject?.name || "");
+  const [advisor, setAdvisor] = useState(initialProject?.advisor || "");
+  const [folder, setFolder] = useState(initialProject?.sfFolder || null);
+  const [browsing, setBrowsing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const label = { display: "block", marginTop: 20, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" };
+  const input = { display: "block", width: "100%", marginTop: 8, padding: "12px 14px", fontSize: 16, border: "1.5px solid #E5E7EB", borderRadius: 6, outline: "none", boxSizing: "border-box", fontFamily: "Poppins, sans-serif" };
+  const canSave = !!name.trim() && !saving;
+
+  const handleSave = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      await onSave({
+        ...(initialProject || {}),
+        id: initialProject?.id || `sf_${Date.now()}`,
+        type: "sf",
+        name: name.trim(), advisor: advisor.trim(),
+        sfFolder: folder || null,
+        sfItems: initialProject?.sfItems || [],
+        createdAt: initialProject?.createdAt || new Date().toISOString(),
+      });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ padding: "24px 20px" }}>
+      <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 700, color: "#08182E" }}>{isEdit ? "Edit house" : "New house"}</h2>
+      <label style={label}>House / client name</label>
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Dockins, Richard" style={input}/>
+      <label style={label}>Technical Advisor</label>
+      <input value={advisor} onChange={e => setAdvisor(e.target.value)} placeholder="Full name" style={input}/>
+
+      <label style={label}>SharePoint folder</label>
+      {!auth && (
+        <div style={{ marginTop: 8, padding: "10px 12px", background: "#F9FAFB", border: "1.5px solid #E5E7EB", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <p style={{ margin: 0, fontSize: 12, color: "#9CA3AF" }}>Connect to SharePoint to choose the house's folder</p>
+          <button onClick={startLogin}
+            style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: "#0078D4", border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
+            {wasAuthExpired() ? "Reconnect" : "Connect"}
+          </button>
+        </div>
+      )}
+      {browsing ? (
+        <SfFolderBrowser auth={auth} setAuth={setAuth} onCancel={() => setBrowsing(false)}
+          onSelect={f => { setFolder(f); setBrowsing(false); }}/>
+      ) : (
+        <>
+          {folder && (
+            <div style={{ marginTop: 8, padding: "10px 12px", background: "#F0F8E6", border: "1.5px solid #CFE6B0", borderRadius: 6 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#4B7A22", wordBreak: "break-word" }}>📁 {folder.name}</p>
+              {folder.path && <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6B7280", wordBreak: "break-word" }}>{folder.path}</p>}
+            </div>
+          )}
+          <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+            <button disabled={!auth} onClick={() => setBrowsing(true)}
+              style={{ fontSize: 13, fontWeight: 600, padding: "9px 14px", border: "1.5px solid #D1D5DB", borderRadius: 6, background: "#FFF", color: auth ? "#08182E" : "#D1D5DB", cursor: auth ? "pointer" : "not-allowed", fontFamily: "Poppins, sans-serif" }}>
+              {folder ? "Change folder" : "Choose folder"}
+            </button>
+            {folder && (
+              <button onClick={() => setFolder(null)}
+                style={{ fontSize: 13, padding: "9px 14px", border: "none", background: "none", color: "#9CA3AF", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+                Unlink
+              </button>
+            )}
+          </div>
+          <p style={{ margin: "8px 0 0", fontSize: 11, color: "#9CA3AF", lineHeight: 1.5 }}>
+            {folder
+              ? `Uploads go into a new "${SF_DOC_FOLDER}" folder inside it; nothing already there is changed.${isEdit ? " Photos already uploaded stay where they are." : ""}`
+              : "You can link the folder later — photos stay safe on this device until then."}
+          </p>
+        </>
+      )}
+
+      <button onClick={handleSave} disabled={!canSave}
+        style={{ marginTop: 24, width: "100%", padding: 14, background: canSave ? "#08182E" : "#E5E7EB", color: canSave ? "#FFF" : "#9CA3AF", border: "none", borderRadius: 6, fontSize: 15, fontWeight: 600, cursor: canSave ? "pointer" : "not-allowed", fontFamily: "Poppins, sans-serif" }}>
+        {saving ? "Saving…" : isEdit ? "Save changes" : "Create house"}
+      </button>
+      <button onClick={onBack}
+        style={{ marginTop: 10, width: "100%", padding: 12, background: "none", border: "none", color: "#6B7280", fontSize: 14, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+        Cancel
+      </button>
     </div>
   );
 }
 
 // ─── SCREEN: PROJECT LIST ─────────────────────────────────────────────────────
-function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, setAuth, onLogout }) {
+function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, onLogout, isSfPortal }) {
   const [confirmId, setConfirmId] = useState(null);
   const confirmProj = projects.find(p => p.id === confirmId);
 
   return (
     <div style={{ paddingBottom: 80 }}>
-      {sfEnabled() && <SfAccessTest auth={auth} setAuth={setAuth}/>}
 
       {/* SharePoint connection bar — a passive status report, not an action, so it stays quiet:
           no colored background wash, state conveyed through the small icon/text color only.
@@ -2190,12 +2320,12 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, se
         )}
       </div>
       <div style={{ padding: "20px 20px 12px", borderBottom: "1px solid #F3F4F6" }}>
-        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.08em", textTransform: "uppercase" }}>Active projects</p>
+        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.08em", textTransform: "uppercase" }}>{isSfPortal ? "Active houses" : "Active projects"}</p>
       </div>
       {!projects.length && (
         <div style={{ padding: "48px 20px", textAlign: "center" }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>☑️</div>
-          <p style={{ margin: 0, fontSize: 15, color: "#6B7280" }}>No projects yet</p>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>{isSfPortal ? "🏠" : "☑️"}</div>
+          <p style={{ margin: 0, fontSize: 15, color: "#6B7280" }}>{isSfPortal ? "No houses yet" : "No projects yet"}</p>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "#9CA3AF" }}>Tap + to get started</p>
         </div>
       )}
@@ -2214,7 +2344,9 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, se
                   the ring color still hints at it, but the specifics only show once you're
                   actually inside a project (hero, category rows, checklist header). */}
               <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
-                {(proj.programs||[]).length} program{proj.programs?.length!==1?"s":""} · {pg.verified}/{pg.total} items
+                {isSF(proj)
+                  ? (pg.total ? `${pg.verified}/${pg.total} items verified${pg.fail>0?` · ${pg.fail} issue${pg.fail>1?"s":""} found`:""}` : (proj.advisor ? `TA: ${proj.advisor}` : "Documentation"))
+                  : <>{(proj.programs||[]).length} program{proj.programs?.length!==1?"s":""} · {pg.verified}/{pg.total} items</>}
               </p>
             </div>
             <button onClick={() => setConfirmId(proj.id)}
@@ -2231,10 +2363,12 @@ function ProjectList({ projects, records, onSelect, onCreate, onDelete, auth, se
           <div onClick={e => e.stopPropagation()}
             style={{ width: "100%", maxWidth: 430, margin: "0 auto", background: "#FFF", borderRadius: "16px 16px 0 0", padding: "24px 20px 36px" }}>
             <p style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "#08182E" }}>Delete "{confirmProj.name}"?</p>
-            <p style={{ margin: "0 0 24px", fontSize: 13, color: "#6B7280" }}>This will permanently delete the project and all its inspection records. This can't be undone.</p>
+            <p style={{ margin: "0 0 24px", fontSize: 13, color: "#6B7280" }}>{isSF(confirmProj)
+              ? "This removes the house and its records from Doc Tracker. Files already uploaded to SharePoint are not deleted. This can't be undone."
+              : "This will permanently delete the project and all its inspection records. This can't be undone."}</p>
             <button onClick={() => { onDelete(confirmId); setConfirmId(null); }}
               style={{ width: "100%", padding: 14, background: "#EF4444", border: "none", borderRadius: 6, color: "#FFF", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif", marginBottom: 10 }}>
-              Delete project
+              {isSF(confirmProj) ? "Delete house" : "Delete project"}
             </button>
             <button onClick={() => setConfirmId(null)}
               style={{ width: "100%", padding: 14, background: "none", border: "1.5px solid #E5E7EB", borderRadius: 6, color: "#374151", fontSize: 15, fontWeight: 500, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
@@ -2604,7 +2738,7 @@ function ItemRow({ project, item, records, onSelectItem, showCategory }) {
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-          {rec.status && <StatusBadge status={rec.status}/>}
+          {rec.status && <StatusBadge status={rec.status} sf={isSF(project)}/>}
           <button onClick={() => onSelectItem(item)}
             style={{ fontSize: 11, padding: "5px 11px", border: "1.5px solid #E5E7EB", borderRadius: 8, background: "#FFF", color: "#374151", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontWeight: 500 }}>
             {(rec.status || rec.photos?.length) ? "Update" : "Document"}
@@ -2656,9 +2790,14 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
   useEffect(() => { recordsRef.current = records; }, [records]);
 
   // All items across every category, tagged with their source category
-  const allProjectItems = CATEGORIES.flatMap(cat =>
-    getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits).map(i => ({ ...i, _cat: cat.id }))
+  const allProjectItems = getProjectCategories(project).flatMap(cat =>
+    getProjectItems(project, cat.id).map(i => ({ ...i, _cat: cat.id }))
   );
+  // Single Family houses link a folder in a different SharePoint location (see SF_ONEDRIVE_URL)
+  // and file into a "Doc Tracker Documentation" folder inside it; everything else about the sync
+  // below is shared with multifamily.
+  const isSf = isSF(project);
+  const linked = isSf ? !!project.sfFolder : !!project.sharePointFolder;
 
   // Every photo, across every item in the project, that has never been uploaded to SharePoint
   const pendingPhotoJobs = () => {
@@ -2686,8 +2825,8 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
     // SharePoint folder, can't connect) that aren't about any one photo. Keeping the item
     // reference (not just a formatted string) lets the UI jump straight to the failed item
     // instead of just naming it.
-    if (!project.sharePointFolder) {
-      if (interactive) setSyncState({ running: false, done: 0, total: 0, errors: [{ item: null, message: "This project isn't linked to a SharePoint folder yet." }] });
+    if (!linked) {
+      if (interactive) setSyncState({ running: false, done: 0, total: 0, errors: [{ item: null, message: isSf ? "This house isn't linked to a SharePoint folder yet — tap ✎ to choose one." : "This project isn't linked to a SharePoint folder yet." }] });
       return;
     }
     if (!auth) { if (interactive) startLogin(); return; }
@@ -2711,8 +2850,14 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
       // see dateFolderCache.
       let siteId, siteVisitsFolderId;
       try {
-        siteId = await getSharePointSiteId(token);
-        siteVisitsFolderId = await getSharePointFolderId(siteId, token, project.sharePointFolder);
+        if (isSf) {
+          siteId = await getSharePointSiteId(token, SF_ONEDRIVE_URL);
+          // The only thing ever created directly inside the TA's house folder; reused if present.
+          siteVisitsFolderId = await createOrGetSubfolder(siteId, token, project.sfFolder.id, SF_DOC_FOLDER);
+        } else {
+          siteId = await getSharePointSiteId(token);
+          siteVisitsFolderId = await getSharePointFolderId(siteId, token, project.sharePointFolder);
+        }
       } catch (e) {
         setSyncState({ running: false, done: 0, total: jobs.length, errors: [{ item: null, message: e.message }] });
         return;
@@ -2789,7 +2934,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           // MRF's own pointNumber is already a short descriptive phrase ("Mechanical Ventilation",
           // "Wall Insulation") — appending another short description derived from its instructional
           // text would just be redundant clutter, so only add one for EarthCraft/Energy Star items.
-          const shortDesc = (isFinalTesting || isMRFItem) ? "" : sanitizeSpName(ecShortDescription(job.item.text));
+          const shortDesc = (isFinalTesting || isMRFItem || isSf) ? "" : sanitizeSpName(ecShortDescription(job.item.text));
           // A photo can carry an optional tag (currently HVAC Equipment's 1BR/2BR/3BR unit type —
           // see PHOTO_TAG_CONFIG); it goes in the filename so the type is visible in SharePoint.
           const thisPhotoMeta = (base.photos || []).find(p => (typeof p === "string" ? p : p.id) === job.photoId);
@@ -2799,13 +2944,13 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
             : photoTag
               ? `${label} - ${photoTag} - ${nextNum}.${extFromDataUrl(dataUrl)}`
               : `${label} - ${nextNum}.${extFromDataUrl(dataUrl)}`;
-          const uploaded = await uploadPhotoToFolder(siteId, token, destFolderId, fileName, dataUrl);
+          const uploaded = await uploadPhotoToFolder(siteId, token, destFolderId, fileName, dataUrl, isSf);
           if (!isStillPending(job.key, job.photoId)) { done++; setSyncState({ running: true, done, total: jobs.length, errors }); continue; }
           const freshBase = workingRecords[job.key] || recordsRef.current[job.key] || base;
           const updatedPhotos = (freshBase.photos||[]).map(p => {
             const pid = typeof p === "string" ? p : p.id;
             if (pid !== job.photoId) return typeof p === "string" ? { id: p, syncedAt: null, spFileName: null } : p;
-            return { ...(typeof p === "string" ? {} : p), id: pid, syncedAt: new Date().toISOString(), spFileName: fileName, spItemId: uploaded.id, spWebUrl: uploaded.webUrl };
+            return { ...(typeof p === "string" ? {} : p), id: pid, syncedAt: new Date().toISOString(), spFileName: (isSf && uploaded.name) || fileName, spItemId: uploaded.id, spWebUrl: uploaded.webUrl };
           });
           const updatedRec = { ...freshBase, photos: updatedPhotos, nextPhotoNum: nextNum + 1 };
           workingRecords[job.key] = updatedRec;
@@ -2842,13 +2987,15 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
     : null;
 
   const CatRow = ({ cat }) => {
-    const items = getItemsForSelection(project.programs||[], cat.id, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits);
+    const items = getProjectItems(project, cat.id);
     const mrf = cat.id === "Minimum Rated Features";
     const misc = cat.id === "Miscellaneous";
     const finalTesting = cat.id === "Final Testing";
     const empty = items.length === 0;
     const unitCount = finalTesting ? (project.finalTestingUnits || []).length : 0;
     const p = calcCatProgress(items, records, project.id, cat.id);
+    // Single Family: no named items yet means nothing to verify — hide the % and say how to start.
+    const sfEmpty = isSf && p.total === 0;
     if (empty && !mrf && !misc && !finalTesting) return null;
     const accentColor = p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB";
     return (
@@ -2862,19 +3009,21 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
             <span style={{ fontSize: 14, fontWeight: 600, color: mrf?"#0F7A66":"#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat.id}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} {mrf ? "need photos" : "fail"}</span>}
+            {p.fail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", background: "#FEE2E2", padding: "2px 7px", borderRadius: 8 }}>{p.fail} {mrf ? "need photos" : isSf ? "issue found" : "fail"}</span>}
             {p.pointsFail > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#8A6D14", background: "#FBF6DC", padding: "2px 7px", borderRadius: 8 }}>−{p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
-            {!finalTesting && !(misc && empty) && !(mrf && empty) && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
+            {!finalTesting && !(misc && empty) && !(mrf && empty) && !sfEmpty && <span style={{ fontSize: 13, fontWeight: 600, color: accentColor }}>{p.pct}%</span>}
             {mrf && empty && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Coming soon</span>}
             {misc && empty && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Nothing logged yet</span>}
             {finalTesting && unitCount === 0 && <span style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic" }}>Nothing logged yet</span>}
             <span style={{ color: "#D1D5DB" }}>›</span>
           </div>
         </div>
-        {!finalTesting && !(misc && empty) && !(mrf && empty) && <ProgressBar pct={p.pct} fail={p.fail}/>}
+        {!finalTesting && !(misc && empty) && !(mrf && empty) && !sfEmpty && <ProgressBar pct={p.pct} fail={p.fail}/>}
         <p style={{ margin: "4px 0 0", fontSize: 11, color: mrf?"#0F7A66":"#9CA3AF" }}>
           {mrf ? (empty ? "Energy modeling documentation"
                 : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} need photos`:""} · Energy modeling documentation`)
+            : sfEmpty ? "Upload anything, or add named items to verify"
+            : isSf ? `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} issue${p.fail>1?"s":""} found`:""}`
             : misc && empty ? "Tap to log something that didn't fit an existing item"
             : finalTesting ? (unitCount === 0 ? "Tap to log a unit and its test photos" : `${unitCount} unit${unitCount===1?"":"s"} documented`)
             : `${p.pass+p.na}/${p.total} verified${p.fail>0?` · ${p.fail} failing`:""}${p.pointsFail>0?` · failing to meet ${p.pointsAtRisk} pt${p.pointsAtRisk>1?"s":""}`:""}`}
@@ -2895,18 +3044,18 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
             </div>
             <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#FFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.name}</h2>
-              <p style={{ margin: 0, fontSize: 12, color: "#B9E6A0" }}>{pg.verified}/{pg.total} items verified</p>
+              {!(isSf && pg.total === 0) && <p style={{ margin: 0, fontSize: 12, color: "#B9E6A0" }}>{pg.verified}/{pg.total} items verified</p>}
               {project.advisor && <p style={{ margin: 0, fontSize: 12, color: "#9FC3E0" }}>TA: {project.advisor}</p>}
-              {pg.fail>0 && <p style={{ margin: 0, fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} item{pg.fail>1?"s":""} failing</p>}
+              {pg.fail>0 && <p style={{ margin: 0, fontSize: 12, color: "#FCA5A5", fontWeight: 600 }}>⚠ {pg.fail} {isSf ? `issue${pg.fail>1?"s":""} found` : `item${pg.fail>1?"s":""} failing`}</p>}
               {pg.pointsFail>0 && <p style={{ margin: 0, fontSize: 12, color: "#F0D678", fontWeight: 600 }}>failing to meet {pg.pointsAtRisk} pt{pg.pointsAtRisk>1?"s":""}</p>}
             </div>
           </div>
-          <button onClick={onEdit} title="Edit project"
+          <button onClick={onEdit} title={isSf ? "Edit house" : "Edit project"}
             style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)", color: "#FFF", fontSize: 14, cursor: "pointer" }}>
             ✎
           </button>
         </div>
-        <div style={{ marginTop: 24, display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ marginTop: isSf ? 0 : 24, display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(project.programs||[]).map((sel, i) => {
             const p = PROGRAM_CATALOG.find(x => x.id === sel.programId);
             return (
@@ -2925,10 +3074,12 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#374151" }}>☁ SharePoint photo sync</p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF", wordBreak: "break-word" }}>
-            📁 {project.sharePointFolder ? `${project.sharePointFolder} — filed by the date each photo was taken` : "Not linked to a SharePoint folder"}
+            📁 {isSf
+              ? (project.sfFolder ? `${project.sfFolder.name} › ${SF_DOC_FOLDER} — filed by the date each photo was taken` : "Not linked to a SharePoint folder")
+              : (project.sharePointFolder ? `${project.sharePointFolder} — filed by the date each photo was taken` : "Not linked to a SharePoint folder")}
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>
-            {!project.sharePointFolder ? "Set up by your Project Manager when the project is created"
+            {!linked ? (isSf ? "Tap ✎ above to choose this house's folder — photos stay safe on this device until then" : "Set up by your Project Manager when the project is created")
               : syncState.running ? `Uploading ${syncState.done}/${syncState.total}…`
               : !auth ? (wasAuthExpired()
                   ? `SharePoint session expired — reconnect to upload${pendingCount > 0 ? ` (${pendingCount} photo${pendingCount>1?"s":""} waiting on this device)` : ""}`
@@ -2940,9 +3091,9 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
             <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 600, color: "#EF4444" }}>{syncState.errors.length} failed to upload — tap "Upload to SharePoint" again to retry</p>
           )}
         </div>
-        <button onClick={handleUploadToSharePoint} disabled={!project.sharePointFolder || syncState.running || (auth && pendingCount===0)}
-          style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: !project.sharePointFolder ? "#D1D5DB" : !auth ? "#0078D4" : (pendingCount===0 ? "#D1D5DB" : "#1ABC9C"), border: "none", borderRadius: 6, padding: "6px 14px", cursor: (!project.sharePointFolder || syncState.running) ? "not-allowed" : "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
-          {!project.sharePointFolder ? "Not linked" : !auth ? (wasAuthExpired() ? "Reconnect" : "Connect") : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
+        <button onClick={handleUploadToSharePoint} disabled={!linked || syncState.running || (auth && pendingCount===0)}
+          style={{ fontSize: 12, fontWeight: 600, color: "#FFF", background: !linked ? "#D1D5DB" : !auth ? "#0078D4" : (pendingCount===0 ? "#D1D5DB" : "#1ABC9C"), border: "none", borderRadius: 6, padding: "6px 14px", cursor: (!linked || syncState.running) ? "not-allowed" : "pointer", flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
+          {!linked ? "Not linked" : !auth ? (wasAuthExpired() ? "Reconnect" : "Connect") : syncState.running ? "Uploading…" : pendingCount===0 ? "Synced" : "Upload to SharePoint"}
         </button>
       </div>
       {/* Per-photo failures — named and clickable, not just a count, so it's obvious which
@@ -2984,7 +3135,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
         </>
       ) : (
         <>
-          {CATEGORIES.map(cat => <CatRow key={cat.id} cat={cat}/>)}
+          {getProjectCategories(project).map(cat => <CatRow key={cat.id} cat={cat}/>)}
         </>
       )}
     </div>
@@ -2993,8 +3144,9 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
 
 // ─── SCREEN: CHECKLIST ────────────────────────────────────────────────────────
 // Search is scoped to this category only.
-function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem, onAddFinalTestingUnit, onSelectUnit }) {
-  const allItems = getItemsForSelection(project.programs||[], category.id, project.earthcraftOptionalItems, project.miscItems, project.finalTestingUnits).map(i => ({ ...i, _cat: category.id }));
+function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem, onAddFinalTestingUnit, onSelectUnit, onAddSfItem }) {
+  const allItems = getProjectItems(project, category.id).map(i => ({ ...i, _cat: category.id }));
+  const isSf = isSF(project);
   const [query, setQuery] = useState("");
   const [modelNotesOpen, setModelNotesOpen] = useState(false);
   const p = calcCatProgress(allItems, records, project.id, category.id);
@@ -3014,6 +3166,20 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
     if (!text || miscAdding) return;
     setMiscAdding(true);
     try { await onAddMiscItem(text); setMiscDraft(""); } finally { setMiscAdding(false); }
+  };
+
+  // Single Family: a TA can name what they're documenting ("Attic insulation") or skip this and
+  // just upload to "General uploads". Names must be unique — the name becomes the SharePoint file
+  // name, so two items sharing one would mix their photos together there.
+  const [sfDraft, setSfDraft] = useState("");
+  const [sfAdding, setSfAdding] = useState(false);
+  const handleAddSf = async () => {
+    const text = sfDraft.trim();
+    if (!text || sfAdding) return;
+    const taken = new Set([SF_GENERAL_ITEM.text, ...(project.sfItems || []).map(i => i.text)].map(t => sanitizeSpName(t).toLowerCase()));
+    if (taken.has(sanitizeSpName(text).toLowerCase())) { alert("An item with that name already exists on this house — pick a different name, or open the existing one."); return; }
+    setSfAdding(true);
+    try { await onAddSfItem(text); setSfDraft(""); } finally { setSfAdding(false); }
   };
 
   // Final Testing also has no static checklist — a TA names the dwelling unit being tested, and
@@ -3073,16 +3239,17 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
             <p style={{ margin: "3px 0 0", fontSize: 12, color: "#9CA3AF" }}>
               {isFinalTesting
                 ? `${(project.finalTestingUnits||[]).length} unit${(project.finalTestingUnits||[]).length===1?"":"s"} documented`
+                : isSf && p.total === 0 ? "Upload anything, or add named items to verify"
                 : (<>
                     {p.pass+p.na}/{p.total} verified
-                    {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} {isMRF ? "need photos" : "failing"}</span>}
+                    {p.fail > 0 && <span style={{ color: "#EF4444" }}> · {p.fail} {isMRF ? "need photos" : isSf ? `issue${p.fail>1?"s":""} found` : "failing"}</span>}
                     {p.pointsFail > 0 && <span style={{ color: "#8A6D14" }}> · failing to meet {p.pointsAtRisk} pt{p.pointsAtRisk>1?"s":""}</span>}
                   </>)}
             </p>
           </div>
-          {!isFinalTesting && <span style={{ fontSize: 22, fontWeight: 600, color: p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB" }}>{p.pct}%</span>}
+          {!isFinalTesting && !(isSf && p.total === 0) && <span style={{ fontSize: 22, fontWeight: 600, color: p.fail>0?"#EF4444":p.pct===100?"#7CB83F":"#009ACB" }}>{p.pct}%</span>}
         </div>
-        {!isFinalTesting && <div style={{ marginTop: 10 }}><ProgressBar pct={p.pct} fail={p.fail}/></div>}
+        {!isFinalTesting && !(isSf && p.total === 0) && <div style={{ marginTop: 10 }}><ProgressBar pct={p.pct} fail={p.fail}/></div>}
         <div style={{ marginTop: 12 }}>
           <SearchBar query={query} onChange={setQuery} placeholder={`Search in ${category.id}…`}/>
         </div>
@@ -3098,6 +3265,20 @@ function ChecklistView({ project, category, records, onSelectItem, onAddMiscItem
             style={{ marginTop: 8, padding: "10px 16px", background: !miscDraft.trim() || miscAdding ? "#E5E7EB" : "#08182E", color: !miscDraft.trim() || miscAdding ? "#9CA3AF" : "#FFF", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: !miscDraft.trim() || miscAdding ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
             {miscAdding ? "Adding…" : "+ Add item"}
           </button>
+        </div>
+      )}
+      {isSf && (
+        <div style={{ padding: "16px 20px", background: "#F9FAFB", borderBottom: "1px solid #F3F4F6" }}>
+          <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase" }}>Name something to document</label>
+          <input value={sfDraft} onChange={e => setSfDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleAddSf(); }}
+            placeholder="e.g. Attic insulation, Blower door, Furnace"
+            style={{ width: "100%", padding: "10px 12px", border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14, fontFamily: "Poppins, sans-serif", color: "#08182E", outline: "none", boxSizing: "border-box" }}/>
+          <button onClick={handleAddSf} disabled={!sfDraft.trim() || sfAdding}
+            style={{ marginTop: 8, padding: "10px 16px", background: !sfDraft.trim() || sfAdding ? "#E5E7EB" : "#08182E", color: !sfDraft.trim() || sfAdding ? "#9CA3AF" : "#FFF", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: !sfDraft.trim() || sfAdding ? "not-allowed" : "pointer", fontFamily: "Poppins, sans-serif" }}>
+            {sfAdding ? "Adding…" : "+ Add item"}
+          </button>
+          <p style={{ margin: "8px 0 0", fontSize: 11, color: "#9CA3AF", lineHeight: 1.5 }}>Or skip this and drop everything into "General uploads" below.</p>
         </div>
       )}
       {isFinalTesting && (
@@ -3401,12 +3582,12 @@ function SingleEntryFields({ config, entry, onFieldChange }) {
 // resolvePhotoDisplay — so a gallery of several photos loads progressively instead of blocking
 // on the slowest one. `onRemove` is omitted entirely for a read-only gallery (the cross-linked
 // MRF overlap section below) — deleting a photo only makes sense from the item that owns it.
-function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
+function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168, siteUrl }) {
   const [display, setDisplay] = useState(null);
   useEffect(() => {
     let cancelled = false;
     setDisplay(null);
-    resolvePhotoDisplay(photoKey, meta, auth, setAuth).then(d => { if (!cancelled) setDisplay(d); });
+    resolvePhotoDisplay(photoKey, meta, auth, setAuth, siteUrl).then(d => { if (!cancelled) setDisplay(d); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoKey, meta.id, meta.spItemId, meta.syncedAt]);
@@ -3476,8 +3657,10 @@ function PhotoThumb({ photoKey, meta, auth, setAuth, onRemove, size = 168 }) {
 
 // ─── SCREEN: ITEM DETAIL ──────────────────────────────────────────────────────
 // Autosaves on status tap and on photo add/remove. Note saves on blur.
-function ItemDetail({ project, category, item, record, records, onSave, onDeleteMiscItem, onDeleteUnitMiscItem, auth, setAuth }) {
+function ItemDetail({ project, category, item, record, records, onSave, onDeleteMiscItem, onDeleteUnitMiscItem, onDeleteSfItem, auth, setAuth }) {
   const isFinalTesting = category.id === "Final Testing";
+  const isSf = isSF(project);
+  const sfSiteUrl = isSf ? SF_ONEDRIVE_URL : undefined; // where this house's synced photos live
   const [status, setStatus] = useState(record?.status||"");
   const [note, setNote] = useState(record?.note||"");
   // Photo metadata only — image bytes live in IndexedDB and/or SharePoint, never in this state.
@@ -3521,7 +3704,8 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
 
   // Derive stable key for IndexedDB lookup — each photo gets its own suffixed slot
   const photoKey = `${project.id}__${category.id}__${item.id}`;
-  const MAX_PHOTOS = 15;
+  // Single Family's "General uploads" is a dump bucket for a whole house, so it needs more room.
+  const MAX_PHOTOS = isSf ? 60 : 15;
 
   const isMRF = category.id === "Minimum Rated Features";
   // A photo linked from another item (the reverse MRF<->EarthCraft/Energy Star direction —
@@ -3718,6 +3902,13 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
             Delete item
           </button>
         )}
+        {isSf && !item.photoOnly && onDeleteSfItem && (
+          <button
+            onClick={() => { if (window.confirm("Delete this item? Any status, note, or photos logged on it will be removed from Doc Tracker (files already uploaded to SharePoint stay there).")) onDeleteSfItem(item.id); }}
+            style={{ marginTop: 10, background: "none", border: "none", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "Poppins, sans-serif" }}>
+            Delete item
+          </button>
+        )}
         {item.isUnitMisc && onDeleteUnitMiscItem && (
           <button
             onClick={() => { if (window.confirm("Delete this item? Any note or photos logged on it will be removed too.")) onDeleteUnitMiscItem(item.unitId, item.miscId); }}
@@ -3809,7 +4000,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
           onDrop={handleDrop}
           style={{ display: "flex", flexWrap: "wrap", gap: 8, borderRadius: 8, outline: dragOver ? "2px dashed #009ACB" : "none", outlineOffset: 4, transition: "outline 0.1s ease" }}>
           {photos.map(p => (
-            <PhotoThumb key={p.id} photoKey={photoKey} meta={p} auth={auth} setAuth={setAuth} onRemove={handleRemovePhoto}/>
+            <PhotoThumb key={p.id} photoKey={photoKey} meta={p} auth={auth} setAuth={setAuth} onRemove={handleRemovePhoto} siteUrl={sfSiteUrl}/>
           ))}
           {photos.length < MAX_PHOTOS && (
             <button onClick={() => {
@@ -3877,7 +4068,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
       )}
 
       {/* Status — Final Testing skips this entirely, photo-only per FINAL_TESTING_TYPES */}
-      {!isFinalTesting && (
+      {!isFinalTesting && !item.photoOnly && (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Status</p>
@@ -3888,7 +4079,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
               pass/fail check, it's "is this fully documented" — relabeled accordingly, same
               underlying pass/fail/na values so nothing else about how records are stored changes. */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
-            {[["pass","#F0F8E6","#4B7A22","#7CB83F",isMRF?"All Features Documented":"Pass"],["fail","#FEE2E2","#991B1B","#EF4444",isMRF?"Additional Photos Needed":"Fail"],["na","#F3F4F6","#4B5563","#9CA3AF","N/A"]].map(([id,bg,col,brd,label]) => {
+            {[["pass","#F0F8E6","#4B7A22","#7CB83F",isMRF?"All Features Documented":isSf?"Verified":"Pass"],["fail","#FEE2E2","#991B1B","#EF4444",isMRF?"Additional Photos Needed":isSf?"Issue found":"Fail"],["na","#F3F4F6","#4B5563","#9CA3AF","N/A"]].map(([id,bg,col,brd,label]) => {
               const blocked = photoRequired(id);
               return (
                 <button key={id} onClick={() => handleStatus(id)} disabled={blocked}
@@ -3935,7 +4126,7 @@ function ItemDetail({ project, category, item, record, records, onSave, onDelete
                 <div key={i} style={{ padding: "10px 12px", background: "#F7F7F8", borderRadius: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: (h.note || h.mismatch) ? 6 : 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <StatusBadge status={h.status}/>
+                      <StatusBadge status={h.status} sf={isSf}/>
                       {h.mismatch && <span style={{ fontSize: 10, fontWeight: 600, color: "#991B1B", background: "#FEF2F2", padding: "1px 6px", borderRadius: 8 }}>⚡ flagged</span>}
                     </div>
                     <span style={{ fontSize: 11, color: "#9CA3AF" }}>{fmtDate(h.updatedAt)}</span>
@@ -4063,6 +4254,14 @@ export default function App() {
     }).catch(e => console.error('Auth callback error:', e));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Single Family portal (see sfEnabled): with the switch off everyone is simply in the
+  // multifamily portal and Single Family houses are hidden. With it on, the last choice is
+  // remembered and the chooser only appears until the first choice is made (or via "Switch").
+  const [sfOn] = useState(() => sfEnabled());
+  const [portal, setPortal] = useState(() => loadPortal());
+  const effectivePortal = sfOn ? portal : "mf";
+  const isSfPortal = effectivePortal === "sf";
+
   const [screen, setScreen] = useState("projects");
   const [activeProject, setActiveProject] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
@@ -4094,6 +4293,37 @@ export default function App() {
     };
     Object.entries(updates).forEach(([key, value]) => batch.set(doc(db, "records", key), value));
     await batch.commit();
+  };
+
+  const choosePortal = (p) => {
+    savePortal(p); setPortal(p);
+    setScreen("projects"); setActiveProject(null); setActiveCategory(null); setActiveItem(null);
+  };
+
+  // Single Family houses write only the project doc itself — none of the EarthCraft workbook
+  // auto-pass logic in saveProject applies to them.
+  const saveSfProject = async (proj) => { await setDoc(doc(db, "projects", proj.id), proj); };
+
+  // A named documentation item on a Single Family house (see ChecklistView's "+ Add item" form).
+  const addSfItem = async (text) => {
+    const item = { id: `sfi_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, text };
+    const updated = { ...activeProject, sfItems: [...(activeProject.sfItems || []), item] };
+    await saveSfProject(updated);
+    setActiveProject(updated);
+  };
+
+  // Same cleanup as deleteMiscItem: drops the item and its status/note/photo metadata from Doc
+  // Tracker. Files already uploaded to SharePoint are never touched.
+  const deleteSfItem = async (itemId) => {
+    const updated = { ...activeProject, sfItems: (activeProject.sfItems || []).filter(i => i.id !== itemId) };
+    const batch = writeBatch(db);
+    batch.set(doc(db, "projects", updated.id), updated);
+    const recordKey = `${updated.id}__Documentation__${itemId}`;
+    if (data.records[recordKey]) batch.delete(doc(db, "records", recordKey));
+    await batch.commit();
+    setActiveProject(updated);
+    setScreen("checklist");
+    setActiveItem(null);
   };
 
   // A TA-authored catch-all item for the Miscellaneous category — see ChecklistView's "+ Add
@@ -4246,17 +4476,20 @@ export default function App() {
     else if (screen === "final-testing-path") { setScreen("checklist"); setActiveFinalTestingUnit(null); }
     else if (screen === "checklist") { setScreen("dashboard"); setActiveCategory(null); }
     else if (screen === "dashboard") { setScreen("projects"); setActiveProject(null); }
-    else if (screen === "create") setScreen("projects");
-    else if (screen === "edit") setScreen("dashboard");
+    else if (screen === "create" || screen === "create-sf") setScreen("projects");
+    else if (screen === "edit" || screen === "edit-sf") setScreen("dashboard");
   };
 
-  const titles = { projects: "Doc Tracker", create: "New project", edit: "Edit project", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", "final-testing-path": activeFinalTestingUnit?.name||"", "final-testing-unit": activeFinalTestingUnit?.name||"", item: "Document item" };
+  const titles = { projects: sfOn ? (isSfPortal ? "Single Family" : "Multifamily") : "Doc Tracker", create: "New project", edit: "Edit project", "create-sf": "New house", "edit-sf": "Edit house", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", "final-testing-path": activeFinalTestingUnit?.name||"", "final-testing-unit": activeFinalTestingUnit?.name||"", item: "Document item" };
 
   if (teamUser === undefined) {
     return <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Poppins, sans-serif", color: "#9CA3AF", fontSize: 13 }}>Loading…</div>;
   }
   if (teamUser === null) {
     return <TeamLogin />;
+  }
+  if (sfOn && !portal) {
+    return <PortalChooser onChoose={choosePortal} onSignOut={()=>signOut(fbAuth)}/>;
   }
 
   return (
@@ -4269,11 +4502,20 @@ export default function App() {
           {screen === "projects" && <img src="/logo192.png" alt="" style={{ width: 24, height: 24, flexShrink: 0 }}/>}
           <h1 style={{ margin: 0, fontSize: screen==="projects"?20:17, fontWeight: 700, color: "#08182E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titles[screen]}</h1>
         </div>
+        {sfOn && screen === "projects" && (
+          <button onClick={()=>choosePortal(isSfPortal ? "mf" : "sf")} style={{ flexShrink: 0, background: "none", border: "1px solid #E5E7EB", borderRadius: 6, color: "#374151", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 9px" }}>
+            {isSfPortal ? "Multifamily" : "Single Family"}
+          </button>
+        )}
         <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 0" }}>Sign out</button>
       </div>
 
-      {screen === "projects" && <ProjectList projects={data.projects} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen("create")} onDelete={deleteProject} auth={auth} setAuth={setAuth} onLogout={()=>{clearAuth();clearAuthExpired();setAuth(null);}}/>}
+      {screen === "projects" && <ProjectList projects={data.projects.filter(p => isSF(p) === isSfPortal)} isSfPortal={isSfPortal} records={data.records} onSelect={p=>{setActiveProject(p);setScreen("dashboard");}} onCreate={()=>setScreen(isSfPortal ? "create-sf" : "create")} onDelete={deleteProject} auth={auth} onLogout={()=>{clearAuth();clearAuthExpired();setAuth(null);}}/>}
       {screen === "create" && <ProjectForm onSave={async proj=>{await saveProject(proj);setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
+      {screen === "create-sf" && <SfHouseForm onSave={async proj=>{await saveSfProject(proj);setScreen("projects");}} onBack={navBack} auth={auth} setAuth={setAuth}/>}
+      {screen === "edit-sf" && activeProject && (
+        <SfHouseForm initialProject={activeProject} onSave={async proj=>{await saveSfProject(proj);setActiveProject(proj);setScreen("dashboard");}} onBack={navBack} auth={auth} setAuth={setAuth}/>
+      )}
       {screen === "edit" && activeProject && (
         <ProjectForm
           initialProject={activeProject}
@@ -4289,7 +4531,7 @@ export default function App() {
           records={data.records}
           onSelectCategory={cat=>{setActiveCategory(cat);setScreen("checklist");}}
           onSelectItem={item=>{setActiveItem(item);setScreen("item");}}
-          onEdit={()=>setScreen("edit")}
+          onEdit={()=>setScreen(isSF(activeProject) ? "edit-sf" : "edit")}
           auth={auth}
           setAuth={setAuth}
           updateRecord={updateRecord}
@@ -4302,6 +4544,7 @@ export default function App() {
           records={data.records}
           onSelectItem={item=>{setActiveItem(item);setScreen("item");}}
           onAddMiscItem={addMiscItem}
+          onAddSfItem={addSfItem}
           onAddFinalTestingUnit={addFinalTestingUnit}
           onSelectUnit={unit=>{setActiveFinalTestingUnit(unit);setScreen("final-testing-path");}}
         />
@@ -4336,6 +4579,7 @@ export default function App() {
           records={data.records}
           onSave={val=>{updateRecord(activeProject.id, activeItem._cat||activeCategory?.id, activeItem.id, val);}}
           onDeleteMiscItem={deleteMiscItem}
+          onDeleteSfItem={deleteSfItem}
           onDeleteUnitMiscItem={deleteFinalTestingUnitMiscItem}
           auth={auth}
           setAuth={setAuth}

@@ -35,6 +35,21 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
   items the workbook already confirms — see [[project_earthcraft_optional_points]] and
   [[project_earthcraft_workbook_structure]] in memory for the full design/parsing details.
 
+- **Single Family portal** (in progress, behind a per-browser switch): a second, much simpler portal
+  next to multifamily. A browser opts in with `?sf=1` (`?sf=0` opts out; localStorage `fdt_sf_v1`);
+  without it the app is exactly the multifamily tool and Single Family houses are hidden. With it, a
+  chooser appears after login (last choice remembered in `fdt_portal_v1`, a "Single Family /
+  Multifamily" switch button in the top bar). A house is a project doc with `type: "sf"` (absent = MF),
+  `sfFolder: {id, name, path}`, and `sfItems: [{id, text}]`; its one category is "Documentation",
+  holding a built-in photo-only "General uploads" item plus TA-named items (statuses are relabeled
+  Verified / Issue found / N/A but stored as pass/fail/na). Reuses `ProjectDashboard`, `ChecklistView`
+  and `ItemDetail` via `isSF()` / `getProjectCategories()` / `getProjectItems()`. Photos sync to the
+  OneDrive of `viridiantdata@viridiant.org` (`SF_ONEDRIVE_URL`, folder `SF_ROOT_PATH`), into a NEW
+  `Doc Tracker Documentation` folder inside the house's linked folder, then dated `MM.DD.YYYY`
+  subfolders; uploads use rename-on-conflict so nothing is ever overwritten. Existing folders are
+  never modified. Final Testing / MRF / programs / workbook are intentionally not part of it.
+  Later phase: TA-provided per-house checklists populate `sfItems`.
+
 ## Deployment
 - GitHub: jackrandle-del/field-doc-tracker (this code is in the `fdt` subfolder)
 - Vercel: auto-deploys from `main` branch, live at **https://www.doctracker.org** (the link to
