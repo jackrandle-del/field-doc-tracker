@@ -2095,8 +2095,8 @@ function PortalChooser({ onChoose, onSignOut }) {
         <span style={{ display: "block", marginTop: 4, fontSize: 12, color: "#6B7280", lineHeight: 1.5 }}>Energy Star &amp; EarthCraft checklists, Final Testing, MRF</span>
       </button>
       <button onClick={() => onChoose("sf")} style={card}>
-        <span style={{ display: "block", fontSize: 17, fontWeight: 700, color: "#08182E" }}>🏠 Single Family</span>
-        <span style={{ display: "block", marginTop: 4, fontSize: 12, color: "#6B7280", lineHeight: 1.5 }}>Upload each house's photos and documents, synced to its Single Family folder</span>
+        <span style={{ display: "block", fontSize: 17, fontWeight: 700, color: "#08182E" }}>🏠 Audits</span>
+        <span style={{ display: "block", marginTop: 4, fontSize: 12, color: "#6B7280", lineHeight: 1.5 }}>Upload each house's photos and notes, synced to its SharePoint folder</span>
       </button>
       <div style={{ textAlign: "center", marginTop: 24 }}>
         <button onClick={onSignOut} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Sign out</button>
@@ -4635,7 +4635,7 @@ export default function App() {
     else if (screen === "edit" || screen === "edit-sf") setScreen("dashboard");
   };
 
-  const titles = { projects: sfOn ? (isSfPortal ? "Single Family" : "Multifamily") : "Doc Tracker", create: "New project", edit: "Edit project", "create-sf": "New house", "edit-sf": "Edit house", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", "final-testing-path": activeFinalTestingUnit?.name||"", "final-testing-unit": activeFinalTestingUnit?.name||"", item: "Document item" };
+  const titles = { projects: sfOn ? (isSfPortal ? "Audits" : "Multifamily") : "Doc Tracker", create: "New project", edit: "Edit project", "create-sf": "New house", "edit-sf": "Edit house", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", "final-testing-path": activeFinalTestingUnit?.name||"", "final-testing-unit": activeFinalTestingUnit?.name||"", item: "Document item" };
 
   if (teamUser === undefined) {
     return <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Poppins, sans-serif", color: "#9CA3AF", fontSize: 13 }}>Loading…</div>;
@@ -4659,7 +4659,7 @@ export default function App() {
         </div>
         {sfOn && screen === "projects" && (
           <button onClick={()=>choosePortal(isSfPortal ? "mf" : "sf")} style={{ flexShrink: 0, background: "none", border: "1px solid #E5E7EB", borderRadius: 6, color: "#374151", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 9px" }}>
-            {isSfPortal ? "Multifamily" : "Single Family"}
+            {isSfPortal ? "Multifamily" : "Audits"}
           </button>
         )}
         <button onClick={()=>signOut(fbAuth)} style={{ flexShrink: 0, background: "none", border: "none", color: "#9CA3AF", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif", padding: "4px 0" }}>Sign out</button>
