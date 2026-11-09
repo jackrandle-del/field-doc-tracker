@@ -3095,6 +3095,10 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
               dateFolderCache[unitKey] = await createOrGetSubfolder(siteId, token, dateFolderCache[ftDateKey], sanitizeSpName(job.item.pointNumber));
             }
             destFolderId = dateFolderCache[unitKey];
+          } else if (isSf) {
+            // Audits files everything flat in the "Doc Tracker Documentation" folder — no dated
+            // subfolders. The project name in each file name (below) is what keeps files traceable.
+            destFolderId = siteVisitsFolderId;
           } else {
             if (!dateFolderCache[dateName]) {
               dateFolderCache[dateName] = await createOrGetSubfolder(siteId, token, siteVisitsFolderId, dateName);
@@ -3104,7 +3108,12 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           const nextNum = base.nextPhotoNum || 1;
           // Final Testing: the unit is already the folder name, so the file itself is just named
           // for the test (e.g. "Blower Door - 1.jpg") — no point number/shortDesc split needed.
-          const label = isFinalTesting ? sanitizeSpName(job.item.text) : sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
+          // Audits: the project's name, plus the item's name only for older named items (General
+          // uploads — where every photo now lives — is just the project name and a counter).
+          const sfProjectLabel = isSf ? sanitizeSpName(project.name || "Audit photo") : "";
+          const label = isSf
+            ? (job.item.photoOnly ? sfProjectLabel : `${sfProjectLabel} - ${sanitizeSpName(job.item.text || job.item.id)}`)
+            : isFinalTesting ? sanitizeSpName(job.item.text) : sanitizeSpName(job.item.pointNumber || job.item.text || job.item.id);
           // MRF's own pointNumber is already a short descriptive phrase ("Mechanical Ventilation",
           // "Wall Insulation") — appending another short description derived from its instructional
           // text would just be redundant clutter, so only add one for EarthCraft/Energy Star items.
@@ -3249,7 +3258,7 @@ function ProjectDashboard({ project, records, onSelectCategory, onSelectItem, on
           <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#374151" }}>☁ SharePoint photo sync</p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF", wordBreak: "break-word" }}>
             📁 {isSf
-              ? (project.sfFolder ? `${project.sfFolder.name} › ${SF_DOC_FOLDER} — filed by the date each photo was taken` : "Not linked to a SharePoint folder")
+              ? (project.sfFolder ? `${project.sfFolder.name} › ${SF_DOC_FOLDER}` : "Not linked to a SharePoint folder")
               : (project.sharePointFolder ? `${project.sharePointFolder} — filed by the date each photo was taken` : "Not linked to a SharePoint folder")}
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9CA3AF" }}>

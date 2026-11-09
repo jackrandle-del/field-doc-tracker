@@ -46,8 +46,9 @@ first — if it needs a meter, gauge, or calculated result, it doesn't belong.
   Verified / Issue found / N/A but stored as pass/fail/na). Reuses `ProjectDashboard`, `ChecklistView`
   and `ItemDetail` via `isSF()` / `getProjectCategories()` / `getProjectItems()`. Photos sync to the
   OneDrive of `viridiantdata@viridiant.org` (`SF_ONEDRIVE_URL`, folder `SF_ROOT_PATH`), into a NEW
-  `Doc Tracker Documentation` folder inside the house's linked folder, then dated `MM.DD.YYYY`
-  subfolders; uploads use rename-on-conflict so nothing is ever overwritten. Existing folders are
+  `Doc Tracker Documentation` folder inside the house's linked folder, filed flat (no date
+  subfolders) with the project name in each file name (`<Project name> - <n>.jpg`); uploads use
+  rename-on-conflict so nothing is ever overwritten. Existing folders are
   never modified. Final Testing / MRF / programs / workbook are intentionally not part of it.
   Later phase: TA-provided per-house checklists populate `sfItems`.
   **Simplified (current UI):** opening a house shows just `SfPhotoBoard` — a "+ Add photos" button and a
