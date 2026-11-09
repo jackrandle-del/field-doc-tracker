@@ -2063,18 +2063,21 @@ function StatusBadge({ status, sf }) {
 
 // ─── SINGLE FAMILY PORTAL ────────────────────────────────────────────────────
 // A much simpler second "portal" next to the multifamily tool: a house is just a name, a TA, a
-// linked SharePoint folder, and a flat list of documentation items. Everything is gated behind a
-// per-browser switch (?sf=1 turns it on, ?sf=0 off) until it has been proven on real houses —
-// without the switch the app behaves exactly as before and Single Family houses stay hidden.
+// linked SharePoint folder, and a flat list of photos. It is available to everyone: a Multifamily /
+// Audits switch button sits on the project list, and everyone still lands in Multifamily unless
+// they pick Audits (remembered per browser). Opening the site once with ?sf=0 hides the portal in
+// that browser; opening it with ?sf=1 additionally shows a "which portal?" chooser at sign-in
+// until a choice has been made (the way it was first tested).
 const SF_FLAG_KEY = "fdt_sf_v1";
 const sfEnabled = () => {
   try {
     const p = new URLSearchParams(window.location.search).get("sf");
     if (p === "1") localStorage.setItem(SF_FLAG_KEY, "1");
-    else if (p === "0") localStorage.removeItem(SF_FLAG_KEY);
-    return localStorage.getItem(SF_FLAG_KEY) === "1";
-  } catch { return false; }
+    else if (p === "0") localStorage.setItem(SF_FLAG_KEY, "0");
+    return localStorage.getItem(SF_FLAG_KEY) !== "0";
+  } catch { return true; }
 };
+const sfChooserWanted = () => { try { return localStorage.getItem(SF_FLAG_KEY) === "1"; } catch { return false; } };
 const PORTAL_KEY = "fdt_portal_v1";
 const loadPortal = () => { try { const p = localStorage.getItem(PORTAL_KEY); return p === "mf" || p === "sf" ? p : null; } catch { return null; } };
 const savePortal = (p) => { try { localStorage.setItem(PORTAL_KEY, p); } catch {} };
@@ -4427,12 +4430,14 @@ export default function App() {
     }).catch(e => console.error('Auth callback error:', e));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Single Family portal (see sfEnabled): with the switch off everyone is simply in the
-  // multifamily portal and Single Family houses are hidden. With it on, the last choice is
-  // remembered and the chooser only appears until the first choice is made (or via "Switch").
+  // Single Family ("Audits") portal (see sfEnabled): everyone starts in Multifamily and can switch
+  // with the button on the project list; the last choice is remembered. Only browsers opened with
+  // ?sf=1 also get the chooser screen at sign-in until a first choice is made. A browser that
+  // opted out with ?sf=0 is plain Multifamily and sees no Audits houses.
   const [sfOn] = useState(() => sfEnabled());
+  const [showChooser] = useState(() => sfChooserWanted());
   const [portal, setPortal] = useState(() => loadPortal());
-  const effectivePortal = sfOn ? portal : "mf";
+  const effectivePortal = sfOn ? (portal || "mf") : "mf";
   const isSfPortal = effectivePortal === "sf";
 
   const [screen, setScreen] = useState("projects");
@@ -4653,7 +4658,7 @@ export default function App() {
     else if (screen === "edit" || screen === "edit-sf") setScreen("dashboard");
   };
 
-  const titles = { projects: sfOn ? (isSfPortal ? "Audits" : "Multifamily") : "Doc Tracker", create: "New project", edit: "Edit project", "create-sf": "New house", "edit-sf": "Edit house", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", "final-testing-path": activeFinalTestingUnit?.name||"", "final-testing-unit": activeFinalTestingUnit?.name||"", item: "Document item" };
+  const titles = { projects: isSfPortal ? "Audits" : "Doc Tracker", create: "New project", edit: "Edit project", "create-sf": "New house", "edit-sf": "Edit house", dashboard: activeProject?.name||"", checklist: activeCategory?.id||"", "final-testing-path": activeFinalTestingUnit?.name||"", "final-testing-unit": activeFinalTestingUnit?.name||"", item: "Document item" };
 
   if (teamUser === undefined) {
     return <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Poppins, sans-serif", color: "#9CA3AF", fontSize: 13 }}>Loading…</div>;
@@ -4661,7 +4666,7 @@ export default function App() {
   if (teamUser === null) {
     return <TeamLogin />;
   }
-  if (sfOn && !portal) {
+  if (sfOn && showChooser && !portal) {
     return <PortalChooser onChoose={choosePortal} onSignOut={()=>signOut(fbAuth)}/>;
   }
 
