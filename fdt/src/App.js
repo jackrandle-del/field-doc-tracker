@@ -2822,6 +2822,7 @@ function SfPhotoBoard({ project, records, updateRecord, auth, setAuth }) {
   const latestRef = useRef(record);
   useEffect(() => { latestRef.current = record; }, [record]);
   const fileRef = useRef();
+  const cameraRef = useRef();
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState("");
 
@@ -2881,12 +2882,20 @@ function SfPhotoBoard({ project, records, updateRecord, auth, setAuth }) {
   const newestFirst = [...photos].reverse();
   return (
     <div style={{ padding: "16px 20px 40px" }}>
+      {/* Two separate pickers: capture="environment" opens the camera straight away, the other one
+          is the normal gallery / Files picker (photos and PDFs, several at once). */}
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleAdd} style={{ display: "none" }}/>
       <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple onChange={handleAdd} style={{ display: "none" }}/>
-      <button onClick={() => fileRef.current?.click()}
-        style={{ width: "100%", padding: 16, background: "#08182E", color: "#FFF", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
-        + Add photos
-      </button>
-      <p style={{ margin: "8px 0 14px", fontSize: 11, color: "#9CA3AF", textAlign: "center" }}>Take a photo or choose from your phone. PDFs work too.</p>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <button onClick={() => cameraRef.current?.click()}
+          style={{ flex: 1, padding: 16, background: "#08182E", color: "#FFF", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+          📷 Take photo
+        </button>
+        <button onClick={() => fileRef.current?.click()}
+          style={{ flex: 1, padding: 16, background: "#FFF", color: "#08182E", border: "1.5px solid #08182E", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+          Upload file
+        </button>
+      </div>
 
       {photos.length === 0 ? (
         <div style={{ padding: "32px 0", textAlign: "center" }}>
@@ -2900,25 +2909,34 @@ function SfPhotoBoard({ project, records, updateRecord, auth, setAuth }) {
             {newestFirst.map(p => (
               <div key={p.id} style={{ minWidth: 0 }}>
                 <PhotoThumb photoKey={key} meta={p} auth={auth} setAuth={setAuth} onRemove={removePhoto} size={150} siteUrl={SF_ONEDRIVE_URL}/>
-                {editingId === p.id ? (
-                  <div style={{ marginTop: 6, width: 150 }}>
-                    <textarea autoFocus value={draft} onChange={e => setDraft(e.target.value)} rows={3} placeholder="Add a note…"
-                      style={{ width: "100%", padding: "6px 8px", border: "1.5px solid #E5E7EB", borderRadius: 6, fontSize: 13, fontFamily: "Poppins, sans-serif", color: "#08182E", resize: "none", outline: "none", boxSizing: "border-box" }}/>
-                    <div style={{ marginTop: 4, display: "flex", gap: 6 }}>
-                      <button onClick={() => saveNote(p.id)} style={{ flex: 1, padding: "5px 0", border: "none", borderRadius: 6, background: "#08182E", color: "#FFF", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Save</button>
-                      <button onClick={() => setEditingId(null)} style={{ flex: 1, padding: "5px 0", border: "1px solid #E5E7EB", borderRadius: 6, background: "#FFF", color: "#6B7280", fontSize: 12, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <button onClick={() => { setDraft(p.note || ""); setEditingId(p.id); }}
-                    style={{ display: "block", width: 150, marginTop: 6, padding: 0, border: "none", background: "none", textAlign: "left", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontSize: 12, lineHeight: 1.4, color: p.note ? "#374151" : "#009ACB", fontWeight: p.note ? 400 : 600, wordBreak: "break-word" }}>
-                    {p.note || "+ Add note"}
-                  </button>
-                )}
+                <button onClick={() => { setDraft(p.note || ""); setEditingId(p.id); }}
+                  style={{ display: "block", width: 150, marginTop: 6, padding: 0, border: "none", background: "none", textAlign: "left", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontSize: 12, lineHeight: 1.4, color: p.note ? "#374151" : "#009ACB", fontWeight: p.note ? 400 : 600, wordBreak: "break-word" }}>
+                  {p.note || "+ Add note"}
+                </button>
               </div>
             ))}
           </div>
         </>
+      )}
+
+      {/* Note editor: pinned to the TOP of the screen on purpose — on an iPhone the keyboard slides
+          up over the bottom half of the page, so a box lower down would be hidden behind it. */}
+      {editingId && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "max(12px, env(safe-area-inset-top)) 12px 12px" }}>
+          <div style={{ width: "100%", maxWidth: 430, background: "#FFF", borderRadius: 12, padding: 14, boxShadow: "0 8px 30px rgba(0,0,0,.25)" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              {photos.find(x => x.id === editingId) && (
+                <PhotoThumb photoKey={key} meta={photos.find(x => x.id === editingId)} auth={auth} setAuth={setAuth} size={72} siteUrl={SF_ONEDRIVE_URL}/>
+              )}
+              <textarea autoFocus value={draft} onChange={e => setDraft(e.target.value)} rows={4} placeholder="Add a note…"
+                style={{ flex: 1, minWidth: 0, padding: "8px 10px", border: "1.5px solid #E5E7EB", borderRadius: 8, fontSize: 16, fontFamily: "Poppins, sans-serif", color: "#08182E", resize: "none", outline: "none", boxSizing: "border-box" }}/>
+            </div>
+            <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+              <button onClick={() => saveNote(editingId)} style={{ flex: 1, padding: 12, border: "none", borderRadius: 8, background: "#08182E", color: "#FFF", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Save note</button>
+              <button onClick={() => setEditingId(null)} style={{ flex: 1, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFF", color: "#6B7280", fontSize: 14, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
